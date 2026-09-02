@@ -1,0 +1,1 @@
+from .customer_table_model import CustomerTableModel
