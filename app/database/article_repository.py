@@ -3,12 +3,15 @@ from app.database.database import db
 
 class ArticleRepository:
 
+    def _connect(self):
+        return db.connect()
+
     def get_all(self):
 
-        conn = db.connect()
-        cursor = conn.cursor()
+        conn = self._connect()
+        cur = conn.cursor()
 
-        cursor.execute("""
+        cur.execute("""
             SELECT
                 id,
                 code,
@@ -17,21 +20,20 @@ class ArticleRepository:
                 price,
                 vat
             FROM articles
-            ORDER BY name
+            ORDER BY name COLLATE NOCASE
         """)
 
-        rows = cursor.fetchall()
-
+        rows = cur.fetchall()
         conn.close()
 
         return rows
 
     def get_by_id(self, article_id):
 
-        conn = db.connect()
-        cursor = conn.cursor()
+        conn = self._connect()
+        cur = conn.cursor()
 
-        cursor.execute("""
+        cur.execute("""
             SELECT
                 id,
                 code,
@@ -41,14 +43,39 @@ class ArticleRepository:
                 price,
                 vat
             FROM articles
-            WHERE id = ?
+            WHERE id=?
         """, (article_id,))
 
-        row = cursor.fetchone()
-
+        row = cur.fetchone()
         conn.close()
 
         return row
+
+    def code_exists(self, code, exclude_id=None):
+
+        conn = self._connect()
+        cur = conn.cursor()
+
+        if exclude_id is None:
+            cur.execute(
+                "SELECT id FROM articles WHERE code=?",
+                (code,),
+            )
+        else:
+            cur.execute("""
+                SELECT id
+                FROM articles
+                WHERE code=? AND id<>?
+            """, (
+                code,
+                exclude_id,
+            ))
+
+        exists = cur.fetchone() is not None
+
+        conn.close()
+
+        return exists
 
     def add(
         self,
@@ -60,10 +87,13 @@ class ArticleRepository:
         vat,
     ):
 
-        conn = db.connect()
-        cursor = conn.cursor()
+        if self.code_exists(code):
+            raise ValueError("Šifra artikla že obstaja.")
 
-        cursor.execute("""
+        conn = self._connect()
+        cur = conn.cursor()
+
+        cur.execute("""
             INSERT INTO articles(
                 code,
                 name,
@@ -72,7 +102,7 @@ class ArticleRepository:
                 price,
                 vat
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?,?,?,?,?,?)
         """, (
             code,
             name,
@@ -96,19 +126,22 @@ class ArticleRepository:
         vat,
     ):
 
-        conn = db.connect()
-        cursor = conn.cursor()
+        if self.code_exists(code, article_id):
+            raise ValueError("Šifra artikla že obstaja.")
 
-        cursor.execute("""
+        conn = self._connect()
+        cur = conn.cursor()
+
+        cur.execute("""
             UPDATE articles
             SET
-                code = ?,
-                name = ?,
-                description = ?,
-                unit = ?,
-                price = ?,
-                vat = ?
-            WHERE id = ?
+                code=?,
+                name=?,
+                description=?,
+                unit=?,
+                price=?,
+                vat=?
+            WHERE id=?
         """, (
             code,
             name,
@@ -124,11 +157,11 @@ class ArticleRepository:
 
     def delete(self, article_id):
 
-        conn = db.connect()
-        cursor = conn.cursor()
+        conn = self._connect()
+        cur = conn.cursor()
 
-        cursor.execute(
-            "DELETE FROM articles WHERE id = ?",
+        cur.execute(
+            "DELETE FROM articles WHERE id=?",
             (article_id,),
         )
 
@@ -137,10 +170,12 @@ class ArticleRepository:
 
     def search(self, text):
 
-        conn = db.connect()
-        cursor = conn.cursor()
+        conn = self._connect()
+        cur = conn.cursor()
 
-        cursor.execute("""
+        text = f"%{text}%"
+
+        cur.execute("""
             SELECT
                 id,
                 code,
@@ -152,50 +187,99 @@ class ArticleRepository:
             WHERE
                 code LIKE ?
                 OR name LIKE ?
-            ORDER BY name
+            ORDER BY name COLLATE NOCASE
         """, (
-            f"%{text}%",
-            f"%{text}%",
+            text,
+            text,
         ))
 
-        rows = cursor.fetchall()
+        rows = cur.fetchall()
 
         conn.close()
 
         return rows
 
     def get_next_code(self):
-        """
-        Vrne naslednjo šifro artikla v obliki:
-        ART0001
-        ART0002
-        ART0003
-        """
 
-        conn = db.connect()
-        cursor = conn.cursor()
+        conn = self._connect()
+        cur = conn.cursor()
 
-        cursor.execute("""
+        cur.execute("""
             SELECT code
             FROM articles
             WHERE code LIKE 'ART%'
-            ORDER BY CAST(SUBSTR(code, 4) AS INTEGER) DESC
+            ORDER BY CAST(SUBSTR(code,4) AS INTEGER) DESC
             LIMIT 1
         """)
 
-        row = cursor.fetchone()
+        row = cur.fetchone()
 
         conn.close()
 
-        if row is None or row[0] is None:
+        if row is None:
             return "ART0001"
 
         try:
             number = int(row[0][3:])
-        except (ValueError, IndexError):
+        except (ValueError, TypeError):
             number = 0
 
         return f"ART{number + 1:04d}"
+
+    def list_page(self, text: str = "", *, limit: int = 200, offset: int = 0):
+        """Stran seznama (LIMIT) — obstoječi search/get_all ostanejo."""
+        from app.core.search_engine import fts_available, fts_query
+
+        conn = self._connect()
+        cur = conn.cursor()
+        limit = max(1, int(limit))
+        offset = max(0, int(offset))
+        needle = (text or "").strip()
+        if needle and fts_available():
+            match = fts_query(needle)
+            if match:
+                try:
+                    cur.execute(
+                        """
+                        SELECT a.id, a.code, a.name, a.unit, a.price, a.vat
+                        FROM articles_fts f
+                        JOIN articles a ON a.id = f.rowid
+                        WHERE articles_fts MATCH ?
+                        ORDER BY a.name COLLATE NOCASE
+                        LIMIT ? OFFSET ?
+                        """,
+                        (match, limit, offset),
+                    )
+                    rows = cur.fetchall()
+                    conn.close()
+                    return rows
+                except Exception:
+                    pass
+        if needle:
+            like = f"%{needle}%"
+            cur.execute(
+                """
+                SELECT id, code, name, unit, price, vat
+                FROM articles
+                WHERE code LIKE ? OR name LIKE ?
+                ORDER BY name COLLATE NOCASE
+                LIMIT ? OFFSET ?
+                """,
+                (like, like, limit, offset),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, code, name, unit, price, vat
+                FROM articles
+                ORDER BY name COLLATE NOCASE
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            )
+        rows = cur.fetchall()
+        conn.close()
+        return rows
 
 
 article_repository = ArticleRepository()

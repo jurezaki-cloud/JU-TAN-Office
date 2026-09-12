@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QAbstractTableModel
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSize
 
 
 class CustomerTableModel(QAbstractTableModel):
@@ -30,6 +30,12 @@ class CustomerTableModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             return self.customers[index.row()][index.column()]
 
+        if role == Qt.TextAlignmentRole:
+            return Qt.AlignVCenter | Qt.AlignLeft
+
+        if role == Qt.SizeHintRole:
+            return QSize(0, 48)
+
         return None
 
     def headerData(self, section, orientation, role):
@@ -46,3 +52,11 @@ class CustomerTableModel(QAbstractTableModel):
         self.beginResetModel()
         self.customers = customers
         self.endResetModel()
+
+    def append_rows(self, rows):
+        if not rows:
+            return
+        start = len(self.customers)
+        self.beginInsertRows(QModelIndex(), start, start + len(rows) - 1)
+        self.customers = list(self.customers) + list(rows)
+        self.endInsertRows()

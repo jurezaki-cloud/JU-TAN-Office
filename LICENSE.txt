@@ -1,0 +1,19 @@
+JU-TAN Office Enterprise
+Licenčna pogodba za končnega uporabnika
+
+Copyright (C) 2026 JU-TAN Studio
+
+1. Licenca
+Program se sme namestiti in uporabljati v vašem podjetju za notranjo poslovno rabo.
+
+2. Omejitev
+Program se ne sme razširjati, prodajati ali spreminjati brez soglasja imetnika pravic.
+
+3. Podatki
+Baza, varnostne kopije in dokumenti ostanejo vaša last. Odstranitev programa teh map ne zbriše.
+
+4. Jamstvo
+Program je na voljo »kot je«. Proizvajalec ne jamči neprekinjenega delovanja.
+
+5. Sprejem
+Z namestitvijo potrjujete, da ste prebrali in sprejeli te pogoje.

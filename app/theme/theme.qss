@@ -1,0 +1,728 @@
+/* JU-TAN Office Enterprise — global stylesheet (tokenized) */
+
+QMainWindow,
+QDialog,
+QStackedWidget,
+QSplitter,
+QAbstractScrollArea {
+    background: {{BACKGROUND}};
+}
+
+/* Globalno ozadje prepreči bele lisice na nestiliranih panelih. */
+QWidget {
+    background-color: {{BACKGROUND}};
+    background: {{BACKGROUND}};
+    color: {{TEXT}};
+    font-family: "Segoe UI";
+    font-size: 13px;
+}
+
+QLabel {
+    background: transparent;
+    color: {{TEXT}};
+}
+
+QLabel#PageTitle {
+    font-size: 24px;
+    font-weight: bold;
+    padding: 8px;
+}
+
+QLabel#PageTitleLarge {
+    font-size: 28px;
+    font-weight: bold;
+}
+
+QLabel#SectionTitle {
+    font-size: 18px;
+    font-weight: bold;
+    padding-bottom: 10px;
+}
+
+QLabel#ToolbarTitle {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#ModernToolbar {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+}
+
+#ModernToolbar QWidget {
+    background: transparent;
+}
+
+#ToolbarModuleTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+#ToolbarModuleSubtitle {
+    font-size: 11px;
+    color: {{SECONDARY}};
+}
+
+#ToolbarSearch {
+    min-height: 36px;
+    max-height: 36px;
+    background: {{BACKGROUND}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+    border-radius: 8px;
+    padding: 6px 12px;
+}
+
+#ToolbarSearch:focus {
+    background: {{SURFACE}};
+    border: 1px solid {{PRIMARY}};
+}
+
+#ModernToolbar QPushButton#PrimaryButton,
+#ModernToolbar QPushButton#SecondaryButton,
+#ModernToolbar QPushButton#ToolbarIconButton {
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: 8px;
+}
+
+#ModernToolbar QPushButton#ToolbarIconButton {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+    font-weight: 500;
+}
+
+#ModernToolbar QPushButton#ToolbarIconButton:hover {
+    background: {{TABLE_HEADER}};
+}
+
+QToolButton#ToolbarUserButton {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-weight: 600;
+    min-height: 36px;
+}
+
+QToolButton#ToolbarUserButton:hover,
+QToolButton#ToolbarUserButton:pressed {
+    background: {{TABLE_HEADER}};
+}
+
+QLabel#TotalValue {
+    font-size: 18px;
+    font-weight: bold;
+    color: {{TEXT}};
+}
+
+QPushButton {
+    background: {{PRIMARY}};
+    color: {{ON_PRIMARY}};
+    border: none;
+    border-radius: {{CONTROL_RADIUS}};
+    padding: 8px 16px;
+    font-weight: 600;
+}
+
+QPushButton:hover {
+    background: {{PRIMARY_HOVER}};
+}
+
+QPushButton:pressed {
+    background: {{PRIMARY_HOVER}};
+}
+
+QPushButton:disabled {
+    background: {{BORDER}};
+    color: {{SECONDARY}};
+}
+
+/* Pripravljene variante — aktivne šele z objectName; obstoječi gumbi ostanejo privzeti QPushButton. */
+QPushButton#PrimaryButton {
+    background: {{PRIMARY}};
+    color: {{ON_PRIMARY}};
+    border: none;
+}
+
+QPushButton#PrimaryButton:hover,
+QPushButton#PrimaryButton:pressed {
+    background: {{PRIMARY_HOVER}};
+}
+
+QPushButton#SecondaryButton {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+}
+
+QPushButton#SecondaryButton:hover,
+QPushButton#SecondaryButton:pressed {
+    background: {{TABLE_HEADER}};
+}
+
+QPushButton#DangerButton {
+    background: {{DANGER}};
+    color: {{ON_PRIMARY}};
+    border: none;
+}
+
+QPushButton#DangerButton:hover,
+QPushButton#DangerButton:pressed {
+    background: {{DANGER_HOVER}};
+}
+
+QPushButton#SuccessButton {
+    background: {{SUCCESS}};
+    color: {{ON_PRIMARY}};
+    border: none;
+}
+
+QPushButton#SuccessButton:hover,
+QPushButton#SuccessButton:pressed {
+    background: {{SUCCESS_HOVER}};
+}
+
+QPushButton#WarningButton {
+    background: {{WARNING}};
+    color: {{TEXT}};
+    border: none;
+}
+
+QPushButton#WarningButton:hover,
+QPushButton#WarningButton:pressed {
+    background: {{WARNING_HOVER}};
+}
+
+QLineEdit,
+QComboBox,
+QTextEdit,
+QPlainTextEdit,
+QSpinBox,
+QDoubleSpinBox,
+QDateEdit {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CONTROL_RADIUS}};
+    padding: 6px 10px;
+    selection-background-color: {{PRIMARY}};
+    selection-color: {{ON_PRIMARY}};
+}
+
+QLineEdit:focus,
+QComboBox:focus,
+QTextEdit:focus,
+QPlainTextEdit:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus,
+QDateEdit:focus {
+    border: 1px solid {{PRIMARY}};
+}
+
+QTableView,
+QTableWidget {
+    background: {{SURFACE}};
+    alternate-background-color: {{TABLE_ALTERNATE}};
+    gridline-color: {{BORDER}};
+    border: 1px solid {{BORDER}};
+    border-radius: 8px;
+    selection-background-color: {{PRIMARY}};
+    selection-color: {{ON_PRIMARY}};
+}
+
+QHeaderView::section {
+    background: {{TABLE_HEADER}};
+    color: {{TEXT}};
+    padding: 6px;
+    border: none;
+    border-bottom: 1px solid {{BORDER}};
+    font-weight: bold;
+}
+
+QGroupBox {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    font-weight: 600;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+}
+
+QDialog {
+    background: {{BACKGROUND}};
+}
+
+QFrame#StatCard,
+QFrame#KpiCard,
+QFrame#DashboardCard {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+}
+
+QFrame#KpiCard:hover,
+QFrame#DashboardCard:hover {
+    border: 1px solid {{PRIMARY}};
+}
+
+QLabel#StatTitle,
+QLabel#KpiTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: {{SECONDARY}};
+}
+
+QLabel#StatValue,
+QLabel#KpiValue {
+    font-size: 28px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+QLabel#KpiHint,
+QLabel#DashboardMuted {
+    font-size: 12px;
+    color: {{SECONDARY}};
+}
+
+QLabel#DashboardWelcome {
+    font-size: 22px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+QLabel#DashboardDate {
+    font-size: 13px;
+    color: {{SECONDARY}};
+}
+
+QLabel#DashboardSectionTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+#DashboardScroll,
+#DashboardCanvas,
+#AnalyticsScroll,
+#AnalyticsCanvas {
+    background: {{BACKGROUND}};
+    border: none;
+}
+
+#DashboardTable {
+    background: {{SURFACE}};
+    border: none;
+    gridline-color: transparent;
+}
+
+#DashboardTable::item {
+    padding: 6px;
+}
+
+#DashboardActivity {
+    background: {{SURFACE}};
+    border: none;
+    color: {{TEXT}};
+    outline: none;
+}
+
+#DashboardActivity::item {
+    padding: 8px 4px;
+    border-bottom: 1px solid {{BORDER}};
+}
+
+QStatusBar {
+    background: {{SURFACE}};
+    color: {{SECONDARY}};
+    border-top: 1px solid {{BORDER}};
+    min-height: 28px;
+    padding: 4px 16px;
+    font-size: 12px;
+}
+
+QMenu {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+    border-radius: 8px;
+    padding: 6px;
+}
+
+QMenu::item {
+    padding: 8px 16px;
+    border-radius: 6px;
+}
+
+QMenu::item:selected {
+    background: {{TABLE_HEADER}};
+    color: {{TEXT}};
+}
+
+QMenu::separator {
+    height: 1px;
+    background: {{BORDER}};
+    margin: 4px 8px;
+}
+
+QSplitter::handle {
+    background: {{BORDER}};
+}
+
+QScrollBar:vertical {
+    background: {{BACKGROUND}};
+    width: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: {{BORDER}};
+    border-radius: 5px;
+    min-height: 24px;
+}
+
+QScrollBar:horizontal {
+    background: {{BACKGROUND}};
+    height: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:horizontal {
+    background: {{BORDER}};
+    border-radius: 5px;
+    min-width: 24px;
+}
+
+QToolTip {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+    padding: 4px 8px;
+}
+
+/* Sidebar — Enterprise navigation (barve iz app/theme/colors.py) */
+#Sidebar,
+#SidebarHeader,
+#SidebarFooter,
+#Sidebar QWidget {
+    background: {{SIDEBAR_BG}};
+}
+
+#SidebarNavScroll {
+    background: {{SIDEBAR_BG}};
+    border: none;
+}
+
+#Sidebar QLabel {
+    background: transparent;
+}
+
+#SidebarHeader {
+    background: {{SIDEBAR_BG}};
+}
+
+#Sidebar #SidebarBrand,
+#SidebarBrand {
+    font-size: 18px;
+    font-weight: bold;
+    color: {{SIDEBAR_TEXT}};
+}
+
+#Sidebar #SidebarSubtitle,
+#SidebarSubtitle {
+    font-size: 11px;
+    color: {{SIDEBAR_MUTED}};
+}
+
+#SidebarHeaderLine {
+    background: {{SIDEBAR_PRESSED}};
+    border: none;
+    max-height: 1px;
+}
+
+#SidebarFooter {
+    background: {{SIDEBAR_BG}};
+}
+
+#Sidebar #SidebarFooterTitle,
+#SidebarFooterTitle {
+    font-size: 10px;
+    font-weight: 400;
+    color: {{SECONDARY}};
+}
+
+#Sidebar #SidebarFooterVersion,
+#SidebarFooterVersion {
+    font-size: 9px;
+    font-weight: 400;
+    color: {{SECONDARY}};
+}
+
+NavigationButton,
+#Sidebar NavigationButton {
+    background: transparent;
+    color: {{SIDEBAR_TEXT}};
+    border: none;
+    border-left: 4px solid transparent;
+    border-radius: 8px;
+    text-align: left;
+    padding: 0 12px 0 12px;
+    font-size: 14px;
+    font-weight: 500;
+    min-height: 46px;
+}
+
+NavigationButton:pressed,
+#Sidebar NavigationButton:pressed {
+    background: {{SIDEBAR_PRESSED}};
+}
+
+NavigationButton:checked,
+#Sidebar NavigationButton:checked {
+    background: {{SIDEBAR_ACTIVE}};
+    border-left: 4px solid {{PRIMARY}};
+    font-weight: 700;
+    color: {{SIDEBAR_TEXT}};
+}
+
+QLineEdit#EnterpriseSearch {
+    min-height: 36px;
+    padding-left: 8px;
+    border-radius: 8px;
+    background: {{SURFACE}};
+}
+
+QTableView#EnterpriseTable {
+    background: {{SURFACE}};
+    alternate-background-color: {{TABLE_ALTERNATE}};
+    gridline-color: transparent;
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+    selection-background-color: {{PRIMARY}};
+    selection-color: {{ON_PRIMARY}};
+    outline: none;
+}
+
+QTableView#EnterpriseTable::item {
+    padding: 10px 12px;
+    border: none;
+    min-height: 44px;
+}
+
+QTableView#EnterpriseTable::item:hover {
+    background: rgba(37, 99, 235, 0.10);
+}
+
+QTableView#EnterpriseTable::item:selected {
+    background: {{PRIMARY}};
+    color: {{ON_PRIMARY}};
+}
+
+QTableView#EnterpriseTable::item:selected:hover {
+    background: {{PRIMARY_HOVER}};
+}
+
+QTableView#EnterpriseTable QHeaderView::section {
+    background: {{TABLE_HEADER}};
+    color: {{TEXT}};
+    padding: 10px 12px;
+    border: none;
+    border-bottom: 1px solid {{BORDER}};
+    font-weight: 600;
+    font-size: 12px;
+}
+
+QFrame#EmptyStateCard {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+}
+
+QLabel#EmptyStateTitle {
+    font-size: 20px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+QLabel#EmptyStateSubtitle {
+    font-size: 13px;
+    color: {{SECONDARY}};
+}
+
+QLabel#CustomerStatusLabel {
+    font-size: 12px;
+    color: {{SECONDARY}};
+}
+
+QLabel#DialogTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+QComboBox#EnterpriseFilter,
+QDateEdit#EnterpriseFilter {
+    min-height: 36px;
+    min-width: 140px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: {{SURFACE}};
+}
+
+QPushButton#PeriodChip {
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+}
+
+QPushButton#PeriodChip:hover {
+    background: {{TABLE_HEADER}};
+}
+
+QPushButton#PeriodChip:checked {
+    background: {{PRIMARY}};
+    color: {{ON_PRIMARY}};
+    border: 1px solid {{PRIMARY}};
+}
+
+QDialog#CustomerDialog,
+QDialog#InvoiceDialog,
+QDialog#InvoiceItemDialog,
+QDialog#OfferDialog,
+QDialog#ArticleDialog,
+QDialog#OrderDialog,
+QDialog#PaymentDialog,
+QDialog#MovementDialog,
+QDialog#InventoryDialog,
+QDialog#SupplierDialog,
+QDialog#PurchaseDialog,
+QDialog#ReceiveDialog,
+QDialog#UploadDialog,
+QDialog#CrmDialog {
+    background: {{BACKGROUND}};
+}
+
+QLabel#DetailValue {
+    color: {{TEXT}};
+    font-weight: 500;
+}
+
+#SettingsScroll,
+#SettingsCanvas {
+    background: {{BACKGROUND}};
+    border: none;
+}
+
+QLabel#SettingsPreview {
+    font-size: 16px;
+    font-weight: 700;
+    color: {{PRIMARY}};
+}
+
+QLabel#LogoPreview {
+    min-height: 72px;
+    color: {{SECONDARY}};
+}
+
+QCheckBox,
+QRadioButton {
+    spacing: 8px;
+    min-height: 24px;
+}
+
+QCheckBox::indicator,
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+}
+
+QPushButton#AccentChip {
+    min-height: 36px;
+    min-width: 88px;
+    padding: 6px 14px;
+    border-radius: {{CONTROL_RADIUS}};
+    background: {{SURFACE}};
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+}
+
+QPushButton#AccentChip:checked {
+    background: {{PRIMARY}};
+    color: {{ON_PRIMARY}};
+    border: 1px solid {{PRIMARY}};
+}
+
+QDialog#ExcelWizard {
+    background: {{BACKGROUND}};
+}
+
+QTabWidget#CrmTabs::pane {
+    border: 1px solid {{BORDER}};
+    border-radius: 8px;
+    background: {{BACKGROUND}};
+}
+
+#CrmPipelineScroll {
+    background: {{BACKGROUND}};
+    border: none;
+}
+
+#ReportsSplitter {
+    background: {{BACKGROUND}};
+}
+
+#DialogFooter {
+    min-height: 48px;
+    max-height: 48px;
+    background: {{SURFACE}};
+    border-top: 1px solid {{BORDER}};
+}
+
+QScrollArea#DialogScroll {
+    border: none;
+    background: {{BACKGROUND}};
+}
+
+#DialogHeader {
+    background: {{BACKGROUND}};
+}
+
+#ToastBanner {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+    min-height: 44px;
+}
+
+#ToastBanner[kind="success"] {
+    border-left: 4px solid {{SUCCESS}};
+}
+
+#ToastBanner[kind="info"] {
+    border-left: 4px solid {{PRIMARY}};
+}
+
+QLabel#ToastLabel {
+    font-size: 13px;
+    color: {{TEXT}};
+}
+
+QLabel#StatusChip {
+    font-size: 12px;
+    color: {{SECONDARY}};
+    padding: 0 8px;
+}

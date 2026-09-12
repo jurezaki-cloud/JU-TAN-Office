@@ -1,0 +1,325 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from PySide6.QtCore import Qt, qVersion
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QApplication
+
+from app.core.config_guard import migrate, stamp, valid
+from app.core.constants import APP_AUTHOR, APP_BUILD, APP_CHANNEL, APP_NAME, APP_VERSION, BACKUP_DIR, DATABASE_PATH, DATA_DIR, EXPORT_DIR
+from app.core.errors import handle_error
+from app.core.logger import logger
+from app.core.permissions import audit, require
+from app.core.security import parse_json_object, write_json_atomic
+from app.database.company_repository import company_repository
+from app.theme import theme_manager
+from app.theme.colors import ThemeMode
+from app.theme.fonts import apply_fonts
+
+SETTINGS_PATH = DATA_DIR / "settings.json"
+
+ACCENTS = {
+    "blue": ("#2563EB", "#1D4ED8"),
+    "green": ("#16A34A", "#15803D"),
+    "orange": ("#F59E0B", "#D97706"),
+}
+
+FONT_POINTS = {"small": 9, "normal": 10, "large": 12}
+
+RADII = {
+    "small": ("8px", "6px"),
+    "medium": ("12px", "8px"),
+    "large": ("16px", "10px"),
+}
+
+DOC_DEFAULTS = {
+    "invoice": {"prefix": "INV", "start": 1, "length": 6, "yearly_reset": True},
+    "offer": {"prefix": "PON", "start": 1, "length": 6, "yearly_reset": True},
+    "order": {"prefix": "NAR", "start": 1, "length": 6, "yearly_reset": True},
+    "delivery": {"prefix": "DOB", "start": 1, "length": 6, "yearly_reset": True},
+}
+
+PLACEHOLDER = "Funkcija bo na voljo v naslednji različici."
+
+
+def default_settings() -> dict:
+    return {
+        "swift": "",
+        "numbering": {key: dict(value) for key, value in DOC_DEFAULTS.items()},
+        "appearance": {
+            "theme": "light",
+            "accent": "blue",
+            "font_size": "normal",
+            "radius": "medium",
+        },
+        "pdf": {
+            "logo": True,
+            "signature": True,
+            "stamp": True,
+            "vat": True,
+            "discounts": True,
+            "notes": True,
+            "folder": str(DATA_DIR),
+            "footer": "Hvala za zaupanje. JU-TAN Office Enterprise.",
+            "signature_path": "",
+            "stamp_path": "",
+            "payment_method": "Nakazilo",
+        },
+        "excel": {
+            "export_folder": str(EXPORT_DIR),
+            "import_folder": str(DATA_DIR),
+        },
+        "setup_complete": False,
+        "administrator": "Administrator",
+        "currency": "EUR",
+        "database_version": 1,
+        "role": "Administrator",
+        "session_timeout_min": 30,
+        "remember_user": True,
+        "password_hash": "",
+        "secrets_blob": "",
+        "config_version": 1,
+    }
+
+
+class SettingsController:
+
+    def load_bundle(self) -> dict:
+        extras = self.load_extras()
+        company = company_repository.get_company()
+        numbering = extras["numbering"]
+        if company:
+            if company[16]:
+                numbering["invoice"]["prefix"] = company[16]
+            if company[18] is not None:
+                numbering["invoice"]["start"] = int(company[18] or 1)
+            if company[17]:
+                numbering["offer"]["prefix"] = company[17]
+            if company[19] is not None:
+                numbering["offer"]["start"] = int(company[19] or 1)
+        return {"company": company, "extras": extras}
+
+    def load_extras(self) -> dict:
+        data = default_settings()
+        if SETTINGS_PATH.exists():
+            try:
+                loaded = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+                if not isinstance(loaded, dict):
+                    raise ValueError("Poškodovane nastavitve.")
+                if loaded.get("_checksum") and not valid(loaded):
+                    logger.warning("Checksum nastavitev se ne ujema.")
+                data = migrate(loaded, default_settings())
+            except (OSError, json.JSONDecodeError, ValueError) as exc:
+                handle_error(
+                    exc,
+                    context="settings-load",
+                    recover=lambda: write_json_atomic(SETTINGS_PATH, stamp(default_settings())),
+                )
+                data = default_settings()
+        return data
+
+    def save_extras(self, extras: dict) -> None:
+        require("settings")
+        current = {}
+        if SETTINGS_PATH.exists():
+            try:
+                current = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+                if not isinstance(current, dict):
+                    current = {}
+            except (OSError, json.JSONDecodeError):
+                current = {}
+        merged = dict(current)
+        merged.update(extras or {})
+        for key in ("password_hash", "secrets_blob"):
+            if not merged.get(key) and current.get(key):
+                merged[key] = current[key]
+        from app.core.secrets import SECRET_KEYS, seal
+
+        secret_plain = {key: merged.pop(key) for key in SECRET_KEYS if key in merged}
+        if secret_plain:
+            existing = {}
+            try:
+                from app.core.secrets import reveal
+                existing = reveal(merged.get("secrets_blob") or "")
+            except Exception:
+                existing = {}
+            existing.update(secret_plain)
+            merged["secrets_blob"] = seal(existing)
+        write_json_atomic(SETTINGS_PATH, stamp(merged))
+        audit("settings", "save")
+
+    def change_password(self, old: str, new: str) -> None:
+        require("users")
+        from app.core.passwords import hash_password, verify_password
+
+        extras = self.load_extras()
+        stored = extras.get("password_hash") or ""
+        if stored and not verify_password(old, stored):
+            raise PermissionError("Trenutno geslo ni pravilno.")
+        extras["password_hash"] = hash_password(new)
+        self.save_extras(extras)
+        audit("settings", "change-password")
+
+    def secrets(self) -> dict:
+        from app.core.secrets import reveal
+
+        extras = self.load_extras()
+        try:
+            return reveal(extras.get("secrets_blob") or "")
+        except Exception:
+            return {}
+
+    def save_bundle(self, company_values: dict, extras: dict) -> None:
+        current = company_repository.get_company()
+        logo = company_values.get("logo")
+        if logo is None:
+            logo = current[15] if current else ""
+        notes = current[21] if current else ""
+        vat = current[20] if current else 22
+        legal = company_values.get("legal_name") or (
+            current[2] if current else company_values.get("name", "")
+        )
+        bank = current[10] if current else ""
+        numbering = extras.get("numbering", DOC_DEFAULTS)
+        company_repository.save(
+            company_values.get("name", ""),
+            legal,
+            company_values.get("address", ""),
+            company_values.get("postal_code", ""),
+            company_values.get("city", ""),
+            company_values.get("country", ""),
+            company_values.get("tax_number", ""),
+            company_values.get("registration_number", ""),
+            company_values.get("iban", ""),
+            bank,
+            company_values.get("email", ""),
+            company_values.get("website", ""),
+            company_values.get("phone", ""),
+            company_values.get("mobile", ""),
+            logo or "",
+            numbering["invoice"]["prefix"],
+            numbering["offer"]["prefix"],
+            int(numbering["invoice"]["start"]),
+            int(numbering["offer"]["start"]),
+            vat if vat is not None else 22,
+            notes or "",
+        )
+        self.save_extras(extras)
+
+    def apply_appearance(self, app: QApplication | None = None) -> str:
+        extras = self.load_extras()
+        appearance = extras["appearance"]
+        app = app or QApplication.instance()
+        mode = self.resolve_theme(appearance.get("theme", "light"))
+        accent = appearance.get("accent", "blue")
+        radius = appearance.get("radius", "medium")
+        font_key = appearance.get("font_size", "normal")
+        primary, hover = ACCENTS.get(accent, ACCENTS["blue"])
+        card, control = RADII.get(radius, RADII["medium"])
+        theme_manager.apply(
+            app,
+            mode,
+            accent_primary=primary,
+            accent_hover=hover,
+            card_radius=card,
+            control_radius=control,
+        )
+        apply_fonts(app, FONT_POINTS.get(font_key, 10))
+        return mode.value
+
+    def resolve_theme(self, preference: str) -> ThemeMode:
+        if preference == "dark":
+            return ThemeMode.DARK
+        if preference == "auto":
+            try:
+                scheme = QGuiApplication.styleHints().colorScheme()
+                if scheme == Qt.ColorScheme.Dark:
+                    return ThemeMode.DARK
+            except Exception:
+                pass
+        return ThemeMode.LIGHT
+
+    def preview_number(self, prefix: str, start: int, length: int) -> str:
+        year = datetime.now().year
+        pad = max(3, min(int(length), 8))
+        number = max(1, int(start))
+        clean = (prefix or "DOC").strip() or "DOC"
+        return f"{clean}-{year}-{number:0{pad}d}"
+
+    def backup_database(self) -> Path:
+        require("backup")
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        target = BACKUP_DIR / f"ju_tan-{stamp}.db"
+        source = sqlite3.connect(DATABASE_PATH)
+        dest = sqlite3.connect(target)
+        try:
+            source.backup(dest)
+        finally:
+            dest.close()
+            source.close()
+        audit("backup", str(target))
+        from app.core.db_guard import verify_backup
+        if not verify_backup(target):
+            raise ValueError("Varnostna kopija ni prestala preverjanja.")
+        return target
+
+    def restore_database(self, source: Path) -> None:
+        require("backup")
+        check = sqlite3.connect(source)
+        try:
+            row = check.execute("PRAGMA integrity_check").fetchone()
+            if not row or row[0] != "ok":
+                raise ValueError("Varnostna kopija ni celovita.")
+        finally:
+            check.close()
+        from app.database.database import db
+        db.dispose()
+        dest = sqlite3.connect(DATABASE_PATH)
+        src = sqlite3.connect(source)
+        try:
+            src.backup(dest)
+        finally:
+            src.close()
+            dest.close()
+        audit("restore", str(source))
+
+    def export_settings(self, target: Path) -> None:
+        extras = self.load_extras()
+        target.write_text(
+            json.dumps(extras, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def import_settings(self, source: Path) -> dict:
+        loaded = parse_json_object(source.read_text(encoding="utf-8"))
+        extras = self._merge(default_settings(), loaded)
+        self.save_extras(extras)
+        return extras
+
+    def about(self) -> dict:
+        return {
+            "app": APP_NAME,
+            "edition": f"Enterprise {APP_CHANNEL}",
+            "version": f"{APP_VERSION} {APP_CHANNEL}",
+            "python": sys.version.split()[0],
+            "qt": qVersion(),
+            "sqlite": sqlite3.sqlite_version,
+            "build": f"2026-09-12 {APP_BUILD}",
+            "copyright": f"© 2026 {APP_AUTHOR}",
+            "name": APP_NAME,
+        }
+
+    @staticmethod
+    def _merge(base: dict, incoming: dict) -> dict:
+        for key, value in incoming.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                base[key] = SettingsController._merge(base[key], value)
+            else:
+                base[key] = value
+        return base

@@ -1,10 +1,10 @@
-from app.core.logger import logger
-from app.database.database import db
+"""JU-TAN Office Enterprise — namizna aplikacija."""
+
+from app.core.logger import install_excepthook, logger
 from app.windows.main_window import run
 
+install_excepthook()
 logger.info("JU-TAN Office Enterprise se je zagnal.")
-
-db.initialize()
 
 if __name__ == "__main__":
     run()

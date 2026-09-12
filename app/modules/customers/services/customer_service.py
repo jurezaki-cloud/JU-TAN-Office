@@ -1,4 +1,4 @@
-from app.database.repository import customer_repository
+from app.database.customer_repository import customer_repository
 
 
 class CustomerService:

@@ -1,101 +1,57 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QFormLayout,
-    QLineEdit,
-    QTextEdit,
-    QDoubleSpinBox,
     QComboBox,
-    QPushButton,
+    QDoubleSpinBox,
     QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMessageBox,
+    QTextEdit,
 )
 
+from app.core.ui.enterprise_dialog import EnterpriseDialog
+from app.core.ui.form_grid import FormGrid
 from app.database.article_repository import article_repository
+from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
-class ArticleDialog(QDialog):
+class ArticleDialog(EnterpriseDialog):
 
     def __init__(self, parent=None, article=None):
-        super().__init__(parent)
-
+        title = "Uredi artikel" if article else "Nov artikel"
+        super().__init__(parent, title=title, heading=title, size="SMALL", state_key="dialog.article")
         self.article = article
+        self.setObjectName("ArticleDialog")
+        self.bind_save(self.validate_and_accept)
 
-        self.setWindowTitle(
-            "Uredi artikel" if article else "Nov artikel"
-        )
+        card = EnterpriseCard("DashboardCard")
+        grid = FormGrid()
 
-        self.resize(520, 520)
-
-        layout = QVBoxLayout(self)
-
-        form = QFormLayout()
-
-        # Šifra
         self.code = QLineEdit()
-
         if article is None:
             self.code.setText(article_repository.get_next_code())
-
-        # Naziv
         self.name = QLineEdit()
-
-        # Opis
         self.description = QTextEdit()
-        self.description.setFixedHeight(90)
-
-        # Enota
+        self.description.setAcceptRichText(False)
+        self.description.setMinimumHeight(72)
+        self.description.setMaximumHeight(120)
         self.unit = QComboBox()
         self.unit.addItems([
-            "kos",
-            "ura",
-            "dan",
-            "m",
-            "m²",
-            "m³",
-            "kg",
-            "paket",
-            "komplet",
-            "storitev",
+            "kos", "ura", "dan", "m", "m²", "m³", "kg", "paket", "komplet", "storitev",
         ])
-
-        # Cena
         self.price = QDoubleSpinBox()
         self.price.setMaximum(999999999)
         self.price.setDecimals(2)
         self.price.setSuffix(" €")
-
-        # DDV
         self.vat = QComboBox()
-        self.vat.addItems([
-            "22",
-            "9.5",
-            "5",
-            "0",
-        ])
+        self.vat.addItems(["22", "9.5", "5", "0"])
 
-        form.addRow("Šifra:", self.code)
-        form.addRow("Naziv:", self.name)
-        form.addRow("Opis:", self.description)
-        form.addRow("Enota:", self.unit)
-        form.addRow("Cena:", self.price)
-        form.addRow("DDV:", self.vat)
-
-        layout.addLayout(form)
-
-        buttons = QHBoxLayout()
-
-        self.btn_cancel = QPushButton("Prekliči")
-        self.btn_save = QPushButton("Shrani")
-
-        buttons.addStretch()
-        buttons.addWidget(self.btn_cancel)
-        buttons.addWidget(self.btn_save)
-
-        layout.addLayout(buttons)
-
-        self.btn_cancel.clicked.connect(self.reject)
-        self.btn_save.clicked.connect(self.validate_and_accept)
+        grid.add("Šifra", self.code, "Naziv", self.name)
+        grid.add_full("Opis", self.description)
+        grid.add("Enota", self.unit, "Cena", self.price)
+        grid.add("DDV", self.vat)
+        card.body.addLayout(grid.layout)
+        self.body.addWidget(card)
 
         if article:
             self.load_article(article)

@@ -1,0 +1,75 @@
+from datetime import date
+
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtWidgets import QSizePolicy, QWidget
+
+from app.theme.colors import LightColors
+
+SLO_MONTHS = (
+    "jan", "feb", "mar", "apr", "maj", "jun",
+    "jul", "avg", "sep", "okt", "nov", "dec",
+)
+
+
+class RevenueChart(QWidget):
+    """Enostaven stolpčni graf; začasni podatki, če v bazi ni prometa."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setObjectName("RevenueChart")
+        self.setMinimumHeight(220)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._points: list[tuple[str, float]] = []
+
+    def set_points(self, points: list[tuple[str, float]]) -> None:
+        self._points = points
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        points = self._points or self._placeholder_points()
+        values = [float(v) for _, v in points]
+        peak = max(values) if values and max(values) > 0 else 1.0
+
+        left, top, right, bottom = 8, 16, 8, 28
+        plot = QRect(
+            left,
+            top,
+            max(1, self.width() - left - right),
+            max(1, self.height() - top - bottom),
+        )
+
+        bar_space = plot.width() / max(len(points), 1)
+        bar_width = max(12, bar_space * 0.46)
+
+        for index, (label, value) in enumerate(points):
+            height = int((float(value) / peak) * (plot.height() - 8))
+            x = int(plot.left() + bar_space * index + (bar_space - bar_width) / 2)
+            y = plot.bottom() - height
+            color = QColor(LightColors.PRIMARY)
+            color.setAlpha(210)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(color)
+            painter.drawRoundedRect(x, y, int(bar_width), max(4, height), 6, 6)
+
+            painter.setPen(QPen(QColor(LightColors.SECONDARY)))
+            font = QFont("Segoe UI", 8)
+            painter.setFont(font)
+            painter.drawText(
+                QRect(x - 8, plot.bottom() + 4, int(bar_width) + 16, 18),
+                Qt.AlignHCenter | Qt.AlignTop,
+                label,
+            )
+
+        painter.end()
+
+    @staticmethod
+    def _placeholder_points() -> list[tuple[str, float]]:
+        month = date.today().month
+        labels = [SLO_MONTHS[(month - 6 + i) % 12] for i in range(6)]
+        sample = [4200, 6100, 5400, 7800, 6900, 8600]
+        return list(zip(labels, sample))

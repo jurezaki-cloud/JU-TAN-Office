@@ -1,0 +1,16 @@
+{
+  "appearance": {
+    "theme": "light",
+    "accent": "blue",
+    "font_size": "normal",
+    "radius": "medium"
+  },
+  "pdf": {
+    "folder": "./exports",
+    "footer": "Hvala za zaupanje. JU-TAN Office Enterprise."
+  },
+  "excel": {
+    "export_folder": "./exports",
+    "import_folder": "./data"
+  }
+}

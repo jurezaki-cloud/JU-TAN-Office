@@ -1,17 +1,5 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+"""JU-TAN Office Enterprise — namizna PySide6 aplikacija."""
 
-db = SQLAlchemy()
-migrate = Migrate()
+from app.core.constants import APP_NAME, APP_VERSION
 
-
-def create_app():
-    app = Flask(__name__)
-
-    app.config.from_object("config")
-
-    db.init_app(app)
-    migrate.init_app(app, db)
-
-    return app
+__all__ = ["APP_NAME", "APP_VERSION"]
