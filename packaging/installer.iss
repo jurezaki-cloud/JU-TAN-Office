@@ -18,8 +18,8 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 LicenseFile=LICENSE.txt
 SetupIconFile=..\resources\app.ico
@@ -64,23 +64,9 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Zaženi {#MyAppName}"; Flags: n
 Type: files; Name: "{app}\install.json"
 
 [Code]
-function HasEnoughSpace(): Boolean;
-var
-  Free, Total: Int64;
-begin
-  Result := True;
-    if GetSpaceOnDisk(ExpandConstant('{autopf}'), True, Free, Total) then
-      if Free < Int64(200) * 1024 * 1024 then
-        Result := False;
-end;
-
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  if not HasEnoughSpace() then begin
-    MsgBox('Na disku ni dovolj prostora (priporočeno vsaj 200 MB).', mbError, MB_OK);
-    Result := False;
-  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -92,7 +78,7 @@ begin
   Dst := ExpandConstant('{commonappdata}\JU-TAN Office\Backup\pre-upgrade.db');
   if FileExists(Src) then begin
     ForceDirectories(ExtractFilePath(Dst));
-    FileCopy(Src, Dst, False);
+    CopyFile(Src, Dst, False);
   end;
 end;
 

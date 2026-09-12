@@ -5,7 +5,7 @@
 | Performance | PASSED |
 | Security | PASSED |
 | QA | PASSED |
-| Installer script | READY |
+| Installer `JU-TAN-Office-Setup.exe` | READY |
 | Database schema v1 | APPROVED |
 | UI | PASSED |
 | Documentation | COMPLETE |
