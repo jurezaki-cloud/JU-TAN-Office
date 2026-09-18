@@ -1,17 +1,3 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+"""JU-TAN Office desktop application package."""
 
-db = SQLAlchemy()
-migrate = Migrate()
-
-
-def create_app():
-    app = Flask(__name__)
-
-    app.config.from_object("config")
-
-    db.init_app(app)
-    migrate.init_app(app, db)
-
-    return app
+__version__ = "0.2.0"

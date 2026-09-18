@@ -17,6 +17,7 @@ from app.modules.customers.models.customer_table_model import CustomerTableModel
 from app.modules.customers.customer_dialog import CustomerDialog
 from app.modules.customers.customer_details import CustomerDetails
 from app.database.repository import customer_repository
+from app.widgets.messages import ui_error_boundary
 
 
 class CustomerPage(QWidget):
@@ -90,13 +91,16 @@ class CustomerPage(QWidget):
 
         self.table.clicked.connect(self.show_details)
         self.table.doubleClicked.connect(self.edit_customer)
+        self.details.editButton.clicked.connect(self.edit_selected_customer)
 
         self.refresh()
 
+    @ui_error_boundary("Strank ni mogoče naložiti")
     def refresh(self):
         customers = customer_repository.get_all()
         self.model.refresh(customers)
 
+    @ui_error_boundary("Iskanja ni mogoče izvesti")
     def search_customer(self, text):
 
         text = text.strip()
@@ -117,6 +121,7 @@ class CustomerPage(QWidget):
 
         return self.model.customers[index.row()][0]
 
+    @ui_error_boundary("Podrobnosti ni mogoče prikazati")
     def show_details(self, index):
 
         customer_id = self.model.customers[index.row()][0]
@@ -126,6 +131,7 @@ class CustomerPage(QWidget):
         if customer:
             self.details.load_customer(customer)
 
+    @ui_error_boundary("Stranke ni mogoče shraniti")
     def new_customer(self):
 
         dialog = CustomerDialog(self)
@@ -158,6 +164,7 @@ class CustomerPage(QWidget):
         if index.isValid():
             self.edit_customer(index)
 
+    @ui_error_boundary("Stranke ni mogoče posodobiti")
     def edit_customer(self, index):
 
         customer_id = self.model.customers[index.row()][0]
@@ -206,6 +213,7 @@ class CustomerPage(QWidget):
             if customer:
                 self.details.load_customer(customer)
 
+    @ui_error_boundary("Stranke ni mogoče izbrisati")
     def delete_selected_customer(self):
 
         customer_id = self.current_customer_id()
@@ -225,3 +233,4 @@ class CustomerPage(QWidget):
             customer_repository.delete(customer_id)
 
             self.refresh()
+            self.details.clear()

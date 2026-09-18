@@ -1,200 +1,94 @@
+from app.core.validation import (
+    money_for_storage,
+    optional_text,
+    percentage_for_storage,
+    required_text,
+)
 from app.database.database import db
 
 
 class ArticleRepository:
+    def __init__(self, database=None):
+        self.db = database or db
 
-    def get_all(self):
-
-        conn = db.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT
-                id,
-                code,
-                name,
-                unit,
-                price,
-                vat
-            FROM articles
-            ORDER BY name
-        """)
-
-        rows = cursor.fetchall()
-
-        conn.close()
-
-        return rows
-
-    def get_by_id(self, article_id):
-
-        conn = db.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT
-                id,
-                code,
-                name,
-                description,
-                unit,
-                price,
-                vat
-            FROM articles
-            WHERE id = ?
-        """, (article_id,))
-
-        row = cursor.fetchone()
-
-        conn.close()
-
-        return row
-
-    def add(
-        self,
-        code,
-        name,
-        description,
-        unit,
-        price,
-        vat,
-    ):
-
-        conn = db.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            INSERT INTO articles(
-                code,
-                name,
-                description,
-                unit,
-                price,
-                vat
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            code,
-            name,
-            description,
-            unit,
-            price,
-            vat,
-        ))
-
-        conn.commit()
-        conn.close()
-
-    def update(
-        self,
-        article_id,
-        code,
-        name,
-        description,
-        unit,
-        price,
-        vat,
-    ):
-
-        conn = db.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            UPDATE articles
-            SET
-                code = ?,
-                name = ?,
-                description = ?,
-                unit = ?,
-                price = ?,
-                vat = ?
-            WHERE id = ?
-        """, (
-            code,
-            name,
-            description,
-            unit,
-            price,
-            vat,
-            article_id,
-        ))
-
-        conn.commit()
-        conn.close()
-
-    def delete(self, article_id):
-
-        conn = db.connect()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "DELETE FROM articles WHERE id = ?",
-            (article_id,),
+    @staticmethod
+    def _validated_data(code, name, description, unit, price, vat):
+        return (
+            required_text(code, "Šifra", 50).upper(),
+            required_text(name, "Naziv"),
+            optional_text(description, "Opis", 2000),
+            required_text(unit, "Enota", 30),
+            money_for_storage(price, "Cena"),
+            percentage_for_storage(vat, "DDV"),
         )
 
-        conn.commit()
-        conn.close()
+    def get_all(self):
+        with self.db.connect() as conn:
+            return conn.execute(
+                """SELECT id, code, name, unit, price, vat
+                   FROM articles ORDER BY name"""
+            ).fetchall()
+
+    def get_by_id(self, article_id):
+        with self.db.connect() as conn:
+            return conn.execute(
+                """SELECT id, code, name, description, unit, price, vat
+                   FROM articles WHERE id = ?""",
+                (article_id,),
+            ).fetchone()
+
+    def add(self, code, name, description, unit, price, vat):
+        values = self._validated_data(code, name, description, unit, price, vat)
+        with self.db.transaction() as conn:
+            cursor = conn.execute(
+                """INSERT INTO articles(code, name, description, unit, price, vat)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                values,
+            )
+            return cursor.lastrowid
+
+    def update(self, article_id, code, name, description, unit, price, vat):
+        values = self._validated_data(code, name, description, unit, price, vat)
+        with self.db.transaction() as conn:
+            cursor = conn.execute(
+                """UPDATE articles
+                   SET code=?, name=?, description=?, unit=?, price=?, vat=?
+                   WHERE id=?""",
+                (*values, article_id),
+            )
+            if cursor.rowcount == 0:
+                raise LookupError("Artikel ne obstaja.")
+
+    def delete(self, article_id):
+        with self.db.transaction() as conn:
+            cursor = conn.execute(
+                "DELETE FROM articles WHERE id=?", (article_id,)
+            )
+            if cursor.rowcount == 0:
+                raise LookupError("Artikel ne obstaja.")
 
     def search(self, text):
-
-        conn = db.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT
-                id,
-                code,
-                name,
-                unit,
-                price,
-                vat
-            FROM articles
-            WHERE
-                code LIKE ?
-                OR name LIKE ?
-            ORDER BY name
-        """, (
-            f"%{text}%",
-            f"%{text}%",
-        ))
-
-        rows = cursor.fetchall()
-
-        conn.close()
-
-        return rows
+        pattern = f"%{optional_text(text, 'Iskanje', 200)}%"
+        with self.db.connect() as conn:
+            return conn.execute(
+                """SELECT id, code, name, unit, price, vat
+                   FROM articles
+                   WHERE code LIKE ? OR name LIKE ? ORDER BY name""",
+                (pattern, pattern),
+            ).fetchall()
 
     def get_next_code(self):
-        """
-        Vrne naslednjo šifro artikla v obliki:
-        ART0001
-        ART0002
-        ART0003
-        """
-
-        conn = db.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT code
-            FROM articles
-            WHERE code LIKE 'ART%'
-            ORDER BY CAST(SUBSTR(code, 4) AS INTEGER) DESC
-            LIMIT 1
-        """)
-
-        row = cursor.fetchone()
-
-        conn.close()
-
-        if row is None or row[0] is None:
+        with self.db.connect() as conn:
+            row = conn.execute(
+                """SELECT code FROM articles WHERE code LIKE 'ART%'
+                   ORDER BY CAST(SUBSTR(code, 4) AS INTEGER) DESC LIMIT 1"""
+            ).fetchone()
+        if not row or not row[0]:
             return "ART0001"
-
         try:
             number = int(row[0][3:])
         except (ValueError, IndexError):
             number = 0
-
         return f"ART{number + 1:04d}"
 
 

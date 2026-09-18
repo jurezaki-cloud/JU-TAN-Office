@@ -16,6 +16,7 @@ from app.modules.articles.models.article_table_model import ArticleTableModel
 from app.modules.articles.article_dialog import ArticleDialog
 from app.modules.articles.article_details import ArticleDetails
 from app.database.article_repository import article_repository
+from app.widgets.messages import ui_error_boundary
 
 
 class ArticlePage(QWidget):
@@ -41,9 +42,15 @@ class ArticlePage(QWidget):
         self.search.setPlaceholderText("Išči artikel...")
 
         self.btn_new = QPushButton("+ Nov artikel")
+        self.btn_edit = QPushButton("✏️ Uredi")
+        self.btn_delete = QPushButton("🗑 Izbriši")
+        self.btn_refresh = QPushButton("🔄 Osveži")
 
         top_layout.addWidget(self.search)
         top_layout.addWidget(self.btn_new)
+        top_layout.addWidget(self.btn_edit)
+        top_layout.addWidget(self.btn_delete)
+        top_layout.addWidget(self.btn_refresh)
 
         layout.addLayout(top_layout)
 
@@ -71,6 +78,9 @@ class ArticlePage(QWidget):
 
         self.search.textChanged.connect(self.search_article)
         self.btn_new.clicked.connect(self.new_article)
+        self.btn_edit.clicked.connect(self.edit_selected_article)
+        self.btn_delete.clicked.connect(self.delete_article)
+        self.btn_refresh.clicked.connect(self.refresh)
 
         self.table.clicked.connect(self.show_details)
         self.table.doubleClicked.connect(self.edit_article)
@@ -81,10 +91,12 @@ class ArticlePage(QWidget):
 
         self.refresh()
 
+    @ui_error_boundary("Artiklov ni mogoče naložiti")
     def refresh(self):
         articles = article_repository.get_all()
         self.model.refresh(articles)
 
+    @ui_error_boundary("Iskanja ni mogoče izvesti")
     def search_article(self, text):
         text = text.strip()
 
@@ -95,6 +107,7 @@ class ArticlePage(QWidget):
 
         self.model.refresh(articles)
 
+    @ui_error_boundary("Artikla ni mogoče shraniti")
     def new_article(self):
         dialog = ArticleDialog(self)
 
@@ -115,6 +128,8 @@ class ArticlePage(QWidget):
             )
 
             self.refresh()
+
+    @ui_error_boundary("Podrobnosti ni mogoče prikazati")
     def show_details(self, index):
         row = index.row()
 
@@ -148,6 +163,7 @@ class ArticlePage(QWidget):
         if article:
             self.edit_article_by_data(article)
 
+    @ui_error_boundary("Artikla ni mogoče posodobiti")
     def edit_article_by_data(self, article):
 
         article_dict = {
@@ -182,6 +198,8 @@ class ArticlePage(QWidget):
 
             if updated:
                 self.details.load_article(updated)
+
+    @ui_error_boundary("Artikla ni mogoče izbrisati")
     def delete_article(self):
         if self.details.article_id is None:
             return

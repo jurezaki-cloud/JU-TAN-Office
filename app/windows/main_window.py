@@ -15,6 +15,10 @@ from app.widgets.toolbar import TopToolbar
 from app.widgets.statusbar import StatusBar
 
 from app.windows.dashboard import Dashboard
+from app.windows.offers import Offers
+from app.windows.invoices import Invoices, Payments
+from app.windows.analytics import Analytics
+from app.windows.settings import Settings
 
 from app.modules.customers import CustomerPage
 from app.modules.articles import ArticlePage
@@ -70,16 +74,21 @@ class MainWindow(QMainWindow):
         self.dashboard = Dashboard()
         self.customers = CustomerPage()
         self.articles = ArticlePage()
+        self.offers = Offers()
+        self.invoices = Invoices()
+        self.payments = Payments()
+        self.analytics = Analytics()
+        self.settings = Settings()
 
         self.stack.addWidget(self.dashboard)                 # 0
-        self.stack.addWidget(EmptyPage("Računi"))            # 1
+        self.stack.addWidget(self.invoices)                  # 1
         self.stack.addWidget(self.customers)                 # 2
-        self.stack.addWidget(EmptyPage("Ponudbe"))           # 3
+        self.stack.addWidget(self.offers)                    # 3
         self.stack.addWidget(EmptyPage("Storitve"))          # 4
         self.stack.addWidget(self.articles)                  # 5
-        self.stack.addWidget(EmptyPage("Plačila"))           # 6
-        self.stack.addWidget(EmptyPage("Analitika"))         # 7
-        self.stack.addWidget(EmptyPage("Nastavitve"))        # 8
+        self.stack.addWidget(self.payments)                  # 6
+        self.stack.addWidget(self.analytics)                 # 7
+        self.stack.addWidget(self.settings)                  # 8
 
         right_layout.addWidget(self.stack)
 
@@ -91,11 +100,29 @@ class MainWindow(QMainWindow):
 
     def change_page(self, index):
 
-        if index == 2:
+        if index == 0:
+            self.dashboard.refresh()
+
+        elif index == 1:
+            self.invoices.refresh()
+
+        elif index == 2:
             self.customers.refresh()
+
+        elif index == 3:
+            self.offers.refresh()
 
         elif index == 5:
             self.articles.refresh()
+
+        elif index == 6:
+            self.payments.refresh()
+
+        elif index == 7:
+            self.analytics.refresh()
+
+        elif index == 8:
+            self.settings.load()
 
         self.stack.setCurrentIndex(index)
 

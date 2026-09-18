@@ -1,3 +1,5 @@
+import os
+import sys
 from pathlib import Path
 
 # ----------------------------
@@ -14,10 +16,18 @@ APP_AUTHOR = "JU-TAN Studio"
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-DATA_DIR = BASE_DIR / "data"
-EXPORT_DIR = BASE_DIR / "exports"
-REPORT_DIR = BASE_DIR / "reports"
-BACKUP_DIR = BASE_DIR / "backups"
+if getattr(sys, "frozen", False):
+    default_app_data = Path(
+        os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+    ) / "JU-TAN Office"
+else:
+    default_app_data = BASE_DIR
+
+APP_DATA_DIR = Path(os.environ.get("JU_TAN_DATA_DIR", default_app_data))
+DATA_DIR = APP_DATA_DIR / "data"
+EXPORT_DIR = APP_DATA_DIR / "exports"
+REPORT_DIR = APP_DATA_DIR / "reports"
+BACKUP_DIR = APP_DATA_DIR / "backups"
 RESOURCE_DIR = BASE_DIR / "resources"
 
 # ----------------------------

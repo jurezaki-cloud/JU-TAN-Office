@@ -72,3 +72,11 @@ class CustomerDetails(QWidget):
         self.tax.setText(row[7] or "")
         self.email.setText(row[8] or "")
         self.phone.setText(row[9] or "")
+
+    def clear(self):
+        self.customer_id = None
+        for label in (
+            self.company, self.contact, self.address, self.postal_code,
+            self.city, self.country, self.tax, self.email, self.phone,
+        ):
+            label.setText("-")

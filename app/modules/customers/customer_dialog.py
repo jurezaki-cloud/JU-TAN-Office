@@ -5,7 +5,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QHBoxLayout,
+    QMessageBox,
 )
+
+from app.core.validation import normalize_email, required_text
 
 
 class CustomerDialog(QDialog):
@@ -52,7 +55,7 @@ class CustomerDialog(QDialog):
         btn_save = QPushButton("Shrani")
 
         btn_cancel.clicked.connect(self.reject)
-        btn_save.clicked.connect(self.accept)
+        btn_save.clicked.connect(self.validate_and_accept)
 
         buttons.addStretch()
         buttons.addWidget(btn_cancel)
@@ -70,6 +73,15 @@ class CustomerDialog(QDialog):
             self.tax_number.setText(customer.get("tax_number", ""))
             self.email.setText(customer.get("email", ""))
             self.phone.setText(customer.get("phone", ""))
+
+    def validate_and_accept(self):
+        try:
+            required_text(self.company.text(), "Podjetje")
+            normalize_email(self.email.text())
+        except ValueError as error:
+            QMessageBox.warning(self, "Neveljavni podatki", str(error))
+            return
+        self.accept()
 
     def get_data(self):
         return {

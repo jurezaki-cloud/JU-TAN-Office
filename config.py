@@ -1,9 +1,7 @@
-import os
+"""Backward-compatible access to the desktop application configuration.
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+New code should import from :mod:`app.core.config` or
+:mod:`app.core.constants` directly.
+"""
 
-SECRET_KEY = "jutan-office-dev-key"
-
-SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(BASE_DIR, "database", "jutan.db")
-
-SQLALCHEMY_TRACK_MODIFICATIONS = False
+from app.core.config import *  # noqa: F401,F403

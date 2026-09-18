@@ -81,4 +81,4 @@ class OfferDetails(QWidget):
         self.lblDate.setText(str(offer[3]))
         self.lblValid.setText(str(offer[4]))
         self.lblStatus.setText(str(offer[5]))
-        self.lblTotal.setText(f"{offer[9]:.2f} €")
+        self.lblTotal.setText(f"{offer[6]:.2f} €")
