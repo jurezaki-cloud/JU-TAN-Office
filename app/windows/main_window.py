@@ -19,6 +19,7 @@ from app.windows.offers import Offers
 from app.windows.invoices import Invoices, Payments
 from app.windows.analytics import Analytics
 from app.windows.settings import Settings
+from app.utils.theme import apply_theme
 
 from app.modules.customers import CustomerPage
 from app.modules.articles import ArticlePage
@@ -130,6 +131,7 @@ class MainWindow(QMainWindow):
 def run():
 
     app = QApplication(sys.argv)
+    apply_theme(app)
 
     window = MainWindow()
     window.show()

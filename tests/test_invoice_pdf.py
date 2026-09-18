@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from app.services.invoice_pdf import generate_invoice_pdf
+from app.services.document_pdf import sepa_payload
 
 
 class InvoicePdfTests(unittest.TestCase):
@@ -22,3 +23,16 @@ class InvoicePdfTests(unittest.TestCase):
             )
             self.assertTrue(path.exists())
             self.assertGreater(path.stat().st_size, 1000)
+
+    def test_sepa_qr_contains_payment_data(self):
+        payload = sepa_payload(
+            {"company_name": "JU-TAN Test", "iban": "SI56 1234"},
+            21.96,
+            "R-2026-000001",
+        )
+        self.assertIn("SI561234", payload)
+        self.assertIn("EUR21.96", payload)
+        self.assertIn("R-2026-000001", payload)
+
+    def test_sepa_qr_requires_iban(self):
+        self.assertIsNone(sepa_payload({"company_name": "JU-TAN"}, 10, "R-1"))

@@ -6,7 +6,8 @@ FIELDS = (
     "company_name", "address", "postal_code", "city", "country",
     "tax_number", "registration_number", "iban", "bank_name", "email",
     "phone", "website", "invoice_footer", "payment_terms_days",
-    "auto_backup", "backup_retention_days",
+    "auto_backup", "backup_retention_days", "logo_path", "signature_path",
+    "stamp_path",
 )
 
 
@@ -45,6 +46,9 @@ class SettingsRepository:
             payment_days,
             1 if values.get("auto_backup", True) else 0,
             retention_days,
+            optional_text(values.get("logo_path"), "Pot logotipa", 1000),
+            optional_text(values.get("signature_path"), "Pot podpisa", 1000),
+            optional_text(values.get("stamp_path"), "Pot žiga", 1000),
         )
         with self.db.transaction() as conn:
             conn.execute(
@@ -53,6 +57,7 @@ class SettingsRepository:
                        tax_number=?, registration_number=?, iban=?, bank_name=?,
                        email=?, phone=?, website=?, invoice_footer=?,
                        payment_terms_days=?, auto_backup=?, backup_retention_days=?,
+                       logo_path=?, signature_path=?, stamp_path=?,
                        updated_at=CURRENT_TIMESTAMP
                    WHERE id=1""",
                 normalized,

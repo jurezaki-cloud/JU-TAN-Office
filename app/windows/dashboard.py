@@ -5,18 +5,19 @@ from app.widgets.messages import show_error
 
 
 class StatCard(QFrame):
-    def __init__(self, title, value="—", accent="#0F766E"):
+    def __init__(self, title, value="—", accent="#19D3C5"):
         super().__init__()
         self.setStyleSheet(
-            "QFrame{background:white;border:1px solid #dbe4e6;"
-            "border-radius:12px;}"
+            "QFrame{background:white;border:1px solid #E2E8F0;"
+            "border-radius:14px;}"
         )
         layout = QVBoxLayout(self)
         title_label = QLabel(title)
-        title_label.setStyleSheet("font-size:13px;color:#64748b;")
+        layout.setContentsMargins(20, 18, 20, 18)
+        title_label.setStyleSheet("font-size:12px;color:#64748b;font-weight:600;")
         self.value_label = QLabel(value)
         self.value_label.setStyleSheet(
-            f"font-size:25px;font-weight:bold;color:{accent};"
+            f"font-size:27px;font-weight:700;color:{accent};"
         )
         layout.addWidget(title_label); layout.addWidget(self.value_label)
 
@@ -28,13 +29,16 @@ class Dashboard(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
-        title = QLabel("Dashboard")
-        title.setStyleSheet("font-size:28px;font-weight:bold;")
+        title = QLabel("Dobrodošli v JU-TAN Office")
+        title.setStyleSheet("font-size:28px;font-weight:700;color:#0B1220;")
         layout.addWidget(title)
+        subtitle = QLabel("Vsi ključni poslovni podatki. Jasno, hitro in na enem mestu.")
+        subtitle.setStyleSheet("font-size:12px;color:#64748B;margin-bottom:8px;")
+        layout.addWidget(subtitle)
         grid = QGridLayout()
         self.revenue = StatCard("Prejeta plačila letos")
-        self.open_amount = StatCard("Odprte terjatve", accent="#D97706")
-        self.overdue = StatCard("Zapadle terjatve", accent="#DC2626")
+        self.open_amount = StatCard("Odprte terjatve", accent="#F59E0B")
+        self.overdue = StatCard("Zapadle terjatve", accent="#EF4444")
         self.invoices = StatCard("Računi")
         self.customers = StatCard("Stranke")
         self.offers = StatCard("Ponudbe")
@@ -49,7 +53,7 @@ class Dashboard(QWidget):
             "v zavihku Analitika."
         )
         self.message.setStyleSheet(
-            "background:#f0fdfa;color:#115e59;padding:18px;border-radius:10px;"
+            "background:#101A2E;color:#D7F7F3;padding:20px;border-radius:12px;"
         )
         self.message.setWordWrap(True)
         layout.addWidget(self.message)

@@ -1,3 +1,6 @@
+import shutil
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QCheckBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QMessageBox, QPushButton, QSpinBox, QTextEdit,
@@ -5,6 +8,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.settings_repository import settings_repository
+from app.core.constants import BRAND_ASSET_DIR
 from app.services.backup_service import backup_service
 from app.widgets.messages import show_error
 
@@ -33,6 +37,28 @@ class Settings(QWidget):
         form.addRow("Noga dokumenta:", self.footer)
         self.payment_days = QSpinBox(); self.payment_days.setRange(1, 365)
         form.addRow("Privzeti rok plačila:", self.payment_days)
+
+        self.asset_fields = {}
+        for key, label in (
+            ("logo_path", "Logotip JU-TAN"),
+            ("signature_path", "Podpis"),
+            ("stamp_path", "Žig"),
+        ):
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            value = QLineEdit()
+            value.setReadOnly(True)
+            value.setPlaceholderText("Ni izbrano")
+            choose = QPushButton("Izberi sliko")
+            clear = QPushButton("Odstrani")
+            choose.clicked.connect(lambda checked=False, k=key: self.choose_asset(k))
+            clear.clicked.connect(lambda checked=False, k=key: self.asset_fields[k].clear())
+            row_layout.addWidget(value, 1)
+            row_layout.addWidget(choose)
+            row_layout.addWidget(clear)
+            self.asset_fields[key] = value
+            form.addRow(label + ":", row)
         self.btn_save = QPushButton("💾 Shrani nastavitve")
         form.addRow("", self.btn_save)
         layout.addWidget(company_box)
@@ -67,6 +93,8 @@ class Settings(QWidget):
             for key, widget in self.fields.items():
                 widget.setText(str(values.get(key) or ""))
             self.footer.setPlainText(values.get("invoice_footer") or "")
+            for key, widget in self.asset_fields.items():
+                widget.setText(values.get(key) or "")
             self.payment_days.setValue(values["payment_terms_days"])
             self.auto_backup.setChecked(bool(values["auto_backup"]))
             self.retention_days.setValue(values["backup_retention_days"])
@@ -82,9 +110,26 @@ class Settings(QWidget):
                 "auto_backup": self.auto_backup.isChecked(),
                 "backup_retention_days": self.retention_days.value(),
             })
+            values.update({key: widget.text() for key, widget in self.asset_fields.items()})
             settings_repository.update(values)
             QMessageBox.information(self, "Nastavitve", "Nastavitve so shranjene.")
         except Exception as error: show_error(self, error, "Nastavitev ni mogoče shraniti")
+
+    def choose_asset(self, key):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Izberi grafični element", "",
+            "Slike (*.png *.jpg *.jpeg);;Vse datoteke (*)",
+        )
+        if not path:
+            return
+        source = Path(path)
+        destination = BRAND_ASSET_DIR / f"{key}{source.suffix.lower()}"
+        try:
+            BRAND_ASSET_DIR.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+            self.asset_fields[key].setText(str(destination))
+        except OSError as error:
+            show_error(self, error, "Slike ni mogoče shraniti")
 
     def refresh_backups(self):
         self.backups.clear()

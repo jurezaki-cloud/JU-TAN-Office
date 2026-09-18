@@ -29,6 +29,7 @@ EXPORT_DIR = APP_DATA_DIR / "exports"
 REPORT_DIR = APP_DATA_DIR / "reports"
 BACKUP_DIR = APP_DATA_DIR / "backups"
 RESOURCE_DIR = BASE_DIR / "resources"
+BRAND_ASSET_DIR = APP_DATA_DIR / "brand"
 
 # ----------------------------
 # Baza
@@ -53,6 +54,7 @@ for folder in (
     EXPORT_DIR,
     REPORT_DIR,
     BACKUP_DIR,
+    BRAND_ASSET_DIR,
     LOG_DIR,
 ):
     folder.mkdir(parents=True, exist_ok=True)

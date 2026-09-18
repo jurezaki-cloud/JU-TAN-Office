@@ -1,57 +1,50 @@
-from PySide6.QtGui import QPalette, QColor
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPalette
 
 
-PRIMARY = "#1F2937"
-ACCENT = "#C8A24A"
-BACKGROUND = "#F8F9FA"
-WHITE = "#FFFFFF"
+INK = "#0B1220"
+NAVY = "#101A2E"
+CYAN = "#19D3C5"
+BLUE = "#3B82F6"
+SURFACE = "#FFFFFF"
+BACKGROUND = "#F3F6FA"
+MUTED = "#64748B"
 
 
 def apply_theme(app):
     palette = QPalette()
 
     palette.setColor(QPalette.Window, QColor(BACKGROUND))
-    palette.setColor(QPalette.WindowText, Qt.black)
-
-    palette.setColor(QPalette.Base, QColor(WHITE))
-    palette.setColor(QPalette.AlternateBase, QColor(BACKGROUND))
-
-    palette.setColor(QPalette.Button, QColor(PRIMARY))
-    palette.setColor(QPalette.ButtonText, Qt.white)
-
-    palette.setColor(QPalette.Highlight, QColor(ACCENT))
-    palette.setColor(QPalette.HighlightedText, Qt.black)
+    palette.setColor(QPalette.WindowText, QColor(INK))
+    palette.setColor(QPalette.Base, QColor(SURFACE))
+    palette.setColor(QPalette.AlternateBase, QColor("#F8FAFC"))
+    palette.setColor(QPalette.Text, QColor(INK))
+    palette.setColor(QPalette.Button, QColor(NAVY))
+    palette.setColor(QPalette.ButtonText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.Highlight, QColor(CYAN))
+    palette.setColor(QPalette.HighlightedText, QColor(INK))
 
     app.setPalette(palette)
 
     app.setStyleSheet("""
-        QWidget{
-            font-family:Aptos;
+        QWidget {
+            color: #0B1220;
+            font-family: "Segoe UI", "Aptos", sans-serif;
             font-size:10pt;
         }
-
-        QPushButton{
-            background:#1F2937;
-            color:white;
-            border:none;
-            border-radius:8px;
-            padding:8px 16px;
-        }
-
-        QPushButton:hover{
-            background:#374151;
-        }
-
-        QLineEdit,QComboBox,QTextEdit{
-            border:1px solid #D6D6D6;
-            border-radius:8px;
-            padding:6px;
-            background:white;
-        }
-
-        QTableWidget{
-            gridline-color:#E5E7EB;
-            selection-background-color:#C8A24A;
-        }
+        QMainWindow, QStackedWidget { background: #F3F6FA; }
+        QPushButton { background:#101A2E; color:white; border:1px solid #101A2E; border-radius:9px; padding:8px 15px; font-weight:600; }
+        QPushButton:hover { background:#172844; border-color:#19D3C5; }
+        QPushButton:pressed { background:#0B1220; }
+        QPushButton:disabled { background:#CBD5E1; border-color:#CBD5E1; }
+        QLineEdit,QComboBox,QTextEdit,QSpinBox,QDateEdit,QDoubleSpinBox { background:white; border:1px solid #D8E0EA; border-radius:8px; padding:7px 9px; selection-background-color:#19D3C5; }
+        QLineEdit:focus,QComboBox:focus,QTextEdit:focus,QSpinBox:focus,QDateEdit:focus,QDoubleSpinBox:focus { border:1px solid #3B82F6; }
+        QGroupBox { background:white; border:1px solid #E2E8F0; border-radius:13px; margin-top:14px; padding:18px 14px 14px 14px; font-weight:700; }
+        QGroupBox::title { subcontrol-origin:margin; left:14px; padding:0 7px; }
+        QTableView,QTableWidget,QListWidget { background:white; alternate-background-color:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; gridline-color:#EDF2F7; selection-background-color:#D7F7F3; selection-color:#0B1220; }
+        QHeaderView::section { background:#EAF0F6; color:#334155; border:none; border-bottom:1px solid #D8E0EA; padding:9px; font-weight:700; }
+        QSplitter::handle { background:transparent; width:8px; }
+        QScrollBar:vertical { background:transparent; width:10px; margin:2px; }
+        QScrollBar::handle:vertical { background:#CBD5E1; border-radius:5px; min-height:24px; }
+        QStatusBar { background:#FFFFFF; color:#64748B; border-top:1px solid #E2E8F0; }
+        QToolTip { background:#101A2E; color:white; border:1px solid #19D3C5; padding:6px; }
     """)

@@ -7,14 +7,16 @@ class TopToolbar(QWidget):
         super().__init__()
 
         layout = QHBoxLayout(self)
+        layout.setContentsMargins(4, 2, 4, 12)
 
-        naslov = QLabel("JU-TAN Office Enterprise")
+        naslov = QLabel("Poslovni pregled")
         naslov.setStyleSheet("""
-            font-size:24px;
+            font-size:22px;
             font-weight:bold;
         """)
 
-        uporabnik = QLabel("👤 Administrator")
+        uporabnik = QLabel("●  Sistem pripravljen")
+        uporabnik.setStyleSheet("color:#0F766E;font-weight:600;background:#DDF8F4;padding:7px 12px;border-radius:12px;")
 
         layout.addWidget(naslov)
 

@@ -197,6 +197,17 @@ class Database:
                 """
             )
 
+            # Lightweight forward migration for installations created before
+            # branded documents were introduced.
+            columns = {
+                row[1] for row in conn.execute("PRAGMA table_info(company_settings)")
+            }
+            for name in ("logo_path", "signature_path", "stamp_path"):
+                if name not in columns:
+                    conn.execute(
+                        f"ALTER TABLE company_settings ADD COLUMN {name} TEXT"
+                    )
+
         logger.info("SQLite baza inicializirana.")
 
 
