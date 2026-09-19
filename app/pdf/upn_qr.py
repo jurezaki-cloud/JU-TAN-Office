@@ -71,22 +71,22 @@ def build_upn_qr(
         "UPNQR",                          # 1
         "",                               # 2 payer IBAN
         "",                               # 3 deposit
-        "",                               # 4 payer reference
-        _clean(payer_name, 33),           # 5
-        _clean(payer_address, 33),        # 6
-        _clean(payer_city, 33),           # 7
-        _amount_field(amount),            # 8
-        "",                               # 9 payment date
-        "",                               # 10 urgent
-        _clean(purpose_code, 4) or "OTHR",  # 11
-        _clean(purpose, 42),              # 12
-        _due(due_date),                   # 13
-        clean_iban,                       # 14
-        ref[:26],                         # 15
-        _clean(recipient_name, 33),       # 16
-        _clean(recipient_address, 33),    # 17
-        _clean(recipient_city, 33),       # 18
-        "",                               # 19 reserve
+        "",                               # 4 withdrawal
+        "",                               # 5 payer reference
+        _clean(payer_name, 33),           # 6
+        _clean(payer_address, 33),        # 7
+        _clean(payer_city, 33),           # 8
+        _amount_field(amount),            # 9
+        "",                               # 10 payment date
+        "",                               # 11 urgent
+        _clean(purpose_code, 4) or "OTHR",  # 12
+        _clean(purpose, 42),              # 13
+        _due(due_date),                   # 14
+        clean_iban,                       # 15
+        ref[:26],                         # 16
+        _clean(recipient_name, 33),       # 17
+        _clean(recipient_address, 33),    # 18
+        _clean(recipient_city, 33),       # 19
     ]
     checksum = sum(len(field) for field in fields) + 19
     fields.append(f"{checksum:03d}")
