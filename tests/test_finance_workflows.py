@@ -151,3 +151,16 @@ def test_payment_status_resyncs_when_invoice_total_changes():
     assert payment_repository.sync_invoice_status(invoice_id, 122) == "Plačan"
     assert payment_repository.sync_invoice_status(invoice_id, 150) == "Delno plačan"
     assert payment_repository.remaining(invoice_id, 150) == 28.0
+
+
+def test_payment_sync_does_not_revive_cancelled_invoice():
+    customer_repository.add(
+        "CANCEL d.o.o.", "Miha", "", "1000", "Ljubljana", "SI", "", "cancel@t.si", "",
+    )
+    customer = customer_repository.search("CANCEL d.o.o.")[0]
+    invoice_id = invoice_repository.add(
+        "RAC-CANCEL-1", customer[0], TODAY, TODAY, 100, 0, 22, 122, "", "Storniran",
+    )
+    payment_repository.add(invoice_id, TODAY, 50, "Nakazilo")
+    assert payment_repository.sync_invoice_status(invoice_id, 122) == "Storniran"
+    assert invoice_repository.get_by_id(invoice_id)[5] == "Storniran"
