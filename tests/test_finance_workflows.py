@@ -137,3 +137,17 @@ def test_upn_qr_rejects_invalid_rf_reference():
     assert build_upn_qr(
         iban="SI56031001001018518", recipient_name="Test", amount=10, reference="RF001234"
     ) is None
+
+
+def test_payment_status_resyncs_when_invoice_total_changes():
+    customer_repository.add(
+        "RESYNC d.o.o.", "Eva", "", "1000", "Ljubljana", "SI", "", "resync@t.si", "",
+    )
+    customer = customer_repository.search("RESYNC d.o.o.")[0]
+    invoice_id = invoice_repository.add(
+        "RAC-RESYNC-1", customer[0], TODAY, TODAY, 100, 0, 22, 122, "", "Izdan",
+    )
+    payment_repository.add(invoice_id, TODAY, 122, "Nakazilo")
+    assert payment_repository.sync_invoice_status(invoice_id, 122) == "Plačan"
+    assert payment_repository.sync_invoice_status(invoice_id, 150) == "Delno plačan"
+    assert payment_repository.remaining(invoice_id, 150) == 28.0
