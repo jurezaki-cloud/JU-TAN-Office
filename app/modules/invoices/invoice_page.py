@@ -180,20 +180,14 @@ class InvoicePage(QWidget):
             )
             return
         try:
-            from app.core.jobs import run_in_thread
-
-            def work():
-                return pdf_export.export_invoice(invoice_id)
-
-            def done(path):
-                pdf_export.show_result(self, path)
-
-            def fail(exc):
-                QMessageBox.warning(self, "PDF", str(exc))
-
-            run_in_thread(work, on_done=done, on_error=fail)
+            # PDF generation is intentionally synchronous here. ReportLab, permissions,
+            # SQLite repositories and desktop opening all participate in this workflow;
+            # keeping it on the GUI thread makes failures visible and avoids silent
+            # worker-callback failures in the packaged Windows application.
+            path = pdf_export.export_invoice(invoice_id)
+            pdf_export.show_result(self, path)
         except Exception as exc:
-            QMessageBox.warning(self, "PDF", str(exc))
+            QMessageBox.warning(self, "PDF", f"PDF ni bilo mogoče ustvariti:\\n{exc}")
 
     def refresh(self):
         self._apply_view()
