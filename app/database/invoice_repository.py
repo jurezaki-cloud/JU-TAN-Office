@@ -234,6 +234,10 @@ class InvoiceRepository:
         conn.commit()
         conn.close()
 
+    def cancel(self, invoice_id):
+        """Preserve the invoice and its ledger; mark it cancelled instead of deleting it."""
+        self.update_status(invoice_id, "Storniran")
+
     def mark_paid(self, invoice_id):
 
         conn = self._connect()
