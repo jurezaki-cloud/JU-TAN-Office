@@ -161,7 +161,11 @@ def test_payment_sync_does_not_revive_cancelled_invoice():
     invoice_id = invoice_repository.add(
         "RAC-CANCEL-1", customer[0], TODAY, TODAY, 100, 0, 22, 122, "", "Storniran",
     )
-    payment_repository.add(invoice_id, TODAY, 50, "Nakazilo")
+    try:
+        payment_repository.add(invoice_id, TODAY, 50, "Nakazilo")
+        assert False, "Cancelled invoice must reject payments"
+    except ValueError:
+        pass
     assert payment_repository.sync_invoice_status(invoice_id, 122) == "Storniran"
     assert invoice_repository.get_by_id(invoice_id)[5] == "Storniran"
 
@@ -178,3 +182,19 @@ def test_invoice_cancellation_preserves_invoice_and_payments():
     invoice_repository.cancel(invoice_id)
     assert invoice_repository.get_by_id(invoice_id)[5] == "Storniran"
     assert payment_repository.sum_for_invoice(invoice_id) == 50.0
+
+
+def test_payment_repository_rejects_zero_negative_and_overpayment():
+    customer_repository.add(
+        "PAY-GUARD d.o.o.", "Guard", "", "1000", "Ljubljana", "SI", "", "guard@t.si", "",
+    )
+    customer = customer_repository.search("PAY-GUARD d.o.o.")[0]
+    invoice_id = invoice_repository.add(
+        "RAC-PAY-GUARD-1", customer[0], TODAY, TODAY, 100, 0, 22, 122, "", "Izdan",
+    )
+    for invalid in (0, -1, 122.01):
+        try:
+            payment_repository.add(invoice_id, TODAY, invalid, "Nakazilo")
+            assert False, f"Payment {invalid} must be rejected"
+        except ValueError:
+            pass
