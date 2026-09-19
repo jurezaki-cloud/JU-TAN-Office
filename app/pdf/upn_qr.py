@@ -20,6 +20,30 @@ def _iban(value: str) -> str:
     return re.sub(r"\s+", "", str(value or "")).upper()
 
 
+def _valid_iban(value: str) -> bool:
+    iban = _iban(value)
+    if not re.fullmatch(r"[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}", iban):
+        return False
+    rearranged = iban[4:] + iban[:4]
+    numeric = "".join(str(ord(ch) - 55) if ch.isalpha() else ch for ch in rearranged)
+    return int(numeric) % 97 == 1
+
+
+def _valid_reference(value: str) -> bool:
+    ref = re.sub(r"\s+", "", str(value or "")).upper()
+    if not ref:
+        return False
+    if ref.startswith("RF"):
+        if not re.fullmatch(r"RF[0-9]{2}[A-Z0-9]{1,21}", ref):
+            return False
+        rearranged = ref[4:] + ref[:4]
+        numeric = "".join(str(ord(ch) - 55) if ch.isalpha() else ch for ch in rearranged)
+        return int(numeric) % 97 == 1
+    if ref.startswith("SI"):
+        return bool(re.fullmatch(r"SI[0-9]{2}[0-9\-]{1,22}", ref))
+    return False
+
+
 def _amount_field(amount) -> str:
     cents = int(money(amount) * 100)
     if cents < 0:
@@ -58,7 +82,7 @@ def build_upn_qr(
     payer_city: str = "",
 ) -> str | None:
     clean_iban = _iban(iban)
-    if not clean_iban or len(clean_iban) < 15:
+    if not _valid_iban(clean_iban):
         return None
     if to_decimal(amount) <= 0:
         return None
