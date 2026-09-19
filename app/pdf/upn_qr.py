@@ -32,8 +32,8 @@ def _due(value: str) -> str:
     if len(raw) == 8:
         # yyyymmdd → ddmmyyyy if looks like ISO
         if int(raw[:4]) > 1900:
-            return raw[6:8] + raw[4:6] + raw[0:4]
-        return raw
+            return f"{raw[6:8]}.{raw[4:6]}.{raw[0:4]}"
+        return f"{raw[0:2]}.{raw[2:4]}.{raw[4:8]}"
     return ""
 
 
