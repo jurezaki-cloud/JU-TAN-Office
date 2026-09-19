@@ -125,3 +125,15 @@ def test_upn_qr_field_positions_match_zbs_standard():
 def test_upn_qr_preserves_slovenian_characters():
     payload = build_upn_qr(iban="SI56031001001018518", recipient_name="ČŽŠ d.o.o.", amount=1, reference="SI001")
     assert "ČŽŠ d.o.o." in payload
+
+
+def test_upn_qr_rejects_invalid_iban_checksum():
+    assert build_upn_qr(
+        iban="SI56031001001018519", recipient_name="Test", amount=10, reference="SI001"
+    ) is None
+
+
+def test_upn_qr_rejects_invalid_rf_reference():
+    assert build_upn_qr(
+        iban="SI56031001001018518", recipient_name="Test", amount=10, reference="RF001234"
+    ) is None
