@@ -33,6 +33,21 @@ class PaymentRepository:
 
     def add(self, invoice_id, paid_date, amount, method, notes="") -> int:
         self.ensure_schema()
+        from app.database.invoice_repository import invoice_repository
+
+        invoice = invoice_repository.get_by_id(invoice_id)
+        if invoice is None:
+            raise ValueError("Račun ne obstaja.")
+        if (invoice[5] or "").strip() == "Storniran":
+            raise ValueError("Storniranega računa ni mogoče plačati.")
+
+        value = money(amount)
+        if value <= 0:
+            raise ValueError("Znesek plačila mora biti večji od 0.")
+        remaining = money(self.remaining(invoice_id, invoice[9] or 0))
+        if value > remaining:
+            raise ValueError("Znesek plačila presega preostalo vsoto.")
+
         conn = db.connect()
         cursor = conn.cursor()
         cursor.execute(
@@ -40,7 +55,7 @@ class PaymentRepository:
             INSERT INTO payments(invoice_id, paid_date, amount, method, notes)
             VALUES (?,?,?,?,?)
             """,
-            (invoice_id, paid_date, as_float(amount), method, notes),
+            (invoice_id, paid_date, as_float(value), method, notes),
         )
         conn.commit()
         payment_id = cursor.lastrowid
