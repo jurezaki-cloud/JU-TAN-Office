@@ -234,19 +234,20 @@ class InvoiceDialog(EnterpriseDialog):
         for row in self.items_model.items:
             qty = row[2]
             price = row[4]
-            vat = row[5]
+            discount = row[5]
+            vat = row[6]
             invoice_repository.add_item(
                 invoice_id=invoice_id,
-                article_id=row[7],
+                article_id=row[8],
                 code=row[0],
                 name=row[1],
                 description="",
                 quantity=qty,
                 unit=row[3],
                 price=price,
-                discount=0,
+                discount=discount,
                 vat=vat,
-                total=as_float(line_gross(qty, price, vat, 0)),
+                total=as_float(line_gross(qty, price, vat, discount)),
             )
 
         audit("create" if self.invoice_id is None else "edit", f"invoice:{invoice_id}")
@@ -295,6 +296,7 @@ class InvoiceDialog(EnterpriseDialog):
                 item[5],
                 item[6],
                 item[7],
+                item[8] or 0,
                 item[9],
                 item[10],
                 item[1],
