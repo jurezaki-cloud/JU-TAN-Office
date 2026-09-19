@@ -99,3 +99,24 @@ def test_partial_payment_remaining_balance_for_dashboard():
     payment_repository.add(invoice_id, TODAY, 50, "Nakazilo")
     payment_repository.sync_invoice_status(invoice_id, 122)
     assert payment_repository.remaining(invoice_id, 122) == 72.0
+
+
+def test_upn_qr_field_positions_match_zbs_standard():
+    payload = build_upn_qr(
+        iban="SI56031001001018518", recipient_name="JU-TAN d.o.o.",
+        recipient_address="Ulica 1", recipient_city="1000 Ljubljana", amount=122.50,
+        reference="SI001234", purpose="Racun 1234", purpose_code="OTHR", due_date="2026-10-03",
+        payer_name="Kupec d.o.o.", payer_address="Cesta 2", payer_city="2000 Maribor",
+    )
+    fields = payload.rstrip("\n").split("\n")
+    assert len(fields) == 20
+    assert fields[0] == "UPNQR"
+    assert fields[3] == ""  # withdrawal
+    assert fields[4] == ""  # payer reference
+    assert fields[5] == "Kupec d.o.o."
+    assert fields[8] == "00000012250"
+    assert fields[11] == "OTHR"
+    assert fields[13] == "03102026"
+    assert fields[14] == "SI56031001001018518"
+    assert fields[15] == "SI001234"
+    assert fields[16] == "JU-TAN d.o.o."
