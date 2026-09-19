@@ -211,6 +211,10 @@ class InvoicePage(QWidget):
         return self.model.invoice_id(indexes[0].row())
 
     def delete_invoice(self):
+        from app.core.permissions import allow, audit
+
+        if not allow("delete", self):
+            return
 
         invoice_id = self.selected_invoice()
 
@@ -229,6 +233,7 @@ class InvoicePage(QWidget):
 
         if reply == QMessageBox.Yes:
             invoice_repository.delete(invoice_id)
+            audit("delete", f"invoice:{invoice_id}")
             self.refresh()
 
     def _apply_view(self, *_args):

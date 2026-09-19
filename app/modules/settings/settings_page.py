@@ -16,7 +16,7 @@ from app.core.constants import BACKUP_DIR
 from app.core.permissions import set_identity
 from app.core.session import session
 from app.core.ui.notify import toast
-from app.modules.settings.settings_controller import PLACEHOLDER, SettingsController
+from app.modules.settings.settings_controller import SettingsController
 from app.widgets.settings.about_card import AboutCard
 from app.widgets.settings.appearance_card import AppearanceCard
 from app.widgets.settings.backup_card import BackupCard
@@ -148,9 +148,27 @@ class SettingsPage(QWidget):
         }
 
     def _save(self):
-        self.controller.save_bundle(self.company_card.values(), self.extras())
-        set_identity(role=self.security_card.role.currentText())
+        from app.core.permissions import can, current_role
+
+        extras = self.extras()
+        requested_role = self.security_card.role.currentText()
+        if requested_role != current_role() and not can("users"):
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(
+                self,
+                "Vloga",
+                "Sprememba vloge zahteva dovoljenje Administratorja.",
+            )
+            extras["role"] = current_role()
+            self.security_card.role.setCurrentText(current_role())
+        self.controller.save_bundle(self.company_card.values(), extras)
+        if can("users"):
+            set_identity(role=requested_role)
         session.timeout_sec = int(self.security_card.timeout.value()) * 60
+        sidebar = getattr(self.window(), "sidebar", None)
+        if sidebar is not None and hasattr(sidebar, "apply_role"):
+            sidebar.apply_role()
         self._apply_appearance()
         self.save_settings.emit()
         toast(self, "Nastavitve so shranjene.")
@@ -174,10 +192,12 @@ class SettingsPage(QWidget):
     def _backup(self):
         self.backup_requested.emit()
         try:
-            target = self.controller.backup_database()
+            self.controller.backup_database()
             toast(self, "Varnostna kopija uspešna")
-        except Exception:
-            QMessageBox.information(self, "Backup", PLACEHOLDER)
+        except Exception as exc:
+            from app.core.errors import handle_error
+
+            handle_error(exc, context="backup", parent=self)
 
     def _restore(self):
         self.restore_requested.emit()
@@ -196,8 +216,10 @@ class SettingsPage(QWidget):
                 "Restore",
                 "Baza je obnovljena. Ponovno zaženite aplikacijo.",
             )
-        except Exception:
-            QMessageBox.information(self, "Restore", PLACEHOLDER)
+        except Exception as exc:
+            from app.core.errors import handle_error
+
+            handle_error(exc, context="restore", parent=self)
 
     def _export_settings(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -211,8 +233,10 @@ class SettingsPage(QWidget):
         try:
             self.controller.export_settings(Path(path))
             toast(self, "Nastavitve so izvožene.")
-        except Exception:
-            QMessageBox.information(self, "Settings", PLACEHOLDER)
+        except Exception as exc:
+            from app.core.errors import handle_error
+
+            handle_error(exc, context="settings_export", parent=self)
 
     def _import_settings(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -232,8 +256,10 @@ class SettingsPage(QWidget):
             self.pdf_card.set_values(extras.get("pdf", {}))
             self._apply_appearance()
             toast(self, "Nastavitve so uvožene.")
-        except Exception:
-            QMessageBox.information(self, "Settings", PLACEHOLDER)
+        except Exception as exc:
+            from app.core.errors import handle_error
+
+            handle_error(exc, context="settings_import", parent=self)
 
     def _change_password(self):
         try:
@@ -249,6 +275,15 @@ class SettingsPage(QWidget):
 
     def _logout(self):
         session.logout()
+        extras = self.controller.load_extras()
+        if extras.get("password_hash"):
+            from app.windows.unlock_dialog import UnlockDialog
+            from PySide6.QtWidgets import QDialog
+
+            dlg = UnlockDialog(self.window())
+            if dlg.exec() != QDialog.Accepted:
+                QApplication.quit()
+            return
         toast(self, "Odjavljeni ste. Ob naslednjem zagonu bo potrebna prijava.")
 
     def _open_backup_folder(self):

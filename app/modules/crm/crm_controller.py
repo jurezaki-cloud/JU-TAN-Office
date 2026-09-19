@@ -62,6 +62,10 @@ class CrmController:
         return excel_folders()["export"] / "crm.xlsx"
 
     def print_html(self, deals: list) -> str:
+        from app.core.permissions import audit, require
+
+        require("print")
+        audit("print", "crm")
         rows = "".join(
             "<tr>"
             f"<td>{escape(str(row[3] or ''))}</td>"

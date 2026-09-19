@@ -248,6 +248,28 @@ class InvoiceRepository:
         conn.commit()
         conn.close()
 
+        try:
+            from app.database.payment_repository import payment_repository
+
+            invoice = self.get_by_id(invoice_id)
+            if invoice is None:
+                return
+            total = float(invoice[9] or 0)
+            remaining = payment_repository.remaining(invoice_id, total)
+            if remaining > 0:
+                from datetime import date
+
+                payment_repository.add(
+                    invoice_id,
+                    date.today().isoformat(),
+                    remaining,
+                    "Nakazilo",
+                    "mark_paid",
+                )
+            payment_repository.sync_invoice_status(invoice_id, total)
+        except Exception:
+            pass
+
     def mark_draft(self, invoice_id):
 
         conn = self._connect()
@@ -534,40 +556,39 @@ class InvoiceRepository:
     # =====================================================
 
     def recalculate_totals(self, invoice_id):
+        from app.utils.money import document_totals
+
+        items = self.get_items(invoice_id)
+        lines = [
+            {
+                "quantity": row[5],
+                "price": row[7],
+                "discount": row[8] or 0,
+                "vat": row[9],
+            }
+            for row in items
+        ]
+        totals = document_totals(lines)
 
         conn = self._connect()
         cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT
-                COALESCE(SUM(price * quantity),0),
-                COALESCE(SUM((price * quantity) * discount / 100),0),
-                COALESCE(SUM(total - ((price * quantity) - ((price * quantity) * discount / 100))),0),
-                COALESCE(SUM(total),0)
-            FROM invoice_items
-            WHERE invoice_id=?
-        """, (invoice_id,))
-
-        subtotal, discount, vat, total = cursor.fetchone()
-
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE invoices
-            SET
-                subtotal=?,
-                discount=?,
-                vat=?,
-                total=?
+            SET subtotal=?, discount=?, vat=?, total=?
             WHERE id=?
-        """, (
-            subtotal,
-            discount,
-            vat,
-            total,
-            invoice_id,
-        ))
-
+            """,
+            (
+                totals["subtotal"],
+                totals["discount"],
+                totals["vat"],
+                totals["total"],
+                invoice_id,
+            ),
+        )
         conn.commit()
         conn.close()
+        return totals
 
     # =====================================================
     # DASHBOARD / ANALITIKA

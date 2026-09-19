@@ -143,6 +143,10 @@ class CompanyPage(QWidget):
         self.notes.setPlainText(notes or "")
 
     def save(self):
+        from app.core.permissions import allow, audit
+
+        if not allow("settings", self):
+            return
 
         company_repository.save(
             self.name.text(),
@@ -167,5 +171,6 @@ class CompanyPage(QWidget):
             22,
             self.notes.toPlainText(),
         )
+        audit("edit", "company")
 
         toast(self, "Podatki podjetja so shranjeni")

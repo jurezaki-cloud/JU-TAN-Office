@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
+from app.core.permissions import gated
 from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
 from app.database.offer_repository import offer_repository
@@ -34,6 +35,7 @@ class CrmService:
     def priorities(self) -> tuple[str, ...]:
         return PRIORITIES
 
+    @gated("write", "create")
     def create_lead(self, data: dict) -> int:
         company = (data.get("company") or "").strip()
         customer_id = data.get("customer_id") or self._match_customer(company)
@@ -57,6 +59,7 @@ class CrmService:
             value=data.get("value") or 0,
         )
 
+    @gated("write", "create")
     def add_activity(self, data: dict) -> int:
         activity_id = self.repository.add_activity(**data)
         if (data.get("type") or "") == "Note" and data.get("notes"):
@@ -68,6 +71,7 @@ class CrmService:
             )
         return activity_id
 
+    @gated("write", "edit")
     def set_stage(self, deal_id: int, stage: str) -> None:
         if stage not in STAGES:
             raise ValueError("Neznan stage.")

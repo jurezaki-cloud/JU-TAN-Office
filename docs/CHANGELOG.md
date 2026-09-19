@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 — production hardening (2026-09-19)
+
+- Centralized EUR money math (`app/utils/money.py`) for editors, recalculation, PDF.
+- Offer → invoice conversion implemented (was placeholder).
+- Partial/full payment ledger (`payments` table) with Delno plačan / Plačan sync.
+- Real UPN QR on invoice PDFs when IBAN + amount are present.
+- Removed mock analytics/dashboard chart samples; empty states instead.
+- Settings restore/import/export show real errors (no “coming soon” on failure).
+- Slovenian navigation/toolbar labels; dashboard unpaid/overdue KPIs.
+- RBAC page gating + crash recovery (from security hardening workstream).
+- **Follow-up:** re-enabled unlock login; settings export strips secrets; role change requires `users`; Read Only cannot open Settings; Excel import reverse-splits VAT; new invoices saved as `Izdan`; PDF export promotes `Osnutek` → `Izdan`.
+
 ## 1.0.0 GOLD — 2026-09-12
 
 Uradna produkcijska izdaja JU-TAN Office Enterprise.
@@ -39,8 +51,8 @@ Prva kandidatka za produkcijsko izdajo. **Code freeze:** ni novih modulov, tabel
 
 ### Znane omejitve
 
-- Ni ločene prijave (lokalna enouporabniška namizna aplikacija).
-- RBAC je revizijski sloj; vse akcije so v v1.0 dovoljene in zabeležene.
+- Ni ločene večuporabniške prijave (lokalna namizna aplikacija z vlogami).
+- RBAC je obvezen na zapisu, brisanju, izvozu, tisku in nastavitvah; Read Only vidi module, ne more spreminjati.
 - Analitika ima deloma vzorčne grafikone.
 - Poročilo **Service** je placeholder.
 - Windows installer ni Authenticode podpisan.

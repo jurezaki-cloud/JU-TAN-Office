@@ -151,7 +151,12 @@ class OrderPage(QWidget):
             "Ali res želiš izbrisati naročilo?",
         )
         if reply == QMessageBox.Yes:
+            from app.core.permissions import allow, audit
+
+            if not allow("delete", self):
+                return
             order_repository.delete(order_id)
+            audit("delete", f"order:{order_id}")
             self.details.clear()
             self.refresh()
 

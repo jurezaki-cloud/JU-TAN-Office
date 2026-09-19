@@ -118,18 +118,29 @@ class ReportingService:
         }
 
     def export_excel(self, result: ReportResult, path: Path) -> Path:
+        from app.core.permissions import audit, require
+
+        require("export")
+        audit("export", Path(path).name)
         return write_workbook(path, "reports", result.headers, result.rows)
 
     def export_csv(self, result: ReportResult, path: Path) -> Path:
+        from app.core.permissions import audit, require
+
+        require("export")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         lines = [";".join(_csv(value) for value in result.headers)]
         for row in result.rows:
             lines.append(";".join(_csv(value) for value in row))
         path.write_text("\n".join(lines), encoding="utf-8-sig")
+        audit("export", path.name)
         return path
 
     def export_pdf(self, result: ReportResult, path: Path) -> Path:
+        from app.core.permissions import audit, require
+
+        require("export")
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib.units import mm
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -174,6 +185,7 @@ class ReportingService:
             table,
         ]
         doc.build(story)
+        audit("export", path.name)
         return path
 
     def export_start(self, suffix: str) -> Path:
@@ -181,6 +193,10 @@ class ReportingService:
         return folder / f"report.{suffix}"
 
     def print_html(self, result: ReportResult) -> str:
+        from app.core.permissions import audit, require
+
+        require("print")
+        audit("print", result.key)
         head = "".join(f"<th>{_esc(h)}</th>" for h in result.headers)
         body = "".join(
             "<tr>" + "".join(f"<td>{_esc(c)}</td>" for c in row) + "</tr>"

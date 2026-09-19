@@ -1,6 +1,7 @@
-"""Glavno okno — fiksni indeksi QStackedWidget, strani se naložijo ob prvem obisku."""
+﻿"""Glavno okno — fiksni indeksi QStackedWidget, strani se naložijo ob prvem obisku."""
 
 from __future__ import annotations
+from PySide6.QtWidgets import QDialog
 
 import sys
 
@@ -56,6 +57,7 @@ class MainWindow(QMainWindow):
         root_layout.setSpacing(0)
 
         self.sidebar = ModernSidebar()
+        self.sidebar.apply_role()
         root_layout.addWidget(self.sidebar)
 
         right = QWidget()
@@ -124,6 +126,12 @@ class MainWindow(QMainWindow):
         self.dashboard.new_offer_requested.connect(lambda: self.offers.new_offer())
 
     def change_page(self, index):
+        from app.core.permissions import can_open_page
+        from app.core.ui.notify import toast
+
+        if not can_open_page(index):
+            toast(self, "Ni dovoljenja za ta modul.")
+            return
         if index == 0:
             self.dashboard.refresh()
         elif index == 1:
@@ -278,6 +286,7 @@ def run():
     install_excepthook()
     qInstallMessageHandler(_qt_message)
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     QPixmapCache.setCacheLimit(20 * 1024)
     splash_pix = QPixmap(420, 200)
     splash_pix.fill(QColor("#0F172A"))
@@ -321,13 +330,17 @@ def run():
         splash.hide()
         from app.windows.unlock_dialog import UnlockDialog
         unlock = UnlockDialog()
-        if unlock.exec() != unlock.Accepted:
+        if unlock.exec() != QDialog.DialogCode.Accepted:
             sys.exit(0)
         splash.show()
         app.processEvents()
     else:
         from app.core.session import session
-        session.login(extras.get("administrator") or "Administrator", extras.get("role") or "Administrator")
+        session.remember_user = bool(extras.get("remember_user", True))
+        session.login(
+            extras.get("administrator") or "Administrator",
+            extras.get("role") or "Administrator",
+        )
     window = MainWindow()
     span.mark("window")
     window.show()
@@ -373,7 +386,7 @@ def run():
             app_session.lock()
             from app.windows.unlock_dialog import UnlockDialog
             dlg = UnlockDialog(window)
-            if dlg.exec() != dlg.Accepted:
+            if dlg.exec() != QDialog.DialogCode.Accepted:
                 sys.exit(0)
 
     lock_timer = QTimer(window)
@@ -381,3 +394,7 @@ def run():
     lock_timer.start(15000)
     logger.info("%s", span.summary())
     sys.exit(app.exec())
+
+
+
+

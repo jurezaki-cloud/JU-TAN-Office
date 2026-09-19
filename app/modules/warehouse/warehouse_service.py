@@ -172,6 +172,9 @@ class WarehouseService:
         min_qty: float | None = None,
         counted: float | None = None,
     ) -> dict[str, Any]:
+        from app.core.permissions import audit, require
+
+        require("write")
         if movement_type not in MOVEMENT_TYPES:
             raise ValueError("Neznana vrsta gibanja.")
         article = article_repository.get_by_id(article_id)
@@ -213,6 +216,7 @@ class WarehouseService:
         }
         data.setdefault("movements", []).append(movement)
         self._save(data)
+        audit("create", f"warehouse:{movement['id']}")
         return movement
 
     def confirm_inventory(
@@ -222,6 +226,9 @@ class WarehouseService:
         user: str,
         note: str = "",
     ) -> int:
+        from app.core.permissions import require
+
+        require("write")
         applied = 0
         for item in counts:
             counted = _num(item.get("counted"))

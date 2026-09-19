@@ -17,14 +17,16 @@ FRIENDLY = {
 
 
 def friendly_message(exc: BaseException) -> str:
-    """Pretvori tehnično izjemo v sporočilo za uporabnika."""
+    """Pretvori tehnično izjemo v sporočilo za uporabnika (brez traceback)."""
     name = type(exc).__name__
+    text = str(exc).strip()
+    if "Traceback" in text or 'File "' in text or ".py:" in text:
+        return "Prišlo je do nepričakovane napake."
+    if name in ("ValueError", "PermissionError") and text:
+        return text
     if name in FRIENDLY:
         return FRIENDLY[name]
-    text = str(exc).strip()
-    if "Traceback" in text or 'File "' in text:
-        return "Prišlo je do nepričakovane napake."
-    return text or "Prišlo je do nepričakovane napake."
+    return "Prišlo je do nepričakovane napake."
 
 
 def handle_error(

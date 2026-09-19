@@ -122,39 +122,37 @@ class OrderDialog(EnterpriseDialog):
         self.update_total()
 
     def update_total(self):
-        subtotal = 0
-        vat = 0
-        for row in self.items_model.items:
-            base = float(row[2]) * float(row[4])
-            subtotal += base
-            vat += base * float(row[5]) / 100
-        self.lbl_subtotal.setText(f"{subtotal:.2f} €")
-        self.lbl_vat.setText(f"{vat:.2f} €")
-        self.lbl_total.setText(f"{subtotal + vat:.2f} €")
+        from app.utils.money import document_totals, format_eur
+
+        totals = document_totals(self.items_model.items)
+        self.lbl_subtotal.setText(format_eur(totals["subtotal"]))
+        self.lbl_vat.setText(format_eur(totals["vat"]))
+        self.lbl_total.setText(format_eur(totals["total"]))
 
     def save(self):
+        from app.core.permissions import allow, audit
+        from app.core.ui.notify import toast
+        from app.utils.money import as_float, document_totals, line_gross
+
+        if not allow("write", self):
+            return
         if self.customer.currentIndex() == -1:
+            toast(self, "Izberite stranko.")
             return
         if len(self.items_model.items) == 0:
+            toast(self, "Dodajte vsaj eno postavko.")
             return
 
-        subtotal = 0
-        vat_amount = 0
-        for row in self.items_model.items:
-            base = float(row[2]) * float(row[4])
-            subtotal += base
-            vat_amount += base * float(row[5]) / 100
-        total = subtotal + vat_amount
-
+        totals = document_totals(self.items_model.items)
         payload = dict(
             customer_id=self.customer.currentData(),
             issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
             delivery_date=self.delivery_date.date().toString("yyyy-MM-dd"),
             status=self.status.currentText(),
-            subtotal=subtotal,
-            discount=0,
-            vat=vat_amount,
-            total=total,
+            subtotal=totals["subtotal"],
+            discount=totals["discount"],
+            vat=totals["vat"],
+            total=totals["total"],
             notes=self.notes.toPlainText(),
         )
 
@@ -180,8 +178,9 @@ class OrderDialog(EnterpriseDialog):
                 price=row[4],
                 discount=0,
                 vat=row[5],
-                total=row[6],
+                total=as_float(line_gross(row[2], row[4], row[5], 0)),
             )
+        audit("create" if self.order_id is None else "edit", f"order:{order_id}")
         self.accept()
 
     def load_order(self):

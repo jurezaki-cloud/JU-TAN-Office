@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.database.article_repository import article_repository
 from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
 from app.database.offer_repository import offer_repository
@@ -58,10 +57,10 @@ class Dashboard(QWidget):
         self._grid.setVerticalSpacing(16)
 
         self._welcome = self._build_welcome()
-        self._kpi_invoices = KpiCard("Število računov", "0", "Vsi izdani dokumenti")
+        self._kpi_invoices = KpiCard("Število računov", "0", "Vsi dokumenti")
         self._kpi_revenue = KpiCard("Promet", "0,00 €", "Skupni promet")
-        self._kpi_customers = KpiCard("Število strank", "0", "Register strank")
-        self._kpi_articles = KpiCard("Število artiklov", "0", "Katalog artiklov")
+        self._kpi_unpaid = KpiCard("Neplačano", "0,00 €", "Odprti računi")
+        self._kpi_overdue = KpiCard("Zapadlo", "0,00 €", "Po roku plačila")
         self._chart_card = self._build_chart_card()
         self._quick_card = self._build_quick_card()
         self._invoices_card = self._build_invoices_card()
@@ -203,8 +202,8 @@ class Dashboard(QWidget):
         kpis = (
             self._kpi_invoices,
             self._kpi_revenue,
-            self._kpi_customers,
-            self._kpi_articles,
+            self._kpi_unpaid,
+            self._kpi_overdue,
         )
 
         if mode == "wide":
@@ -221,8 +220,8 @@ class Dashboard(QWidget):
             self._grid.addWidget(self._welcome, 0, 0, 1, 2)
             self._grid.addWidget(self._kpi_invoices, 1, 0)
             self._grid.addWidget(self._kpi_revenue, 1, 1)
-            self._grid.addWidget(self._kpi_customers, 2, 0)
-            self._grid.addWidget(self._kpi_articles, 2, 1)
+            self._grid.addWidget(self._kpi_unpaid, 2, 0)
+            self._grid.addWidget(self._kpi_overdue, 2, 1)
             self._grid.addWidget(self._chart_card, 3, 0, 1, 2)
             self._grid.addWidget(self._quick_card, 4, 0, 1, 2)
             self._grid.addWidget(self._invoices_card, 5, 0)
@@ -247,17 +246,29 @@ class Dashboard(QWidget):
             self._grid.setColumnStretch(3, 0)
 
     def refresh(self):
+        from app.widgets.invoices.status_badge import invoice_badge
+
         invoices = invoice_repository.get_all()
-        customers = customer_repository.get_all()
-        articles = article_repository.get_all()
         offers = offer_repository.get_all()
+        customers = customer_repository.get_all()
         revenue = float(invoice_repository.get_total_revenue() or 0)
+        unpaid = 0.0
+        overdue = 0.0
+        for row in invoices:
+            full = invoice_repository.get_by_id(row[0])
+            due = full[4] if full else None
+            badge = invoice_badge(row[5], due)
+            total = float(row[4] or 0)
+            if badge in ("Neplačano", "Delno plačano", "Zapadlo"):
+                unpaid += total
+            if badge == "Zapadlo":
+                overdue += total
 
         self._date_label.setText(self._today_label())
         self._kpi_invoices.set_value(str(len(invoices)))
         self._kpi_revenue.set_value(self._money(revenue))
-        self._kpi_customers.set_value(str(len(customers)))
-        self._kpi_articles.set_value(str(len(articles)))
+        self._kpi_unpaid.set_value(self._money(unpaid))
+        self._kpi_overdue.set_value(self._money(overdue))
 
         self.chart.set_points(self._chart_points())
         self._fill_invoices(invoices[:8])
@@ -279,8 +290,6 @@ class Dashboard(QWidget):
             key = f"{year:04d}-{month_index:02d}"
             points.append((SLO_MONTHS[month_index - 1], monthly.get(key, 0.0)))
 
-        if not any(value for _, value in points):
-            return RevenueChart._placeholder_points()
         return points
 
     def _fill_invoices(self, rows) -> None:
@@ -333,10 +342,9 @@ class Dashboard(QWidget):
 
     @staticmethod
     def _money(value) -> str:
-        try:
-            return f"{float(value):,.2f} €".replace(",", " ")
-        except (TypeError, ValueError):
-            return "0.00 €"
+        from app.utils.money import format_eur
+
+        return format_eur(value)
 
     @staticmethod
     def _today_label() -> str:

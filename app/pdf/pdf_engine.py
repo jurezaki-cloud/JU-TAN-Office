@@ -170,7 +170,51 @@ class PdfEngine:
                 ("LINEABOVE", (0, 0), (-1, 0), 0.4, BORDER),
             ])
         )
-        return [Spacer(1, PAD), table]
+        blocks = [Spacer(1, PAD), table]
+        qr = self._qr_flowable(document, company)
+        if qr is not None:
+            blocks.append(Spacer(1, PAD))
+            blocks.append(qr)
+        return blocks
+
+    def _qr_flowable(self, document: PdfDocument, company: CompanyProfile):
+        if document.doc_type != "invoice":
+            return None
+        from reportlab.graphics.barcode import qr
+        from reportlab.graphics.shapes import Drawing
+        from reportlab.platypus import KeepTogether
+
+        from app.pdf.upn_qr import build_upn_qr
+
+        city = " ".join(
+            part for part in (company.postal_code or "", company.city or "") if part
+        ).strip()
+        payload = build_upn_qr(
+            iban=company.iban or "",
+            recipient_name=company.name or "",
+            recipient_address=company.address or "",
+            recipient_city=city,
+            amount=document.total,
+            reference=document.reference or document.number,
+            purpose=f"Račun {document.number}",
+            due_date=document.due_date or "",
+            payer_name=document.customer_name or "",
+            payer_address=document.customer_address or "",
+            payer_city=document.customer_city or "",
+        )
+        if not payload:
+            return None
+
+        look = styles()
+        code = qr.QrCodeWidget(payload)
+        bounds = code.getBounds()
+        width = bounds[2] - bounds[0]
+        height = bounds[3] - bounds[1]
+        size = 38 * mm
+        drawing = Drawing(size, size, transform=[size / width, 0, 0, size / height, 0, 0])
+        drawing.add(code)
+        label = Paragraph("UPN QR za plačilo", look["label"])
+        return KeepTogether([label, drawing])
 
     def _signature_block(self, options: dict):
         look = styles()

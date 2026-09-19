@@ -1,5 +1,5 @@
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QWidget
 
 from app.core.permissions import ROLES
 from app.core.ui.form_grid import FormGrid
@@ -31,7 +31,10 @@ class SecurityCard(QWidget):
         self.new.setEchoMode(QLineEdit.Password)
         grid.add("Vloga", self.role, "Timeout", self.timeout)
         grid.add("Staro geslo", self.old, "Novo geslo", self.new)
+        self.remember = QCheckBox("Zapomni uporabnika")
+        self.remember.setChecked(True)
         card.body.addLayout(grid.layout)
+        card.body.addWidget(self.remember)
         self.btn_password = QPushButton("Spremeni geslo")
         self.btn_password.setObjectName("SecondaryButton")
         self.btn_logout = QPushButton("Odjava")
@@ -46,11 +49,16 @@ class SecurityCard(QWidget):
         return {
             "role": self.role.currentText(),
             "session_timeout_min": self.timeout.value(),
+            "remember_user": self.remember.isChecked(),
         }
 
     def set_values(self, extras: dict) -> None:
+        from app.core.permissions import can
+
         role = extras.get("role") or "Administrator"
         index = self.role.findText(role)
         if index >= 0:
             self.role.setCurrentIndex(index)
+        self.role.setEnabled(can("users"))
         self.timeout.setValue(int(extras.get("session_timeout_min") or 30))
+        self.remember.setChecked(bool(extras.get("remember_user", True)))

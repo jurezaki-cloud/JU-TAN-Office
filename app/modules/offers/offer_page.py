@@ -155,8 +155,13 @@ class OfferPage(QWidget):
             "Ali res želiš izbrisati ponudbo?",
         )
         if reply == QMessageBox.Yes:
+            from app.core.permissions import allow, audit
+
+            if not allow("delete", self):
+                return
             offer_repository.delete_items(offer_id)
             offer_repository.delete(offer_id)
+            audit("delete", f"offer:{offer_id}")
             self.details.clear()
             self.refresh()
 
@@ -176,10 +181,91 @@ class OfferPage(QWidget):
             QMessageBox.warning(self, "PDF", str(exc))
 
     def convert_invoice(self):
+        from app.core.permissions import allow, audit
+        from app.core.ui.notify import toast
+        from app.database.invoice_repository import invoice_repository
+        from datetime import date, timedelta
+
+        if not allow("write", self):
+            return
+        offer_id = self.selected_offer()
+        if offer_id is None:
+            QMessageBox.information(self, "Ponudbe", "Izberite ponudbo.")
+            return
+
+        offer = offer_repository.get_by_id(offer_id)
+        if offer is None:
+            QMessageBox.warning(self, "Ponudbe", "Ponudba ne obstaja.")
+            return
+
+        items = offer_repository.get_items(offer_id)
+        if not items:
+            QMessageBox.warning(self, "Ponudbe", "Ponudba nima postavk.")
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Pretvori v račun",
+            f"Pretvorim ponudbo {offer[1]} v nov račun?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        today = date.today()
+        due = today + timedelta(days=30)
+        number = invoice_repository.get_next_number()
+        invoice_id = invoice_repository.add(
+            invoice_number=number,
+            customer_id=offer[2],
+            issue_date=today.isoformat(),
+            due_date=due.isoformat(),
+            subtotal=float(offer[6] or 0),
+            discount=float(offer[7] or 0),
+            vat=float(offer[8] or 0),
+            total=float(offer[9] or 0),
+            notes=(offer[10] or "") + (f"\n[Iz ponudbe {offer[1]}]" if offer[1] else ""),
+            status="Izdan",
+        )
+        invoice_repository.increase_counter()
+
+        for item in items:
+            # offer item: id, article_id, code, name, description,
+            # quantity, unit, price, discount, vat, total
+            invoice_repository.add_item(
+                invoice_id=invoice_id,
+                article_id=item[1],
+                code=item[2],
+                name=item[3],
+                description=item[4] or "",
+                quantity=item[5],
+                unit=item[6],
+                price=item[7],
+                discount=item[8] or 0,
+                vat=item[9],
+                total=item[10],
+            )
+
+        offer_repository.update(
+            offer_id,
+            customer_id=offer[2],
+            issue_date=offer[3],
+            valid_until=offer[4],
+            status="Sprejeta",
+            subtotal=offer[6],
+            discount=offer[7],
+            vat=offer[8],
+            total=offer[9],
+            notes=offer[10] or "",
+        )
+        audit("create", f"invoice_from_offer:{offer_id}->{invoice_id}")
+        self.refresh()
+        toast(self, f"Račun {number} je ustvarjen.")
         QMessageBox.information(
             self,
-            "Ponudbe",
-            "Pretvorba v račun bo dodana kmalu."
+            "Račun",
+            f"Ponudba je pretvorjena v račun {number}.",
         )
 
     def selected_offer(self):

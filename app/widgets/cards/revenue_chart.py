@@ -1,5 +1,3 @@
-from datetime import date
-
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
@@ -13,7 +11,7 @@ SLO_MONTHS = (
 
 
 class RevenueChart(QWidget):
-    """Enostaven stolpčni graf; začasni podatki, če v bazi ni prometa."""
+    """Stolpčni graf iz realnih mesečnih podatkov (prazno, če ni prometa)."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -31,7 +29,14 @@ class RevenueChart(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        points = self._points or self._placeholder_points()
+        points = self._points
+        if not points:
+            painter.setPen(QPen(QColor(LightColors.SECONDARY)))
+            painter.setFont(QFont("Segoe UI", 10))
+            painter.drawText(self.rect(), Qt.AlignCenter, "Ni podatkov za graf")
+            painter.end()
+            return
+
         values = [float(v) for _, v in points]
         peak = max(values) if values and max(values) > 0 else 1.0
 
@@ -66,10 +71,3 @@ class RevenueChart(QWidget):
             )
 
         painter.end()
-
-    @staticmethod
-    def _placeholder_points() -> list[tuple[str, float]]:
-        month = date.today().month
-        labels = [SLO_MONTHS[(month - 6 + i) % 12] for i in range(6)]
-        sample = [4200, 6100, 5400, 7800, 6900, 8600]
-        return list(zip(labels, sample))

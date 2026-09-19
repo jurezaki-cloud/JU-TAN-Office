@@ -72,14 +72,26 @@ class InvoiceItemDialog(EnterpriseDialog):
         self.calculate()
 
     def calculate(self):
-        subtotal = self.quantity.value() * self.price.value()
-        total = subtotal * (1 + self.vat.value() / 100)
-        self.total.setText(f"{total:.2f} €")
+        from app.utils.money import format_eur, line_gross
+
+        total = line_gross(
+            self.quantity.value(),
+            self.price.value(),
+            self.vat.value(),
+            0,
+        )
+        self.total.setText(format_eur(total))
 
     def get_data(self):
+        from app.utils.money import as_float, line_gross
+
         article = self.article.currentData()
-        subtotal = self.quantity.value() * self.price.value()
-        total = subtotal * (1 + self.vat.value() / 100)
+        total = line_gross(
+            self.quantity.value(),
+            self.price.value(),
+            self.vat.value(),
+            0,
+        )
         return [
             article[1],
             article[2],
@@ -87,6 +99,6 @@ class InvoiceItemDialog(EnterpriseDialog):
             article[3],
             self.price.value(),
             self.vat.value(),
-            round(total, 2),
+            as_float(total),
             article[0],
         ]

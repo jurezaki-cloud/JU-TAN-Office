@@ -154,7 +154,10 @@ class CustomerPage(QWidget):
         self._update_status()
 
     def new_customer(self):
+        from app.core.permissions import allow, audit
 
+        if not allow("write", self):
+            return
         dialog = CustomerDialog(self)
 
         if dialog.exec():
@@ -175,6 +178,7 @@ class CustomerPage(QWidget):
                 data["email"],
                 data["phone"],
             )
+            audit("create", f"customer:{data['company']}")
 
             self.refresh()
             toast(self, "Stranka shranjena")
@@ -219,6 +223,10 @@ class CustomerPage(QWidget):
         if dialog.exec():
 
             data = dialog.get_data()
+            from app.core.permissions import allow, audit
+
+            if not allow("write", self):
+                return
 
             customer_repository.update(
                 customer_id,
@@ -232,6 +240,7 @@ class CustomerPage(QWidget):
                 data["email"],
                 data["phone"],
             )
+            audit("edit", f"customer:{customer_id}")
 
             self.refresh()
 
@@ -242,6 +251,10 @@ class CustomerPage(QWidget):
             toast(self, "Stranka shranjena")
 
     def delete_selected_customer(self):
+        from app.core.permissions import allow, audit
+
+        if not allow("delete", self):
+            return
 
         customer_id = self.current_customer_id()
 
@@ -262,6 +275,7 @@ class CustomerPage(QWidget):
         if reply == QMessageBox.Yes:
 
             customer_repository.delete(customer_id)
+            audit("delete", f"customer:{customer_id}")
             self.details.clear()
             self.refresh()
             toast(self, "Stranka izbrisana")

@@ -11,6 +11,7 @@ import traceback
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from pathlib import Path
 
+from app.core.config import DEBUG
 from app.core.constants import LOG_DIR, LOG_FILE
 
 SESSION_USER = os.environ.get("USERNAME") or os.environ.get("USER") or "Administrator"
@@ -74,11 +75,22 @@ if not logger.handlers:
     daily.setFormatter(formatter)
     daily.rotator = _gzip_rotator
     daily.namer = _gzip_namer
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+    weekly = TimedRotatingFileHandler(
+        str(Path(LOG_FILE).with_name("app-weekly.log")),
+        when="W0",
+        backupCount=8,
+        encoding="utf-8",
+    )
+    weekly.setFormatter(formatter)
+    weekly.rotator = _gzip_rotator
+    weekly.namer = _gzip_namer
     logger.addHandler(file_handler)
     logger.addHandler(daily)
-    logger.addHandler(console_handler)
+    logger.addHandler(weekly)
+    if DEBUG:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
 
 def log_exception(exc: BaseException, context: str = "") -> None:

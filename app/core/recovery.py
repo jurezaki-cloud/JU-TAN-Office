@@ -23,6 +23,12 @@ def mark_running() -> bool:
     if crashed:
         logger.warning("Zaznano morebitno sesutje — WAL/osnutki.")
         audit("crash-recovery", str(FLAG))
+        try:
+            from app.core.db_guard import recover_after_crash
+
+            recover_after_crash()
+        except Exception as exc:
+            logger.error("Obnova po sesutju: %s", exc)
     return crashed
 
 

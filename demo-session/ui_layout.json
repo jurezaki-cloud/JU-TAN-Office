@@ -1,0 +1,24 @@
+{
+  "main_window": {
+    "x": 12,
+    "y": 30,
+    "w": 1502,
+    "h": 763,
+    "splitters": [],
+    "columns": [],
+    "sort": []
+  },
+  "page.crm": {
+    "splitters": [
+      "AAAA/wAAAAEAAAACAAACCAAAAWgB/////wEAAAABAA=="
+    ],
+    "columns": [],
+    "sort": [],
+    "filters": [
+      {
+        "t": "edit",
+        "v": ""
+      }
+    ]
+  }
+}

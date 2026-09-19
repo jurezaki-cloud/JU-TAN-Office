@@ -70,7 +70,7 @@ class CompanyCard(QWidget):
         self.logo_label = QLabel("Logotip ni izbran")
         self.logo_label.setObjectName("LogoPreview")
         self.logo_label.setAlignment(Qt.AlignCenter)
-        self.logo_label.setMinimumHeight(72)
+        self.logo_label.setFixedSize(90, 90)
         card.body.addWidget(self.logo_label)
 
         logo_row = QHBoxLayout()
@@ -147,9 +147,12 @@ class CompanyCard(QWidget):
         self.logo_path = path or ""
         if self.logo_path and Path(self.logo_path).exists():
             pixmap = QPixmap(self.logo_path)
-            self.logo_label.setPixmap(
-                pixmap.scaled(160, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            )
+            self.logo_label.setPixmap(pixmap.scaled(
+                90,
+                90,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            ))
             self.logo_label.setText("")
         else:
             self.logo_label.setPixmap(QPixmap())

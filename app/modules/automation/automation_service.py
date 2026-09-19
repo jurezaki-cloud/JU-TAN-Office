@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from app.core.logger import logger
-from app.core.permissions import audit
+from app.core.permissions import audit, require
 from app.database.article_repository import article_repository
 from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
@@ -42,10 +42,12 @@ class AutomationService:
         return self.repository.get_rule(rule_id)
 
     def save(self, data: dict) -> int:
-        audit("write", f"automation:{data.get('name')}")
+        require("write")
+        audit("create", f"automation:{data.get('name')}")
         return self.repository.save_rule(data)
 
     def delete(self, rule_id: int) -> None:
+        require("delete")
         audit("delete", f"automation:{rule_id}")
         self.repository.delete_rule(rule_id)
 

@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from app.core.permissions import gated
 from app.excel.excel_export import excel_folders, write_workbook
 from app.modules.purchase.purchase_repository import (
     PURCHASE_STATUSES,
@@ -65,6 +66,7 @@ class PurchaseController:
     def kpis(self) -> dict:
         return self.repository.kpis()
 
+    @gated("write", "edit")
     def save(self, purchase_id: int | None, header: dict, items: list) -> int:
         if purchase_id is None:
             purchase_id = self.repository.create(
@@ -105,6 +107,7 @@ class PurchaseController:
             )
         return purchase_id
 
+    @gated("delete", "delete")
     def delete(self, purchase_id: int) -> None:
         self.repository.delete(purchase_id)
 
@@ -114,6 +117,7 @@ class PurchaseController:
             return False
         return header[5] in RECEIVABLE_STATUSES
 
+    @gated("write", "edit")
     def receive(
         self,
         purchase_id: int,

@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -77,9 +76,9 @@ class AnalyticsView(QWidget):
 
         self.filters.period_changed.connect(lambda _: self.refresh())
         self.filters.custom_range_changed.connect(self.refresh)
-        self.exports.pdf_clicked.connect(self._export_stub)
-        self.exports.excel_clicked.connect(self._export_stub)
-        self.exports.print_clicked.connect(self._export_stub)
+        self.exports.pdf_clicked.connect(self._export_finance)
+        self.exports.excel_clicked.connect(self._export_finance)
+        self.exports.print_clicked.connect(self._export_finance)
 
         today = date.today()
         self.filters.from_date.setDate(QDate(today.year, today.month, 1))
@@ -221,23 +220,23 @@ class AnalyticsView(QWidget):
 
         self._set_caption(
             self._line_card,
-            "Vzorčni trend" if snapshot.mock_charts else "Linijski trend",
+            "Ni podatkov" if not snapshot.line_points or snapshot.mock_charts else "Linijski trend",
         )
         self._set_caption(
             self._bar_card,
-            "Vzorčni prikaz" if snapshot.mock_charts else "Stolpčni pregled",
+            "Ni podatkov" if not snapshot.bar_points or snapshot.mock_charts else "Stolpčni pregled",
         )
         self._set_caption(
             self._pie_card,
-            "Vzorčni statusi" if snapshot.mock_status else "Delež po statusu",
+            "Ni podatkov" if not snapshot.status_slices else "Delež po statusu",
         )
         self._set_caption(
             self._customers_card,
-            "Vzorčni seznam" if snapshot.mock_customers else "Po izbranem obdobju",
+            "Ni podatkov" if not snapshot.top_customers else "Po izbranem obdobju",
         )
         self._set_caption(
             self._articles_card,
-            "Vzorčni seznam" if snapshot.mock_articles else "Po izbranem obdobju",
+            "Ni podatkov" if not snapshot.top_articles else "Po izbranem obdobju",
         )
 
         self.customers_table.set_rows([
@@ -247,12 +246,28 @@ class AnalyticsView(QWidget):
             (name, self._qty(value)) for name, value in snapshot.top_articles
         ])
 
-    def _export_stub(self):
-        QMessageBox.information(
-            self,
-            "Analytics",
-            self.controller.export_notice(),
-        )
+    def _export_finance(self):
+        """Wire analytics export to existing finance reports (no stub)."""
+        try:
+            from app.core.permissions import allow
+            from app.core.ui.notify import toast
+            from app.modules.reports.reporting_service import ReportFilters, reporting_service
+            from app.excel.excel_export import write_workbook
+            from app.core.constants import EXPORT_DIR
+            from datetime import date
+
+            if not allow("export", self):
+                return
+            filters = ReportFilters()
+            result = reporting_service.run("finance_outstanding", filters)
+            path = EXPORT_DIR / f"analitika-odprto-{date.today().isoformat()}.xlsx"
+            EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+            write_workbook(path, "reports", list(result.headers), list(result.rows))
+            toast(self, f"Izvoz: {path.name}")
+        except Exception as exc:
+            from app.core.errors import handle_error
+
+            handle_error(exc, context="analytics_export", parent=self)
 
     @staticmethod
     def _set_caption(card: EnterpriseCard, text: str) -> None:

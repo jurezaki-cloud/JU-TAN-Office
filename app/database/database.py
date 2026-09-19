@@ -363,6 +363,22 @@ class Database:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                paid_date TEXT NOT NULL,
+                amount REAL NOT NULL,
+                method TEXT,
+                notes TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id)"
+        )
+
         try:
             from app.core.search_engine import ensure_search_schema
             ensure_search_schema(conn)

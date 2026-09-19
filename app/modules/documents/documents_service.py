@@ -124,16 +124,21 @@ class DocumentsService:
         return doc_id
 
     def create_folder(self, name: str, parent_id: int | None, owner: str) -> int:
+        from app.core.permissions import audit, require
+
+        require("write")
         title = name.strip()
         if not title:
             raise ValueError("Ime mape je obvezno.")
-        return self.repository.add(
+        folder_id = self.repository.add(
             parent_id=parent_id,
             name=title,
             is_folder=True,
             kind="folder",
             owner=owner or self.default_owner(),
         )
+        audit("create", f"folder:{title}")
+        return folder_id
 
     def rename(self, document_id: int, name: str) -> None:
         title = name.strip()
@@ -190,6 +195,9 @@ class DocumentsService:
         )
 
     def delete(self, document_id: int) -> None:
+        from app.core.permissions import audit, require
+
+        require("delete")
         row = self.repository.get(document_id)
         if row is None:
             return
@@ -201,6 +209,7 @@ class DocumentsService:
             if path.exists():
                 path.unlink()
         self.repository.delete(document_id)
+        audit("delete", f"document:{document_id}")
 
     def download(self, document_id: int, target: Path) -> Path:
         row = self.repository.get(document_id)

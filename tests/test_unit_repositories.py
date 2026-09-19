@@ -88,5 +88,6 @@ def test_security_helpers(tmp_path):
 
 
 def test_friendly_errors():
-    assert "veljavni" in friendly_message(ValueError("x"))
-    assert "dovoljenja" in friendly_message(PermissionError("x"))
+    assert friendly_message(ValueError("x")) == "x"
+    assert friendly_message(PermissionError("x")) == "x"
+    assert "nepričakovane" in friendly_message(RuntimeError("internal"))

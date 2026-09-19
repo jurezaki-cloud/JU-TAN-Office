@@ -33,23 +33,23 @@ class ModernSidebar(QWidget):
 
         # Isti indeksi kot QStackedWidget v MainWindow.
         pages = [
-            ("Dashboard", 0),
+            ("Nadzorna plošča", 0),
             ("Računi", 1),
             ("Ponudbe", 3),
             ("Naročila", 9),
             ("Stranke", 2),
             ("Artikli", 4),
             ("Skladišče", 10),
-            ("Suppliers", 11),
-            ("Purchase Orders", 12),
-            ("Documents", 13),
+            ("Dobavitelji", 11),
+            ("Nabava", 12),
+            ("Dokumenti", 13),
             ("CRM", 14),
-            ("Reports", 15),
-            ("Automation", 16),
+            ("Poročila", 15),
+            ("Avtomatizacija", 16),
             ("Podjetje", 5),
             ("Plačila", 6),
-            ("Analytics", 7),
-            ("⚙ Nastavitve", 8),
+            ("Analitika", 7),
+            ("Nastavitve", 8),
         ]
 
         for text, index in pages:
@@ -69,6 +69,12 @@ class ModernSidebar(QWidget):
         layout.addWidget(SidebarFooter())
 
         self.set_active(0)
+
+    def apply_role(self) -> None:
+        from app.core.permissions import can_open_page
+
+        for index, button in self.buttons.items():
+            button.setVisible(can_open_page(index))
 
     def _on_navigate(self, index: int):
         self.set_active(index)

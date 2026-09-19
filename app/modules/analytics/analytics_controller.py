@@ -12,33 +12,6 @@ SLO_MONTHS = (
     "jul", "avg", "sep", "okt", "nov", "dec",
 )
 
-MOCK_CUSTOMERS = [
-    ("Acme d.o.o.", 18420.00),
-    ("Nordic Trade", 15210.50),
-    ("Alpska pot", 12880.00),
-    ("Sava Logistics", 11140.20),
-    ("Kranj Steel", 9800.00),
-    ("Adria Print", 8640.80),
-    ("Ljubljana Tech", 7420.00),
-    ("Maribor Shop", 6310.40),
-    ("Celje Group", 5180.00),
-    ("Koper Marine", 4090.60),
-]
-
-MOCK_ARTICLES = [
-    ("Svetilka LED 24W", 312),
-    ("Kabel 3x1.5 mm", 286),
-    ("Stikalo 10A", 241),
-    ("Vtičnica 16A", 198),
-    ("LED panel 60x60", 176),
-    ("Varovalka 16A", 154),
-    ("Razdelilnik 8x", 132),
-    ("Nosilec DIN", 118),
-    ("Spojka IP65", 97),
-    ("Ohišje 24M", 84),
-]
-
-
 @dataclass
 class AnalyticsSnapshot:
     period: str
@@ -98,15 +71,6 @@ class AnalyticsController:
         bar_points = list(line_points)
         status_slices = self._status_slices(in_period)
         mock_status = False
-        if not status_slices:
-            status_slices = [
-                ("Plačano", 42),
-                ("Neplačano", 18),
-                ("Osnutek", 9),
-                ("Zapadlo", 7),
-                ("Stornirano", 3),
-            ]
-            mock_status = True
 
         top_customers, mock_customers = self._top_customers(billed)
         top_articles, mock_articles = self._top_articles(billed)
@@ -190,20 +154,7 @@ class AnalyticsController:
                     month = 1
                     year += 1
 
-        if not any(value for _, value in points):
-            return self._mock_points(points), True
         return points, False
-
-    def _mock_points(self, labels: list[tuple[str, float]]) -> list[tuple[str, float]]:
-        sample = [4200, 5100, 4800, 6400, 5900, 7200, 6900, 8100, 7600, 8800, 8400, 9200]
-        if not labels:
-            month = date.today().month
-            names = [SLO_MONTHS[(month - 6 + i) % 12] for i in range(6)]
-            return list(zip(names, sample[:6]))
-        return [
-            (label, sample[index % len(sample)])
-            for index, (label, _) in enumerate(labels)
-        ]
 
     def _status_slices(self, invoices: list) -> list[tuple[str, float]]:
         counts: dict[str, float] = {}
@@ -226,7 +177,7 @@ class AnalyticsController:
         existing = list(invoice_repository.get_customer_revenue() or [])
         if existing:
             return [(str(row[0]), float(row[2] or 0)) for row in existing[:10]], False
-        return MOCK_CUSTOMERS, True
+        return [], False
 
     def _top_articles(
         self,
@@ -240,9 +191,7 @@ class AnalyticsController:
                 qty = float(item[5] or 0)
                 totals[name] = totals.get(name, 0.0) + qty
         ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:10]
-        if ranked:
-            return ranked, False
-        return MOCK_ARTICLES, True
+        return ranked, False
 
     @staticmethod
     def _issue_date(row) -> date | None:

@@ -5,14 +5,18 @@ import json
 import pytest
 
 from app.core.config_guard import stamp, valid
+from app.core.errors import friendly_message
 from app.core.license import activate_offline, current_edition, issue, verify
+from app.core.logger import cleanup_old_logs, logger
 from app.core.passwords import hash_password, validate_policy, verify_password
-from app.core.permissions import can, require, set_identity
+from app.core.permissions import can, can_open_page, require, set_identity
 from app.core.recovery import load_draft, save_draft
 from app.core.secrets import decrypt_bytes, encrypt_bytes, reveal, seal
 from app.core.security import (
+    assert_parameterized,
     assert_safe_document,
     ensure_inside,
+    require_date,
     require_email,
     require_iban,
     require_number,
@@ -158,9 +162,107 @@ def test_settings_keep_password_hash():
     assert again["swift"] == "UPDATED"
 
 
+def test_settings_export_strips_secrets(tmp_path):
+    controller = SettingsController()
+    extras = default_settings()
+    extras["password_hash"] = hash_password("SecurePass1x")
+    extras["secrets_blob"] = "sealed-secret-data"
+    controller.save_extras(extras)
+    target = tmp_path / "settings-export.json"
+    set_identity(role="Administrator", authenticated=True)
+    controller.export_settings(target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert "password_hash" not in payload
+    assert "secrets_blob" not in payload
+    assert payload.get("password_configured") is True
+
+
+def test_readonly_cannot_open_settings_page():
+    set_identity(role="Read Only", authenticated=True)
+    try:
+        assert can_open_page(0)
+        assert not can_open_page(8)
+        assert not can("users")
+    finally:
+        set_identity(role="Administrator", authenticated=True)
+
+
+def test_allow_blocks_readonly_without_raising():
+    from app.core.permissions import allow
+
+    set_identity(role="Read Only", authenticated=True)
+    try:
+        assert allow("delete", parent=None) is False
+        assert allow("read", parent=None) is True
+    finally:
+        set_identity(role="Administrator", authenticated=True)
+
+
 def test_broken_session_unauthenticated():
     set_identity(authenticated=False)
     try:
         assert not can("read")
     finally:
         set_identity(role="Administrator", authenticated=True)
+
+
+def test_sales_cannot_escalate_to_backup_or_settings():
+    set_identity(role="Sales", authenticated=True)
+    try:
+        assert can("write")
+        assert not can("backup")
+        assert not can("settings")
+        assert not can_open_page(8)
+        assert can_open_page(1)
+        with pytest.raises(PermissionError):
+            require("backup")
+    finally:
+        set_identity(role="Administrator", authenticated=True)
+
+
+def test_readonly_cannot_export_excel(tmp_path):
+    from app.excel.excel_export import write_workbook
+
+    set_identity(role="Read Only", authenticated=True)
+    try:
+        with pytest.raises(PermissionError):
+            write_workbook(tmp_path / "x.xlsx", "customers", ["A"], [["1"]])
+    finally:
+        set_identity(role="Administrator", authenticated=True)
+
+
+def test_sql_search_injection_parameterized():
+    from app.database.customer_repository import customer_repository
+
+    rows = customer_repository.search("' OR '1'='1")
+    assert isinstance(rows, list)
+    with pytest.raises(ValueError):
+        assert_parameterized("SELECT * FROM t WHERE a = 'x' + name")
+
+
+def test_dates_and_friendly_errors():
+    assert require_date("2026-09-12") == "2026-09-12"
+    with pytest.raises(ValueError):
+        require_date("12.09.2026")
+    assert "Traceback" not in friendly_message(RuntimeError("boom File \"app.py\""))
+    assert friendly_message(ValueError("Davčna ni veljavna.")) == "Davčna ni veljavna."
+
+
+def test_crash_recovery_integrity():
+    from app.core.db_guard import recover_after_crash
+
+    assert recover_after_crash() is True
+
+
+def test_log_rotation_cleanup(tmp_path, monkeypatch):
+    from app.core import logger as logger_mod
+
+    monkeypatch.setattr(logger_mod, "LOG_DIR", tmp_path)
+    stale = tmp_path / "old.log"
+    stale.write_text("x", encoding="utf-8")
+    import os
+    os.utime(stale, (0, 0))
+    assert cleanup_old_logs(keep_days=1) >= 1
+    names = {type(h).__name__ for h in logger.handlers}
+    assert "RotatingFileHandler" in names
+    assert "TimedRotatingFileHandler" in names

@@ -12,12 +12,14 @@ def invoice_badge(raw_status, due_date=None) -> str:
 
     if status in ("Plačan", "Plačano"):
         return "Plačano"
+    if status in ("Delno plačan", "Delno plačano"):
+        return "Delno plačano"
     if status == "Storniran":
         return "Stornirano"
     if status == "Osnutek":
         return "Osnutek"
 
-    if due_date and status not in ("Plačan", "Plačano", "Storniran"):
+    if due_date and status not in ("Plačan", "Plačano", "Storniran", "Delno plačan", "Delno plačano"):
         try:
             due = date.fromisoformat(str(due_date)[:10])
             if due < date.today():
@@ -33,6 +35,7 @@ def invoice_badge(raw_status, due_date=None) -> str:
 
 BADGE_COLORS = {
     "Plačano": LightColors.SUCCESS,
+    "Delno plačano": LightColors.WARNING,
     "Neplačano": LightColors.WARNING,
     "Zapadlo": LightColors.DANGER,
     "Osnutek": LightColors.SECONDARY,

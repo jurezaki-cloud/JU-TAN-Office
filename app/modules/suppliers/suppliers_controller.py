@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.permissions import gated
 from app.modules.suppliers.suppliers_repository import (
     SUPPLIER_STATUSES,
     suppliers_repository,
@@ -22,6 +23,7 @@ class SuppliersController:
     def statuses(self) -> tuple[str, ...]:
         return SUPPLIER_STATUSES
 
+    @gated("write", "edit")
     def save(self, supplier_id: int | None, data: dict) -> int:
         if supplier_id is None:
             return self.repository.add(
@@ -45,6 +47,7 @@ class SuppliersController:
         )
         return supplier_id
 
+    @gated("delete", "delete")
     def delete(self, supplier_id: int) -> None:
         self.repository.delete(supplier_id)
 

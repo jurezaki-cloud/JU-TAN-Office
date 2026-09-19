@@ -38,13 +38,11 @@ RADII = {
 }
 
 DOC_DEFAULTS = {
-    "invoice": {"prefix": "INV", "start": 1, "length": 6, "yearly_reset": True},
+    "invoice": {"prefix": "RAC", "start": 1, "length": 6, "yearly_reset": True},
     "offer": {"prefix": "PON", "start": 1, "length": 6, "yearly_reset": True},
     "order": {"prefix": "NAR", "start": 1, "length": 6, "yearly_reset": True},
     "delivery": {"prefix": "DOB", "start": 1, "length": 6, "yearly_reset": True},
 }
-
-PLACEHOLDER = "Funkcija bo na voljo v naslednji različici."
 
 
 def default_settings() -> dict:
@@ -290,15 +288,32 @@ class SettingsController:
         audit("restore", str(source))
 
     def export_settings(self, target: Path) -> None:
+        require("export")
         extras = self.load_extras()
+        redacted = {
+            key: value
+            for key, value in extras.items()
+            if key not in ("password_hash", "secrets_blob")
+        }
+        redacted["password_configured"] = bool(extras.get("password_hash"))
+        redacted["secrets_configured"] = bool(extras.get("secrets_blob"))
         target.write_text(
-            json.dumps(extras, indent=2, ensure_ascii=False),
+            json.dumps(redacted, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+        audit("export", str(target))
 
     def import_settings(self, source: Path) -> dict:
         loaded = parse_json_object(source.read_text(encoding="utf-8"))
+        loaded.pop("password_hash", None)
+        loaded.pop("secrets_blob", None)
+        loaded.pop("password_configured", None)
+        loaded.pop("secrets_configured", None)
         extras = self._merge(default_settings(), loaded)
+        # Preserve existing credentials — import never overwrites secrets.
+        current = self.load_extras()
+        extras["password_hash"] = current.get("password_hash") or ""
+        extras["secrets_blob"] = current.get("secrets_blob") or ""
         self.save_extras(extras)
         return extras
 

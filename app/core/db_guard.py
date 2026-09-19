@@ -6,8 +6,9 @@ import sqlite3
 import time
 from pathlib import Path
 
-from app.core.constants import DATABASE_PATH, DATA_DIR
+from app.core.constants import BACKUP_DIR, DATABASE_PATH, DATA_DIR
 from app.core.logger import logger
+from app.core.permissions import audit
 from app.database.database import db
 
 VACUUM_MARK = DATA_DIR / "last_vacuum.txt"
@@ -27,6 +28,38 @@ def integrity_ok(path: Path | None = None) -> bool:
 
 def verify_backup(path: Path) -> bool:
     return integrity_ok(path)
+
+
+def recover_after_crash() -> bool:
+    """WAL checkpoint, integrity_check, ob poškodbi rollback na zadnji veljaven backup."""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        logger.error("WAL checkpoint po sesutju: %s", exc)
+    if integrity_ok():
+        return True
+    backups = sorted(BACKUP_DIR.glob("ju_tan-*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for backup in backups:
+        if not verify_backup(backup):
+            continue
+        logger.warning("Rollback baze iz %s", backup)
+        db.dispose()
+        dest = sqlite3.connect(DATABASE_PATH)
+        src = sqlite3.connect(backup)
+        try:
+            src.backup(dest)
+        finally:
+            src.close()
+            dest.close()
+        audit("rollback", str(backup))
+        return integrity_ok()
+    logger.error("Po sesutju ni veljavne varnostne kopije.")
+    return False
 
 
 def ensure_runtime() -> None:

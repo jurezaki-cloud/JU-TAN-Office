@@ -115,9 +115,11 @@ QToolButton#ToolbarUserButton:pressed {
 }
 
 QLabel#TotalValue {
-    font-size: 18px;
-    font-weight: bold;
-    color: {{TEXT}};
+    font-size: 22px;
+    font-weight: 800;
+    color: {{PRIMARY}};
+    letter-spacing: 0.3px;
+    padding: 4px 8px;
 }
 
 QPushButton {
@@ -634,7 +636,10 @@ QLabel#SettingsPreview {
 }
 
 QLabel#LogoPreview {
-    min-height: 72px;
+    min-width: 90px;
+    max-width: 90px;
+    min-height: 90px;
+    max-height: 90px;
     color: {{SECONDARY}};
 }
 

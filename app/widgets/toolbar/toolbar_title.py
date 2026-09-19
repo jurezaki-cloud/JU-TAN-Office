@@ -1,23 +1,23 @@
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 PAGE_CONTEXT = {
-    0: ("Dashboard", "Pregled poslovanja in ključnih kazalnikov"),
+    0: ("Nadzorna plošča", "Pregled poslovanja in ključnih kazalnikov"),
     1: ("Računi", "Izdani računi in evidenca prometa"),
     2: ("Stranke", "Register strank in kontaktni podatki"),
     3: ("Ponudbe", "Ponudbe in predračuni"),
     4: ("Artikli", "Katalog artiklov in cenik"),
     5: ("Podjetje", "Podatki podjetja in identiteta"),
     6: ("Plačila", "Terjatve in prejeta plačila"),
-    7: ("Analytics", "Business Intelligence"),
-    8: ("Settings", "Application Configuration"),
+    7: ("Analitika", "Poslovni pregled in grafi"),
+    8: ("Nastavitve", "Konfiguracija aplikacije"),
     9: ("Naročila", "Naročila strank in dobava"),
     10: ("Skladišče", "Zaloga, gibanja in inventura"),
-    11: ("Suppliers", "Dobavitelji in nabavni partnerji"),
-    12: ("Purchase Orders", "Nabavna naročila in prevzemi"),
-    13: ("Documents", "Centralni arhiv dokumentov"),
+    11: ("Dobavitelji", "Dobavitelji in nabavni partnerji"),
+    12: ("Nabava", "Nabavna naročila in prevzemi"),
+    13: ("Dokumenti", "Centralni arhiv dokumentov"),
     14: ("CRM", "Pipeline, stranke 360 in follow-up"),
-    15: ("Reports", "Centralna poročila in izvozi"),
-    16: ("Automation", "Poslovna pravila, razpored in dnevnik izvajanja"),
+    15: ("Poročila", "Centralna poročila in izvozi"),
+    16: ("Avtomatizacija", "Poslovna pravila, razpored in dnevnik"),
 }
 
 

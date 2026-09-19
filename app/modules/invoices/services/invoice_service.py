@@ -1,3 +1,4 @@
+from app.core.permissions import gated
 from app.database.invoice_repository import invoice_repository
 
 
@@ -18,6 +19,7 @@ class InvoiceService:
     def increase_counter(self):
         return invoice_repository.increase_counter()
 
+    @gated("write", "create")
     def add(
         self,
         invoice_number,
@@ -42,6 +44,7 @@ class InvoiceService:
             notes,
         )
 
+    @gated("write", "edit")
     def update(
         self,
         invoice_id,
@@ -68,9 +71,11 @@ class InvoiceService:
             notes,
         )
 
+    @gated("delete", "delete")
     def delete(self, invoice_id):
         return invoice_repository.delete(invoice_id)
 
+    @gated("write", "create")
     def duplicate(self, invoice_id):
         return invoice_repository.duplicate(invoice_id)
 

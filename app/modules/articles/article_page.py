@@ -128,6 +128,10 @@ class ArticlePage(QWidget):
         self._apply_view()
 
     def new_article(self):
+        from app.core.permissions import allow, audit
+
+        if not allow("write", self):
+            return
         dialog = ArticleDialog(self)
 
         if dialog.exec():
@@ -145,6 +149,7 @@ class ArticlePage(QWidget):
                 data["price"],
                 data["vat"],
             )
+            audit("create", f"article:{data['code']}")
 
             self.refresh()
 
@@ -208,6 +213,10 @@ class ArticlePage(QWidget):
         if dialog.exec():
 
             data = dialog.get_data()
+            from app.core.permissions import allow, audit
+
+            if not allow("write", self):
+                return
 
             article_repository.update(
                 article[0],
@@ -218,6 +227,7 @@ class ArticlePage(QWidget):
                 data["price"],
                 data["vat"],
             )
+            audit("edit", f"article:{article[0]}")
 
             self.refresh()
 
@@ -227,6 +237,10 @@ class ArticlePage(QWidget):
                 self.details.load_article(updated)
 
     def delete_article(self):
+        from app.core.permissions import allow, audit
+
+        if not allow("delete", self):
+            return
         article_id = self.details.article_id
         if article_id is None:
             selected = self.current_article()
@@ -253,6 +267,7 @@ class ArticlePage(QWidget):
 
         if reply == QMessageBox.Yes:
             article_repository.delete(article[0])
+            audit("delete", f"article:{article[0]}")
 
             self.refresh()
             self.details.clear()

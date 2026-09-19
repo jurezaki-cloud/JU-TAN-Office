@@ -1,0 +1,9 @@
+{"ts": "2026-09-18T06:06:33Z", "user": "Administrator", "action": "login", "detail": "Administrator"}
+{"ts": "2026-09-18T06:08:07Z", "user": "Administrator", "action": "login", "detail": "Administrator"}
+{"ts": "2026-09-18T06:09:18Z", "user": "Administrator", "action": "login", "detail": "Administrator"}
+{"ts": "2026-09-18T06:27:32Z", "user": "Administrator", "action": "login", "detail": "Administrator"}
+{"ts": "2026-09-18T06:36:58Z", "user": "Administrator", "action": "export", "detail": "RAC-2026-013.pdf"}
+{"ts": "2026-09-18T06:37:03Z", "user": "Administrator", "action": "export", "detail": "RAC-2026-013.pdf"}
+{"ts": "2026-09-18T07:58:30Z", "user": "jurez", "action": "crash-recovery", "detail": "C:\\Users\\jurez\\JU-TAN-Office\\demo-session\\crash.flag"}
+{"ts": "2026-09-18T07:58:30Z", "user": "Administrator", "action": "login", "detail": "Administrator"}
+{"ts": "2026-09-18T08:00:04Z", "user": "Administrator", "action": "login", "detail": "Administrator"}

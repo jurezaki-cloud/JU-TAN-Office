@@ -23,6 +23,7 @@ class PaymentActions(QWidget):
         self.filter.setMinimumHeight(36)
         self.filter.addItem("Vsa plačila", "all")
         self.filter.addItem("Plačano", "Plačano")
+        self.filter.addItem("Delno plačano", "Delno plačano")
         self.filter.addItem("Neplačano", "Neplačano")
         self.filter.addItem("Zapadlo", "Zapadlo")
 

@@ -40,7 +40,7 @@ class NumberingCard(QWidget):
 
         hint = QLabel("Predogled")
         hint.setObjectName("DashboardMuted")
-        self.preview = QLabel("INV-2026-000001")
+        self.preview = QLabel("RAC-2026-000001")
         self.preview.setObjectName("SettingsPreview")
         card.body.addWidget(hint)
         card.body.addWidget(self.preview)

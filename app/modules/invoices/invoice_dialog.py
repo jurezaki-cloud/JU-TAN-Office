@@ -163,58 +163,38 @@ class InvoiceDialog(EnterpriseDialog):
     # =====================================================
 
     def update_total(self):
+        from app.utils.money import document_totals, format_eur
 
-        subtotal = 0
-        vat = 0
-
-        for row in self.items_model.items:
-
-            base = float(row[2]) * float(row[4])
-
-            subtotal += base
-            vat += base * float(row[5]) / 100
-
-        total = subtotal + vat
-
-        self.lbl_subtotal.setText(
-            f"{subtotal:.2f} €"
-        )
-
-        self.lbl_vat.setText(
-            f"{vat:.2f} €"
-        )
-
-        self.lbl_total.setText(
-            f"{total:.2f} €"
-        )
+        totals = document_totals(self.items_model.items)
+        self.lbl_subtotal.setText(format_eur(totals["subtotal"]))
+        self.lbl_vat.setText(format_eur(totals["vat"]))
+        self.lbl_total.setText(format_eur(totals["total"]))
 
     # =====================================================
     # SHRANI RAČUN
     # =====================================================
    
     def save(self):
+        from app.core.permissions import allow, audit
+        from app.core.ui.notify import toast
+        from app.utils.money import as_float, document_totals, line_gross
+
+        if not allow("write", self):
+            return
 
         if self.customer.currentIndex() == -1:
+            toast(self, "Izberite stranko.")
             return
 
         if len(self.items_model.items) == 0:
+            toast(self, "Dodajte vsaj eno postavko.")
             return
 
-        subtotal = 0
-        vat_amount = 0
-
-        for row in self.items_model.items:
-
-            quantity = float(row[2])
-            price = float(row[4])
-            vat = float(row[5])
-
-            base = quantity * price
-
-            subtotal += base
-            vat_amount += base * vat / 100
-
-        total = subtotal + vat_amount
+        totals = document_totals(self.items_model.items)
+        subtotal = totals["subtotal"]
+        discount = totals["discount"]
+        vat_amount = totals["vat"]
+        total = totals["total"]
 
         if self.invoice_id is None:
             invoice_id = invoice_repository.add(
@@ -223,10 +203,11 @@ class InvoiceDialog(EnterpriseDialog):
                 issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
                 due_date=self.due_date.date().toString("yyyy-MM-dd"),
                 subtotal=subtotal,
-                discount=0,
+                discount=discount,
                 vat=vat_amount,
                 total=total,
                 notes=self.notes.toPlainText(),
+                status="Izdan",
             )
 
             invoice_repository.increase_counter()
@@ -240,7 +221,7 @@ class InvoiceDialog(EnterpriseDialog):
                 issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
                 due_date=self.due_date.date().toString("yyyy-MM-dd"),
                 subtotal=subtotal,
-                discount=0,
+                discount=discount,
                 vat=vat_amount,
                 total=total,
                 status=status,
@@ -251,21 +232,24 @@ class InvoiceDialog(EnterpriseDialog):
             invoice_id = self.invoice_id
 
         for row in self.items_model.items:
-
+            qty = row[2]
+            price = row[4]
+            vat = row[5]
             invoice_repository.add_item(
                 invoice_id=invoice_id,
                 article_id=row[7],
                 code=row[0],
                 name=row[1],
                 description="",
-                quantity=row[2],
+                quantity=qty,
                 unit=row[3],
-                price=row[4],
+                price=price,
                 discount=0,
-                vat=row[5],
-                total=row[6],
+                vat=vat,
+                total=as_float(line_gross(qty, price, vat, 0)),
             )
 
+        audit("create" if self.invoice_id is None else "edit", f"invoice:{invoice_id}")
         self.accept()
 
     # =====================================================

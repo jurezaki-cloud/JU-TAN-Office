@@ -54,6 +54,10 @@ def _maybe_logo(worksheet, logo_path: str) -> int:
 
 
 def write_workbook(path: Path, module_key: str, headers: list[str], rows: list[list], template: bool = False) -> Path:
+    from app.core.permissions import audit, require
+
+    require("export")
+    audit("export", Path(path).name)
     if len(rows) >= 400:
         return write_workbook_stream(path, module_key, headers, rows)
     company = load_company()
@@ -95,6 +99,10 @@ def write_workbook(path: Path, module_key: str, headers: list[str], rows: list[l
 
 def write_workbook_stream(path: Path, module_key: str, headers: list[str], rows: list[list]) -> Path:
     """Write-only pretok za velike izvoze (manj pomnilnika)."""
+    from app.core.permissions import audit, require
+
+    require("export")
+    audit("export", Path(path).name)
     book = Workbook(write_only=True)
     sheet = book.create_sheet(MODULES[module_key]["title"][:31])
     sheet.append(headers)

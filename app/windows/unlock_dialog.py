@@ -1,4 +1,4 @@
-"""Odklepanje seje z geslom."""
+﻿"""Odklepanje seje z geslom."""
 
 from __future__ import annotations
 
@@ -48,8 +48,10 @@ class UnlockDialog(EnterpriseDialog):
         from app.modules.settings.settings_controller import SettingsController
         role = SettingsController().load_extras().get("role") or "Administrator"
         session.login(self.user.text().strip() or self._user, role)
-        self.accept()
+        from PySide6.QtWidgets import QDialog
+        self.done(QDialog.DialogCode.Accepted)
 
     def reject(self) -> None:
         from PySide6.QtWidgets import QDialog
         QDialog.reject(self)
+

@@ -103,6 +103,10 @@ def export_template(module: str, path) -> None:
 
 
 def run_import(module: str, path, mapping: dict[str, str]) -> ImportSummary:
+    from app.core.permissions import audit, require
+
+    require("write")
+    audit("create", f"import:{module}")
     analysis = analyze_file(path)
     mapped = map_rows(analysis, mapping)
     prepared, issues = validate_rows(module, mapped, existing_keys(module))
@@ -123,6 +127,19 @@ def run_import(module: str, path, mapping: dict[str, str]) -> ImportSummary:
             summary.skipped += 1
             summary.messages.append(f"Vrstica {item.get('_row')}: {exc}")
     return summary
+
+
+def _split_gross(total: float, vat_rate: float) -> tuple[float, float, float]:
+    """Split imported gross into subtotal + VAT using a rate (e.g. 22)."""
+    from app.utils.money import as_float, money, to_decimal
+
+    gross = to_decimal(total)
+    rate = to_decimal(vat_rate)
+    if rate <= 0:
+        return as_float(gross), 0.0, as_float(gross)
+    net = money(gross / (1 + rate / 100))
+    vat = money(gross - net)
+    return as_float(net), as_float(vat), as_float(gross)
 
 
 def _insert(module: str, item: dict) -> None:
@@ -153,6 +170,14 @@ def _insert(module: str, item: dict) -> None:
     if customer_id is None:
         raise ValueError("Stranka ni v registru")
     total = float(item.get("total") or 0)
+    # Header imports typically provide gross only; reverse-split at 22% unless vat_rate given.
+    vat_rate = float(item.get("vat_rate") or 22)
+    if item.get("subtotal") not in (None, "") and item.get("vat_amount") not in (None, ""):
+        subtotal = float(item.get("subtotal") or 0)
+        vat_amount = float(item.get("vat_amount") or 0)
+        total = float(item.get("total") or (subtotal + vat_amount))
+    else:
+        subtotal, vat_amount, total = _split_gross(total, vat_rate)
     today = date.today().isoformat()
     if module == "invoices":
         invoice_repository.add(
@@ -160,9 +185,9 @@ def _insert(module: str, item: dict) -> None:
             customer_id,
             item.get("issue_date") or today,
             item.get("due_date") or item.get("issue_date") or today,
-            total,
-            0,
-            0,
+            subtotal,
+            float(item.get("discount") or 0),
+            vat_amount,
             total,
             str(item.get("notes") or ""),
             status=str(item.get("status") or "Osnutek"),
@@ -175,9 +200,9 @@ def _insert(module: str, item: dict) -> None:
             item.get("issue_date") or today,
             item.get("valid_until") or "",
             str(item.get("status") or "Osnutek"),
-            total,
-            0,
-            0,
+            subtotal,
+            float(item.get("discount") or 0),
+            vat_amount,
             total,
             str(item.get("notes") or ""),
         )
@@ -188,9 +213,9 @@ def _insert(module: str, item: dict) -> None:
         issue_date=item.get("issue_date") or today,
         delivery_date=item.get("delivery_date") or "",
         status=str(item.get("status") or "Osnutek"),
-        subtotal=total,
-        discount=0,
-        vat=0,
+        subtotal=subtotal,
+        discount=float(item.get("discount") or 0),
+        vat=vat_amount,
         total=total,
         notes=str(item.get("notes") or ""),
     )

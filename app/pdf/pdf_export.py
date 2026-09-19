@@ -17,6 +17,7 @@ from app.database.offer_repository import offer_repository
 from app.database.order_repository import order_repository
 from app.pdf.pdf_company import load_pdf_options
 from app.pdf.pdf_engine import PdfDocument, pdf_engine
+from app.pdf.upn_qr import format_reference
 
 
 def _safe_name(value: str) -> str:
@@ -53,21 +54,32 @@ def _customer(customer_id) -> dict:
 
 
 def _output_path(number: str) -> Path:
+    from app.core.security import ensure_inside
+
     options = load_pdf_options()
     folder = Path(options["folder"]) if options.get("folder") else EXPORT_DIR
     folder.mkdir(parents=True, exist_ok=True)
-    return folder / f"{_safe_name(number)}.pdf"
+    return ensure_inside(folder / f"{_safe_name(number)}.pdf", folder)
 
 
 class PdfExport:
 
     def export_document(self, document: PdfDocument) -> Path:
-        return pdf_engine.render(document, _output_path(document.number))
+        from app.core.permissions import audit, require
+
+        require("export")
+        path = pdf_engine.render(document, _output_path(document.number))
+        audit("export", str(path.name))
+        return path
 
     def export_invoice(self, invoice_id) -> Path:
         invoice = invoice_repository.get_by_id(invoice_id)
         if invoice is None:
             raise ValueError("Račun ne obstaja.")
+        status = str(invoice[5] or "")
+        if status in ("", "Osnutek"):
+            invoice_repository.mark_sent(invoice_id)
+            invoice = invoice_repository.get_by_id(invoice_id) or invoice
         customer = _customer(invoice[2])
         return self.export_document(
             PdfDocument(
@@ -75,7 +87,7 @@ class PdfExport:
                 number=str(invoice[1]),
                 issue_date=str(invoice[3] or ""),
                 due_date=str(invoice[4] or ""),
-                reference=f"SI00 {invoice[1]}",
+                reference=format_reference(str(invoice[1])),
                 notes=invoice[10] or "",
                 customer_name=customer.get("name", ""),
                 customer_address=customer.get("address", ""),
@@ -152,6 +164,10 @@ class PdfExport:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     def print_pdf(self, path: Path) -> None:
+        from app.core.permissions import audit, require
+
+        require("print")
+        audit("print", str(path))
         if os.name == "nt":
             os.startfile(str(path), "print")
             return
