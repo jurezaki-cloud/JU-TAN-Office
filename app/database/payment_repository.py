@@ -88,6 +88,12 @@ class PaymentRepository:
         """Update invoice status from payment ledger. Returns new status."""
         from app.database.invoice_repository import invoice_repository
 
+        current = invoice_repository.get_by_id(invoice_id)
+        if current is None:
+            return ""
+        if (current[5] or "").strip() == "Storniran":
+            return "Storniran"
+
         paid = money(self.sum_for_invoice(invoice_id))
         total = money(invoice_total)
         if paid <= 0:
