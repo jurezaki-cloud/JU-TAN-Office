@@ -74,7 +74,7 @@ def test_upn_qr_requires_iban_and_amount():
         reference="SI00 1",
     ) is None
     payload = build_upn_qr(
-        iban="SI56031001001018518",
+        iban="SI56020170014356205",
         recipient_name="JU-TAN d.o.o.",
         recipient_address="Ulica 1",
         recipient_city="1000 Ljubljana",
@@ -84,7 +84,7 @@ def test_upn_qr_requires_iban_and_amount():
     )
     assert payload is not None
     assert payload.startswith("UPNQR\n")
-    assert "SI56031001001018518" in payload
+    assert "SI56020170014356205" in payload
 
 
 def test_partial_payment_remaining_balance_for_dashboard():
@@ -103,7 +103,7 @@ def test_partial_payment_remaining_balance_for_dashboard():
 
 def test_upn_qr_field_positions_match_zbs_standard():
     payload = build_upn_qr(
-        iban="SI56031001001018518", recipient_name="JU-TAN d.o.o.",
+        iban="SI56020170014356205", recipient_name="JU-TAN d.o.o.",
         recipient_address="Ulica 1", recipient_city="1000 Ljubljana", amount=122.50,
         reference="SI001234", purpose="Racun 1234", purpose_code="OTHR", due_date="2026-10-03",
         payer_name="Kupec d.o.o.", payer_address="Cesta 2", payer_city="2000 Maribor",
@@ -117,25 +117,25 @@ def test_upn_qr_field_positions_match_zbs_standard():
     assert fields[8] == "00000012250"
     assert fields[11] == "OTHR"
     assert fields[13] == "03.10.2026"
-    assert fields[14] == "SI56031001001018518"
+    assert fields[14] == "SI56020170014356205"
     assert fields[15] == "SI001234"
     assert fields[16] == "JU-TAN d.o.o."
 
 
 def test_upn_qr_preserves_slovenian_characters():
-    payload = build_upn_qr(iban="SI56031001001018518", recipient_name="ČŽŠ d.o.o.", amount=1, reference="SI001")
+    payload = build_upn_qr(iban="SI56020170014356205", recipient_name="ČŽŠ d.o.o.", amount=1, reference="SI001")
     assert "ČŽŠ d.o.o." in payload
 
 
 def test_upn_qr_rejects_invalid_iban_checksum():
     assert build_upn_qr(
-        iban="SI56031001001018519", recipient_name="Test", amount=10, reference="SI001"
+        iban="SI56020170014356206", recipient_name="Test", amount=10, reference="SI001"
     ) is None
 
 
 def test_upn_qr_rejects_invalid_rf_reference():
     assert build_upn_qr(
-        iban="SI56031001001018518", recipient_name="Test", amount=10, reference="RF001234"
+        iban="SI56020170014356205", recipient_name="Test", amount=10, reference="RF001234"
     ) is None
 
 
