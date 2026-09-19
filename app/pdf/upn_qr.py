@@ -112,6 +112,9 @@ def build_upn_qr(
         _clean(recipient_address, 33),    # 18
         _clean(recipient_city, 33),       # 19
     ]
+    if not _valid_reference(ref):
+        return None
+
     checksum = sum(len(field) for field in fields) + 19
     fields.append(f"{checksum:03d}")
     return "\n".join(fields) + "\n"
