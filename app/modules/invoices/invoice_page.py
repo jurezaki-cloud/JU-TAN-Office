@@ -85,7 +85,10 @@ class InvoicePage(QWidget):
         self.btn_edit.clicked.connect(self.edit_invoice)
         self.btn_duplicate.clicked.connect(self.duplicate_invoice)
         self.btn_delete.clicked.connect(self.delete_invoice)
-        self.btn_pdf.clicked.connect(self.export_pdf)
+        # InvoiceActions owns the real PDF button. Connect its semantic signal
+        # instead of wiring the child QPushButton directly; this keeps the action
+        # working even when the toolbar is rebuilt/styled in the packaged app.
+        self.actions.pdf_clicked.connect(self.export_pdf)
         self.actions.excel_clicked.connect(lambda: run_excel_export(self, "invoices"))
         self.actions.import_clicked.connect(
             lambda: run_excel_import(self, "invoices", self.refresh)
@@ -180,6 +183,7 @@ class InvoicePage(QWidget):
             )
             return
         try:
+            toast_info(self, "Ustvarjam PDF ...")
             # PDF generation is intentionally synchronous here. ReportLab, permissions,
             # SQLite repositories and desktop opening all participate in this workflow;
             # keeping it on the GUI thread makes failures visible and avoids silent
