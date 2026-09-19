@@ -62,7 +62,11 @@ def paid_invoice(qt_app):
         "[PLAČILO] 2026-09-19 · Kompenzacija · 60.00 €"
     )
     invoice_repository.update_notes(iid, notes)
-    return iid
+    try:
+        yield iid
+    finally:
+        invoice_repository.delete(iid)
+        customer_repository.delete(cid)
 
 
 def test_paid_invoice_open_close_stress_with_heartbeat(qt_app, paid_invoice):
