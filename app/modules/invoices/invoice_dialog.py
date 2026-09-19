@@ -212,6 +212,14 @@ class InvoiceDialog(EnterpriseDialog):
         vat_amount = totals["vat"]
         total = totals["total"]
 
+        if self.invoice_id is not None:
+            from app.database.payment_repository import payment_repository
+            from app.utils.money import money
+            paid = money(payment_repository.sum_for_invoice(self.invoice_id))
+            if money(total) < paid:
+                toast(self, "Skupni znesek računa ne sme biti nižji od že prejetih plačil.")
+                return
+
         if self.invoice_id is None:
             invoice_id = invoice_repository.add(
                 invoice_number=self.lbl_number.text(),
