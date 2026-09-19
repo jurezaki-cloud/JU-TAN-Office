@@ -24,6 +24,7 @@ from app.widgets.settings.company_card import CompanyCard
 from app.widgets.settings.numbering_card import NumberingCard
 from app.widgets.settings.security_card import SecurityCard
 from app.widgets.settings.pdf_card import PdfCard
+from app.widgets.settings.travel_settings_card import TravelSettingsCard
 
 
 class SettingsPage(QWidget):
@@ -64,6 +65,7 @@ class SettingsPage(QWidget):
         self.backup_card = BackupCard()
         self.security_card = SecurityCard()
         self.about_card = AboutCard()
+        self.travel_card = TravelSettingsCard()
 
         scroll.setWidget(self._canvas)
         outer.addWidget(scroll)
@@ -111,8 +113,9 @@ class SettingsPage(QWidget):
             self._grid.addWidget(self.appearance_card, 1, 1)
             self._grid.addWidget(self.pdf_card, 2, 0)
             self._grid.addWidget(self.backup_card, 2, 1)
-            self._grid.addWidget(self.security_card, 3, 0, 1, 2)
-            self._grid.addWidget(self.about_card, 4, 0, 1, 2)
+            self._grid.addWidget(self.travel_card, 3, 0, 1, 2)
+            self._grid.addWidget(self.security_card, 4, 0, 1, 2)
+            self._grid.addWidget(self.about_card, 5, 0, 1, 2)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 1)
         else:
@@ -121,8 +124,9 @@ class SettingsPage(QWidget):
             self._grid.addWidget(self.appearance_card, 2, 0)
             self._grid.addWidget(self.pdf_card, 3, 0)
             self._grid.addWidget(self.backup_card, 4, 0)
-            self._grid.addWidget(self.security_card, 5, 0)
-            self._grid.addWidget(self.about_card, 6, 0)
+            self._grid.addWidget(self.travel_card, 5, 0)
+            self._grid.addWidget(self.security_card, 6, 0)
+            self._grid.addWidget(self.about_card, 7, 0)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 0)
 
@@ -134,6 +138,7 @@ class SettingsPage(QWidget):
         self.appearance_card.set_values(extras.get("appearance", {}))
         self.pdf_card.set_values(extras.get("pdf", {}))
         self.pdf_card.set_excel(extras.get("excel", {}))
+        self.travel_card.set_values(extras.get("travel_orders", {}))
         self.security_card.set_values(extras)
         self.about_card.set_values(self.controller.about())
 
@@ -144,6 +149,7 @@ class SettingsPage(QWidget):
             "appearance": self.appearance_card.values(),
             "pdf": self.pdf_card.values(),
             "excel": self.pdf_card.excel_values(),
+            "travel_orders": self.travel_card.values(),
             **self.security_card.values(),
         }
 
@@ -254,6 +260,7 @@ class SettingsPage(QWidget):
             self.numbering_card.set_values(extras.get("numbering", {}))
             self.appearance_card.set_values(extras.get("appearance", {}))
             self.pdf_card.set_values(extras.get("pdf", {}))
+            self.travel_card.set_values(extras.get("travel_orders", {}))
             self._apply_appearance()
             toast(self, "Nastavitve so uvožene.")
         except Exception as exc:
