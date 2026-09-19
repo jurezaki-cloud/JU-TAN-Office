@@ -180,8 +180,8 @@ class PdfEngine:
     def _qr_flowable(self, document: PdfDocument, company: CompanyProfile):
         if document.doc_type != "invoice":
             return None
-        from reportlab.graphics.barcode import qr
-        from reportlab.graphics.shapes import Drawing
+        import segno
+        from reportlab.graphics.shapes import Drawing, Rect
         from reportlab.platypus import KeepTogether
 
         from app.pdf.upn_qr import build_upn_qr
@@ -206,13 +206,38 @@ class PdfEngine:
             return None
 
         look = styles()
-        code = qr.QrCodeWidget(payload)
-        bounds = code.getBounds()
-        width = bounds[2] - bounds[0]
-        height = bounds[3] - bounds[1]
-        size = 38 * mm
-        drawing = Drawing(size, size, transform=[size / width, 0, 0, size / height, 0, 0])
-        drawing.add(code)
+        code = segno.make(
+            payload,
+            version=15,
+            error="m",
+            mode="byte",
+            encoding="iso-8859-2",
+            eci=True,
+            micro=False,
+            boost_error=False,
+        )
+        # ZBS: V15 = 77x77 modules, module 0.42333 mm, 4-module quiet zone.
+        module = 0.42333 * mm
+        border = 4
+        matrix = tuple(code.matrix)
+        modules = len(matrix)
+        size = (modules + 2 * border) * module
+        drawing = Drawing(size, size)
+        for y, row in enumerate(matrix):
+            for x, dark in enumerate(row):
+                if dark:
+                    drawing.add(Rect(
+                        (x + border) * module,
+                        (modules - 1 - y + border) * module,
+                        module,
+                        module,
+                        strokeWidth=0,
+                        fillColor=None,
+                    ))
+        # Rect defaults are not safe for barcode output; force solid black modules.
+        from reportlab.lib.colors import black
+        for shape in drawing.contents:
+            shape.fillColor = black
         label = Paragraph("UPN QR za plačilo", look["label"])
         return KeepTogether([label, drawing])
 
