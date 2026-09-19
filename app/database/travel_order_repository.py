@@ -71,6 +71,11 @@ class TravelOrderRepository:
             cur=conn.execute(f"INSERT INTO travel_orders ({','.join(fields)}) VALUES ({marks})", values)
             order_id=cur.lastrowid
         else:
+            current=conn.execute("SELECT status FROM travel_orders WHERE id=?", (order_id,)).fetchone()
+            if current is None:
+                conn.close(); raise ValueError("Potni nalog ne obstaja.")
+            if (current[0] or "") in ("Zaključen","Storniran"):
+                conn.close(); raise ValueError("Zaključenega ali storniranega potnega naloga ni mogoče spreminjati.")
             assigns=",".join(f"{k}=?" for k in fields)
             conn.execute(f"UPDATE travel_orders SET {assigns} WHERE id=?", values+[order_id])
         conn.commit(); conn.close()
