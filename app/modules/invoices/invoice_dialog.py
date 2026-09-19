@@ -115,6 +115,22 @@ class InvoiceDialog(EnterpriseDialog):
 
         if self.invoice_id is not None:
             self.load_invoice()
+            self._apply_financial_lock()
+
+    def _apply_financial_lock(self):
+        """Issued financial history is viewable, but paid/cancelled invoices are immutable."""
+        invoice = invoice_repository.get_by_id(self.invoice_id)
+        if invoice is None:
+            return
+        status = (invoice[5] or "").strip()
+        if status not in ("Plačan", "Storniran"):
+            return
+        for widget in (
+            self.customer, self.issue_date, self.due_date, self.notes,
+            self.items_table, self.btn_add_item, self.btn_remove_item,
+        ):
+            widget.setEnabled(False)
+        self.btn_save.setEnabled(False)
 
     # =====================================================
 
