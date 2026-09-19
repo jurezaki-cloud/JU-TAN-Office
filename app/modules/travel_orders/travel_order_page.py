@@ -11,12 +11,13 @@ class TravelOrderPage(QWidget):
         self.btn_new=QPushButton("Nov potni nalog"); self.btn_new.setObjectName("PrimaryButton")
         self.btn_edit=QPushButton("Odpri"); self.btn_edit.setObjectName("SecondaryButton")
         self.btn_cancel=QPushButton("Storniraj"); self.btn_cancel.setObjectName("DangerButton")
-        top.addWidget(title); top.addStretch(); top.addWidget(self.btn_new); top.addWidget(self.btn_edit); top.addWidget(self.btn_cancel); layout.addLayout(top)
+        self.btn_pdf=QPushButton("PDF"); self.btn_pdf.setObjectName("SecondaryButton")
+        top.addWidget(title); top.addStretch(); top.addWidget(self.btn_new); top.addWidget(self.btn_edit); top.addWidget(self.btn_pdf); top.addWidget(self.btn_cancel); layout.addLayout(top)
         card=EnterpriseCard("DashboardCard"); self.table=QTableWidget(0,8)
         self.table.setHorizontalHeaderLabels(["Številka","Zaposleni","Relacija","Odhod","Prihod","Km","Skupaj","Status"])
         self.table.setSelectionBehavior(QTableWidget.SelectRows); self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         card.body.addWidget(self.table); layout.addWidget(card,1)
-        self.btn_new.clicked.connect(self.new_order); self.btn_edit.clicked.connect(self.edit_order); self.btn_cancel.clicked.connect(self.cancel_order)
+        self.btn_new.clicked.connect(self.new_order); self.btn_edit.clicked.connect(self.edit_order); self.btn_pdf.clicked.connect(self.export_pdf); self.btn_cancel.clicked.connect(self.cancel_order)
         self.table.doubleClicked.connect(lambda _: self.edit_order()); self.refresh()
     def refresh(self):
         rows=travel_order_repository.get_all(); self.table.setRowCount(len(rows))
@@ -38,3 +39,18 @@ class TravelOrderPage(QWidget):
         oid=self.selected_id()
         if oid and QMessageBox.question(self,"Storniranje","Storniram izbrani potni nalog?")==QMessageBox.Yes:
             travel_order_repository.cancel(oid); self.refresh()
+
+    def export_pdf(self):
+        from app.core.permissions import allow, audit
+        from app.core.ui.notify import toast_info
+        from app.pdf.travel_order_pdf import export_travel_order
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        if not allow("export", self): return
+        oid=self.selected_id()
+        if not oid:
+            toast_info(self,"Najprej izberi potni nalog."); return
+        row=travel_order_repository.get_by_id(oid)
+        path=export_travel_order(row)
+        audit("export",f"travel_order:{oid}")
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
