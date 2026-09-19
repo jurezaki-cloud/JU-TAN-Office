@@ -57,14 +57,20 @@ class TravelOrderPage(QWidget):
         row=self.table.currentRow()
         return self.table.item(row,0).data(Qt.UserRole) if row>=0 and self.table.item(row,0) else None
     def new_order(self):
+        from app.core.permissions import allow
+        if not allow("write",self): return
         if TravelOrderDialog(self).exec(): self.refresh()
     def edit_order(self):
         oid=self.selected_id()
         if oid and TravelOrderDialog(self,oid).exec(): self.refresh()
     def cancel_order(self):
+        from app.core.permissions import allow, audit
+        if not allow("write",self): return
         oid=self.selected_id()
         if oid and QMessageBox.question(self,"Storniranje","Storniram izbrani potni nalog?")==QMessageBox.Yes:
-            travel_order_repository.cancel(oid); self.refresh()
+            travel_order_repository.cancel(oid)
+            audit("edit",f"travel_order:{oid}:cancelled")
+            self.refresh()
     def export_pdf(self):
         from app.core.permissions import allow, audit
         from app.core.ui.notify import toast_info
