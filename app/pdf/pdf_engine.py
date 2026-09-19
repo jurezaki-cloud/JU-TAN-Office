@@ -222,7 +222,7 @@ class PdfEngine:
             boost_error=False,
         )
         # ZBS: V15 = 77x77 modules, module 0.42333 mm, 4-module quiet zone.
-        module = 0.42333 * mm
+        module = 0.65 * mm  # enlarged on invoice for reliable phone-camera scanning
         border = 4
         matrix = tuple(code.matrix)
         modules = len(matrix)
