@@ -39,15 +39,15 @@ class CustomerPage(QWidget):
 
         top_layout = QHBoxLayout()
 
-        self.btn_new = QPushButton("➕ Nova")
-        self.btn_edit = QPushButton("✏️ Uredi")
-        self.btn_delete = QPushButton("🗑 Izbriši")
-        self.btn_refresh = QPushButton("🔄 Osveži")
+        self.btn_new = QPushButton("Nova stranka")
+        self.btn_edit = QPushButton("Uredi")
+        self.btn_delete = QPushButton("Izbriši")
+        self.btn_refresh = QPushButton("Osveži")
 
         self.search = QLineEdit()
         self.search.setPlaceholderText("Išči stranko...")
 
-        top_layout.addWidget(self.btn_new)
+        self.btn_edit.setProperty("variant", "secondary")\n        self.btn_delete.setProperty("variant", "danger")\n        self.btn_refresh.setProperty("variant", "secondary")\n        top_layout.addWidget(self.btn_new)
         top_layout.addWidget(self.btn_edit)
         top_layout.addWidget(self.btn_delete)
         top_layout.addWidget(self.btn_refresh)
@@ -78,7 +78,7 @@ class CustomerPage(QWidget):
 
         splitter.addWidget(self.table)
         splitter.addWidget(self.details)
-        splitter.setSizes([700, 350])
+        splitter.setSizes([800, 360])\n        splitter.setChildrenCollapsible(False)
 
         layout.addWidget(splitter)
 
