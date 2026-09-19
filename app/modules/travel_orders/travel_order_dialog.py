@@ -23,7 +23,7 @@ class TravelOrderDialog(EnterpriseDialog):
         self.per_diem=money_box(); self.per_diem.setValue(float(travel_defaults.get("domestic_per_diem", 0) or 0))
         self.parking=money_box(); self.tolls=money_box()
         self.fuel=money_box(); self.other=money_box(); self.advance=money_box()
-        self.status=QComboBox(); self.status.addItems(["Osnutek","Odobren","Zaključen"])
+        self.status=QComboBox(); self.status.addItems(["Osnutek","Odobren","Zaključen","Storniran"])
         self.notes=QTextEdit(); self.notes.setAcceptRichText(False)
         grid=FormGrid()
         grid.add("Številka",self.number,"Zaposleni / voznik",self.employee)
@@ -67,8 +67,9 @@ class TravelOrderDialog(EnterpriseDialog):
             toast(self,"Vnesite zaposlenega in relacijo."); return
         if self.return_at.dateTime() < self.departure.dateTime():
             toast(self,"Prihod ne more biti pred odhodom."); return
+        is_new=self.order_id is None
         self.order_id=travel_order_repository.save(self._data(),self.order_id)
-        audit("edit" if self.order_id else "create",f"travel_order:{self.order_id}")
+        audit("create" if is_new else "edit",f"travel_order:{self.order_id}")
         self.accept()
 
     def load(self):
