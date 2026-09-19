@@ -250,6 +250,12 @@ class InvoiceDialog(EnterpriseDialog):
                 total=as_float(line_gross(qty, price, vat, discount)),
             )
 
+        # Editing the amount of an invoice with recorded payments must also
+        # refresh its payment-derived status (e.g. paid -> partially paid).
+        if self.invoice_id is not None:
+            from app.database.payment_repository import payment_repository
+            payment_repository.sync_invoice_status(invoice_id, total)
+
         audit("create" if self.invoice_id is None else "edit", f"invoice:{invoice_id}")
         self.accept()
 
