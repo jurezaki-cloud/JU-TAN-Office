@@ -118,7 +118,8 @@ class PaymentDialog(EnterpriseDialog):
         self.lbl_status.setText(invoice_badge(listing[5] if listing else "", due))
         self.amount.setMaximum(max(as_float(remaining), 0.01))
         self.amount.setValue(as_float(remaining) if remaining > 0 else 0.01)
-        self.btn_save.setEnabled(remaining > 0)
+        raw_status = (full[5] or "").strip() if full else ""
+        self.btn_save.setEnabled(remaining > 0 and raw_status != "Storniran")
 
     def save(self):
         from app.core.permissions import allow, audit
@@ -132,6 +133,9 @@ class PaymentDialog(EnterpriseDialog):
 
         full = invoice_repository.get_by_id(invoice_id)
         if full is None:
+            return
+        if (full[5] or "").strip() == "Storniran":
+            toast(self, "Storniranega računa ni mogoče plačati.")
             return
         total = float(full[9] or 0)
         remaining = payment_repository.remaining(invoice_id, total)
