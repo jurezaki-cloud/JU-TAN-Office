@@ -19,7 +19,10 @@ class TravelOrderDialog(EnterpriseDialog):
         self.return_at=QDateTimeEdit(QDateTime.currentDateTime()); self.return_at.setCalendarPopup(True)
         def money_box(maximum=9999999.99):
             w=QDoubleSpinBox(); w.setDecimals(2); w.setRange(0, maximum); return w
-        self.start_km=money_box(); self.end_km=money_box(); self.rate=money_box(100)\n        from app.modules.settings.settings_controller import SettingsController\n        travel_defaults=SettingsController().load_extras().get("travel_orders", {})\n        self.rate.setValue(float(travel_defaults.get("mileage_rate", 0) or 0))
+        self.start_km=money_box(); self.end_km=money_box(); self.rate=money_box(100)
+        from app.modules.settings.settings_controller import SettingsController
+        travel_defaults=SettingsController().load_extras().get("travel_orders", {})
+        self.rate.setValue(float(travel_defaults.get("mileage_rate", 0) or 0))
         self.per_diem=money_box(); self.per_diem.setValue(float(travel_defaults.get("domestic_per_diem", 0) or 0))
         self.parking=money_box(); self.tolls=money_box()
         self.fuel=money_box(); self.other=money_box(); self.advance=money_box()
