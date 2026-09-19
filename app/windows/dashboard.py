@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
 from app.database.offer_repository import offer_repository
+from app.database.payment_repository import payment_repository
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
 from app.widgets.cards.revenue_chart import SLO_MONTHS, RevenueChart
@@ -259,10 +260,11 @@ class Dashboard(QWidget):
             due = full[4] if full else None
             badge = invoice_badge(row[5], due)
             total = float(row[4] or 0)
+            outstanding = payment_repository.remaining(row[0], total)
             if badge in ("Neplačano", "Delno plačano", "Zapadlo"):
-                unpaid += total
+                unpaid += outstanding
             if badge == "Zapadlo":
-                overdue += total
+                overdue += outstanding
 
         self._date_label.setText(self._today_label())
         self._kpi_invoices.set_value(str(len(invoices)))
