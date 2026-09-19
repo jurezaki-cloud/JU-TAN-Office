@@ -400,7 +400,9 @@ def run():
         splash.show()
         app.processEvents()
     extras = settings.load_extras()
-    if extras.get("password_hash"):
+    from app.core.auth_gate import startup_requires_authentication
+
+    if startup_requires_authentication(extras):
         splash.hide()
         from app.core.ui.app_identity import apply_native_titlebar_theme
         from app.theme.colors import ThemeMode
@@ -416,6 +418,8 @@ def run():
         splash.show()
         app.processEvents()
     else:
+        # First-run / no password: open MainWindow after identity login.
+        # remember_user is username convenience only — not an auth bypass.
         from app.core.session import session
         session.remember_user = bool(extras.get("remember_user", True))
         session.login(
@@ -457,10 +461,12 @@ def run():
     # re-enables quit when the user explicitly closes the application.
     app.setQuitOnLastWindowClosed(False)
     timeout_sec = max(5, int(extras.get("session_timeout_min") or 30)) * 60
+    from app.core.auth_gate import password_is_configured
+
     install_idle_guard(
         app,
         window,
-        password_required=bool(extras.get("password_hash")),
+        password_required=password_is_configured(extras),
         timeout_sec=timeout_sec,
     )
     logger.info("%s", span.summary())

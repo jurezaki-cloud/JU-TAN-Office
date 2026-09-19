@@ -389,25 +389,35 @@ def test_invoice_dialog_vat_on_and_off_same_line(qt_app):
 
     _set_company_vat_liable(False)
     off = InvoiceDialog(None)
-    assert off.vat_liable is False
-    row_off = list(line_template)
-    row_off[6] = 0
-    row_off[7] = as_float(line_gross(3, 100, 22, 2, vat_liable=False))
-    off.items_model.add_item(row_off)
-    off.update_total()
-    totals_off = document_totals(off.items_model.items, vat_liable=False)
-    assert totals_off == {"subtotal": 300.0, "discount": 6.0, "vat": 0.0, "total": 294.0}
+    try:
+        assert off.vat_liable is False
+        row_off = list(line_template)
+        row_off[6] = 0
+        row_off[7] = as_float(line_gross(3, 100, 22, 2, vat_liable=False))
+        off.items_model.add_item(row_off)
+        off.update_total()
+        totals_off = document_totals(off.items_model.items, vat_liable=False)
+        assert totals_off == {"subtotal": 300.0, "discount": 6.0, "vat": 0.0, "total": 294.0}
+    finally:
+        off.close()
+        off.deleteLater()
+        qt_app.processEvents()
 
     _set_company_vat_liable(True)
     on = InvoiceDialog(None)
-    assert on.vat_liable is True
-    row_on = list(line_template)
-    row_on[7] = as_float(line_gross(3, 100, 22, 2, vat_liable=True))
-    on.items_model.add_item(row_on)
-    on.update_total()
-    totals_on = document_totals(on.items_model.items, vat_liable=True)
-    assert totals_on["vat"] == 64.68
-    assert totals_on["total"] == 358.68
+    try:
+        assert on.vat_liable is True
+        row_on = list(line_template)
+        row_on[7] = as_float(line_gross(3, 100, 22, 2, vat_liable=True))
+        on.items_model.add_item(row_on)
+        on.update_total()
+        totals_on = document_totals(on.items_model.items, vat_liable=True)
+        assert totals_on["vat"] == 64.68
+        assert totals_on["total"] == 358.68
+    finally:
+        on.close()
+        on.deleteLater()
+        qt_app.processEvents()
 
 
 def test_offer_and_order_dialogs_respect_company_ne(qt_app):
@@ -418,20 +428,26 @@ def test_offer_and_order_dialogs_respect_company_ne(qt_app):
     _set_company_vat_liable(False)
     offer = OfferDialog(None)
     order = OrderDialog(None)
-    assert offer.vat_liable is False
-    assert order.vat_liable is False
+    try:
+        assert offer.vat_liable is False
+        assert order.vat_liable is False
 
-    row = ["A", "X", 3.0, "kos", 100.0, 2.0, 0, as_float(line_gross(3, 100, 22, 2, vat_liable=False)), 1]
-    offer.items_model.add_item(row)
-    order.items_model.add_item(row)
-    offer.update_total()
-    order.update_total()
-    assert document_totals(offer.items_model.items, vat_liable=False)["total"] == 294.0
-    assert document_totals(order.items_model.items, vat_liable=False)["total"] == 294.0
-    assert offer.items_table.isColumnHidden(6) is True
-    assert order.items_table.isColumnHidden(6) is True
-
-    _set_company_vat_liable(True)
+        row = ["A", "X", 3.0, "kos", 100.0, 2.0, 0, as_float(line_gross(3, 100, 22, 2, vat_liable=False)), 1]
+        offer.items_model.add_item(row)
+        order.items_model.add_item(row)
+        offer.update_total()
+        order.update_total()
+        assert document_totals(offer.items_model.items, vat_liable=False)["total"] == 294.0
+        assert document_totals(order.items_model.items, vat_liable=False)["total"] == 294.0
+        assert offer.items_table.isColumnHidden(6) is True
+        assert order.items_table.isColumnHidden(6) is True
+    finally:
+        offer.close()
+        order.close()
+        offer.deleteLater()
+        order.deleteLater()
+        qt_app.processEvents()
+        _set_company_vat_liable(True)
 
 
 def test_parse_vat_liable_rejects_bool_string_trap():

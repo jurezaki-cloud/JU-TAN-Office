@@ -299,17 +299,51 @@ class SettingsPage(QWidget):
             QMessageBox.warning(self, "Geslo", str(exc))
 
     def _logout(self):
+        """Terminate the authenticated session and return to a locked/login state.
+
+        With a configured password: show UnlockDialog (cancel exits the app).
+        Without a password: end the process — there is no unlock gate to return to,
+        and a toast-only path left MainWindow open so Odjava appeared to do nothing.
+        """
+        from app.core.auth_gate import logout_requires_reauth
+
         session.logout()
         extras = self.controller.load_extras()
-        if extras.get("password_hash"):
+        main = self.window()
+        if logout_requires_reauth(extras):
             from app.windows.unlock_dialog import UnlockDialog
             from PySide6.QtWidgets import QDialog
 
-            dlg = UnlockDialog(self.window())
-            if dlg.exec() != QDialog.Accepted:
-                QApplication.quit()
+            if main is not None:
+                main.setEnabled(False)
+            try:
+                dlg = UnlockDialog(main)
+                if dlg.exec() != QDialog.Accepted:
+                    QApplication.quit()
+                    return
+            finally:
+                if main is not None:
+                    main.setEnabled(True)
+            sidebar = getattr(main, "sidebar", None)
+            if sidebar is not None and hasattr(sidebar, "apply_role"):
+                sidebar.apply_role()
+            toolbar = getattr(main, "toolbar", None)
+            stack = getattr(main, "stack", None)
+            if toolbar is not None and stack is not None and hasattr(toolbar, "set_context"):
+                toolbar.set_context(stack.currentIndex())
+            bar = main.statusBar() if main is not None and hasattr(main, "statusBar") else None
+            if bar is not None and hasattr(bar, "refresh"):
+                bar.refresh()
             return
-        toast(self, "Odjavljeni ste. Ob naslednjem zagonu bo potrebna prijava.")
+        QMessageBox.information(
+            self,
+            "Odjava",
+            "Seja je končana.\n\n"
+            "Geslo ni nastavljeno, zato ni prijavnega zaslona. "
+            "Aplikacija se bo zaprla. Nastavite geslo pod Varnost, "
+            "če želite odjavo z zahtevano ponovno prijavo.",
+        )
+        QApplication.quit()
 
     def _open_backup_folder(self):
         BACKUP_DIR.mkdir(parents=True, exist_ok=True)
