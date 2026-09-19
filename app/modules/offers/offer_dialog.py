@@ -170,16 +170,16 @@ class OfferDialog(EnterpriseDialog):
         for row in self.items_model.items:
             offer_repository.add_item(
                 offer_id=offer_id,
-                article_id=row[7],
+                article_id=row[8],
                 code=row[0],
                 name=row[1],
                 description="",
                 quantity=row[2],
                 unit=row[3],
                 price=row[4],
-                discount=0,
-                vat=row[5],
-                total=as_float(line_gross(row[2], row[4], row[5], 0)),
+                discount=row[5],
+                vat=row[6],
+                total=as_float(line_gross(row[2], row[4], row[6], row[5])),
             )
 
         audit("create" if self.offer_id is None else "edit", f"offer:{offer_id}")
@@ -213,6 +213,7 @@ class OfferDialog(EnterpriseDialog):
                 item[5],
                 item[6],
                 item[7],
+                item[8] or 0,
                 item[9],
                 item[10],
                 item[1],
