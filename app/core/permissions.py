@@ -32,14 +32,14 @@ PERMISSIONS = {
 ALLOWED = frozenset().union(*PERMISSIONS.values())
 AUDIT_FILE = DATA_DIR / "audit.jsonl"
 
-ALL_PAGES = frozenset(range(17))
+ALL_PAGES = frozenset(range(18))
 ROLE_PAGES = {
     "Administrator": ALL_PAGES,
     "Manager": ALL_PAGES,
-    "Sales": frozenset({0, 1, 2, 3, 4, 6, 9, 13, 14, 15}),
+    "Sales": frozenset({0, 1, 2, 3, 4, 6, 9, 13, 14, 15, 17}),
     "Warehouse": frozenset({0, 4, 10, 11, 12, 13, 15}),
-    "Accounting": frozenset({0, 1, 2, 6, 7, 8, 15}),
-    "Read Only": frozenset({0, 1, 2, 3, 4, 6, 9, 13, 14, 15}),
+    "Accounting": frozenset({0, 1, 2, 6, 7, 8, 15, 17}),
+    "Read Only": frozenset({0, 1, 2, 3, 4, 6, 9, 13, 14, 15, 17}),
 }
 
 _state = {
