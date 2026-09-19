@@ -55,3 +55,11 @@ def test_main_window_lazy_indices(qt_app):
     assert window.stack.currentIndex() == 2
     assert window.customers._inner is not None
     window.close()
+
+
+def test_travel_order_dialog_constructs(qt_app):
+    from app.modules.travel_orders.travel_order_dialog import TravelOrderDialog
+    dialog = TravelOrderDialog()
+    assert dialog.number.text().startswith("PN-")
+    assert dialog.status.currentText() == "Osnutek"
+    dialog.close()
