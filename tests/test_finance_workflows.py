@@ -116,7 +116,12 @@ def test_upn_qr_field_positions_match_zbs_standard():
     assert fields[5] == "Kupec d.o.o."
     assert fields[8] == "00000012250"
     assert fields[11] == "OTHR"
-    assert fields[13] == "03102026"
+    assert fields[13] == "03.10.2026"
     assert fields[14] == "SI56031001001018518"
     assert fields[15] == "SI001234"
     assert fields[16] == "JU-TAN d.o.o."
+
+
+def test_upn_qr_preserves_slovenian_characters():
+    payload = build_upn_qr(iban="SI56031001001018518", recipient_name="ČŽŠ d.o.o.", amount=1, reference="SI001")
+    assert "ČŽŠ d.o.o." in payload
