@@ -47,7 +47,8 @@ DOC_DEFAULTS = {
 
 def default_settings() -> dict:
     return {
-        "swift": "",\n        "travel_orders": {"mileage_rate": 0.0, "domestic_per_diem": 0.0},
+        "swift": "",
+        "travel_orders": {"mileage_rate": 0.0, "domestic_per_diem": 0.0},
         "numbering": {key: dict(value) for key, value in DOC_DEFAULTS.items()},
         "appearance": {
             "theme": "light",
