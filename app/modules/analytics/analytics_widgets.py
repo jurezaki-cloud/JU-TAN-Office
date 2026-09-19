@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.theme.colors import LightColors
+from app.theme.colors import LightColors, semantic_color
 
 
 class PeriodFilterBar(QWidget):
@@ -115,11 +115,11 @@ class ExportBar(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        self.btn_pdf = QPushButton("Export PDF")
+        self.btn_pdf = QPushButton("Izvoz PDF")
         self.btn_pdf.setObjectName("SecondaryButton")
-        self.btn_excel = QPushButton("Export Excel")
+        self.btn_excel = QPushButton("Izvoz Excel")
         self.btn_excel.setObjectName("SecondaryButton")
-        self.btn_print = QPushButton("Print")
+        self.btn_print = QPushButton("Natisni")
         self.btn_print.setObjectName("PrimaryButton")
 
         for button in (self.btn_pdf, self.btn_excel, self.btn_print):
@@ -220,11 +220,11 @@ class LineChart(_ChartBase):
             fill.lineTo(x, y)
         fill.lineTo(coords[-1][0], plot.bottom())
         fill.closeSubpath()
-        brush = QColor(LightColors.PRIMARY)
+        brush = QColor(semantic_color("PRIMARY", LightColors.PRIMARY))
         brush.setAlpha(40)
         painter.fillPath(fill, brush)
 
-        pen = QPen(QColor(LightColors.PRIMARY))
+        pen = QPen(QColor(semantic_color("PRIMARY", LightColors.PRIMARY)))
         pen.setWidth(2)
         painter.setPen(pen)
         for index in range(1, len(coords)):
@@ -232,12 +232,12 @@ class LineChart(_ChartBase):
             x2, y2 = coords[index]
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
-        painter.setBrush(QColor(LightColors.PRIMARY))
+        painter.setBrush(QColor(semantic_color("PRIMARY", LightColors.PRIMARY)))
         painter.setPen(Qt.NoPen)
         for x, y in coords:
             painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)
 
-        painter.setPen(QPen(QColor(LightColors.SECONDARY)))
+        painter.setPen(QPen(QColor(semantic_color("TEXT_MUTED", LightColors.SECONDARY))))
         painter.setFont(QFont("Segoe UI", 8))
         stride = max(1, len(points) // 8)
         for index, (label, _) in enumerate(points):
@@ -286,12 +286,12 @@ class BarChart(_ChartBase):
             height = int((float(value) / peak) * (plot.height() - 8))
             x = int(plot.left() + bar_space * index + (bar_space - bar_width) / 2)
             y = plot.bottom() - height
-            color = QColor(LightColors.PRIMARY)
+            color = QColor(semantic_color("PRIMARY", LightColors.PRIMARY))
             color.setAlpha(210)
             painter.setPen(Qt.NoPen)
             painter.setBrush(color)
             painter.drawRoundedRect(x, y, int(bar_width), max(4, height), 6, 6)
-            painter.setPen(QPen(QColor(LightColors.SECONDARY)))
+            painter.setPen(QPen(QColor(semantic_color("TEXT_MUTED", LightColors.SECONDARY))))
             painter.setFont(QFont("Segoe UI", 8))
             painter.drawText(
                 QRect(x - 8, plot.bottom() + 4, int(bar_width) + 16, 18),
@@ -304,11 +304,11 @@ class BarChart(_ChartBase):
 class PieChart(_ChartBase):
 
     PALETTE = (
-        LightColors.PRIMARY,
-        LightColors.SUCCESS,
-        LightColors.WARNING,
-        LightColors.DANGER,
-        LightColors.SECONDARY,
+        "PRIMARY",
+        "SUCCESS",
+        "WARNING",
+        "DANGER",
+        "SECONDARY",
     )
 
     def __init__(self, parent=None):
@@ -333,7 +333,8 @@ class PieChart(_ChartBase):
         start = 90 * 16
         for index, (name, value) in enumerate(slices):
             span = int(round((value / total) * 360 * 16))
-            color = QColor(self.PALETTE[index % len(self.PALETTE)])
+            token = self.PALETTE[index % len(self.PALETTE)]
+            color = QColor(semantic_color(token, getattr(LightColors, token, LightColors.PRIMARY)))
             painter.setBrush(color)
             painter.setPen(Qt.NoPen)
             painter.drawPie(pie, start, -span)
@@ -343,11 +344,12 @@ class PieChart(_ChartBase):
         legend_x = int(pie.right() + 16)
         y = int(max(16, pie.top()))
         for index, (name, value) in enumerate(slices):
-            color = QColor(self.PALETTE[index % len(self.PALETTE)])
+            token = self.PALETTE[index % len(self.PALETTE)]
+            color = QColor(semantic_color(token, getattr(LightColors, token, LightColors.PRIMARY)))
             painter.setPen(Qt.NoPen)
             painter.setBrush(color)
             painter.drawRoundedRect(legend_x, y + 3, 10, 10, 3, 3)
-            painter.setPen(QPen(QColor(LightColors.TEXT)))
+            painter.setPen(QPen(QColor(semantic_color("TEXT", LightColors.TEXT))))
             share = value / total * 100
             painter.drawText(
                 QRect(legend_x + 16, y, max(80, self.width() - legend_x - 24), 18),

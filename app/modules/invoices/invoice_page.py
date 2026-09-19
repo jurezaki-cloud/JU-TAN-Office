@@ -31,15 +31,19 @@ class InvoicePage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Računi")
         title.setObjectName("PageTitle")
         title.hide()
         layout.addWidget(title)
 
-        top = QHBoxLayout()
-        top.setSpacing(12)
+        from app.widgets.common.page_chrome import PageToolbar
+
+        toolbar = PageToolbar()
+        self.search_field = InvoiceSearch()
+        self.search = self.search_field.input
+        self.search.setMinimumWidth(260)
 
         self.actions = InvoiceActions()
         self.btn_new = self.actions.btn_new
@@ -49,13 +53,11 @@ class InvoicePage(QWidget):
         self.btn_pdf = self.actions.btn_pdf
         self.btn_refresh = self.actions.btn_refresh
 
-        self.search_field = InvoiceSearch()
-        self.search = self.search_field.input
-
-        top.addWidget(self.actions)
-        top.addStretch()
-        top.addWidget(self.search_field)
-        layout.addLayout(top)
+        # Pattern: [ Search ] [Status] [actions…]
+        toolbar.layout.addWidget(self.search_field, 1)
+        # Re-parent filter + actions without duplicating the search.
+        toolbar.layout.addWidget(self.actions, 0)
+        layout.addWidget(toolbar)
 
         self.table = InvoiceTable()
         self.model = InvoiceTableModel()
@@ -191,7 +193,7 @@ class InvoicePage(QWidget):
             path = pdf_export.export_invoice(invoice_id)
             pdf_export.show_result(self, path)
         except Exception as exc:
-            QMessageBox.warning(self, "PDF", f"PDF ni bilo mogoče ustvariti:\\n{exc}")
+            QMessageBox.warning(self, "PDF", f"PDF ni bilo mogoče ustvariti:\n{exc}")
 
     def refresh(self):
         self._apply_view()

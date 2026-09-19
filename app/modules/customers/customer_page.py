@@ -13,6 +13,7 @@ from app.modules.customers.models.customer_table_model import CustomerTableModel
 from app.modules.customers.customer_dialog import CustomerDialog
 from app.modules.customers.customer_details import CustomerDetails
 from app.database.customer_repository import customer_repository
+from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.customers.customer_actions import CustomerActions
 from app.widgets.customers.customer_table import CustomerTable
 from app.widgets.customers.empty_state import EmptyStateCard
@@ -30,16 +31,16 @@ class CustomerPage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Stranke")
         title.setObjectName("PageTitle")
         title.hide()
         layout.addWidget(title)
 
-        top_layout = QHBoxLayout()
-        top_layout.setSpacing(12)
+        from app.widgets.common.page_chrome import PageToolbar
 
+        toolbar = PageToolbar()
         self.actions = CustomerActions()
         self.btn_new = self.actions.btn_new
         self.btn_edit = self.actions.btn_edit
@@ -49,11 +50,9 @@ class CustomerPage(QWidget):
         self.search_field = CustomerSearch()
         self.search = self.search_field.input
 
-        top_layout.addWidget(self.actions)
-        top_layout.addStretch()
-        top_layout.addWidget(self.search_field)
-
-        layout.addLayout(top_layout)
+        toolbar.layout.addWidget(self.search_field, 1)
+        toolbar.layout.addWidget(self.actions, 0)
+        layout.addWidget(toolbar)
 
         self.table = CustomerTable()
         self.model = CustomerTableModel([])
@@ -62,9 +61,13 @@ class CustomerPage(QWidget):
 
         self.details = CustomerDetails()
 
+        table_card = EnterpriseCard("DashboardCard")
+        table_card.body.setContentsMargins(8, 8, 8, 8)
+        table_card.body.addWidget(self.table)
+
         splitter = QSplitter()
         splitter.setObjectName("CustomerSplitter")
-        splitter.addWidget(self.table)
+        splitter.addWidget(table_card)
         splitter.addWidget(self.details)
         splitter.setSizes([720, 360])
         splitter.setChildrenCollapsible(False)

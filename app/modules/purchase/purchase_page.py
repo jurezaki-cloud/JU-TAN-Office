@@ -35,7 +35,7 @@ class PurchasePage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Nabava")
         title.setObjectName("PageTitle")

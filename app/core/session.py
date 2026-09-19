@@ -13,6 +13,7 @@ DEFAULT_TIMEOUT_SEC = 30 * 60
 class Session:
     def __init__(self) -> None:
         self.user = SESSION_USER
+        self.role = "Administrator"
         self.remember_user = True
         self.timeout_sec = DEFAULT_TIMEOUT_SEC
         self.last_activity = time.monotonic()
@@ -22,17 +23,21 @@ class Session:
     def touch(self) -> None:
         self.last_activity = time.monotonic()
 
+    def idle_seconds(self) -> float:
+        return max(0.0, time.monotonic() - self.last_activity)
+
     def idle_too_long(self) -> bool:
         if self.timeout_sec <= 0:
             return False
-        return (time.monotonic() - self.last_activity) >= self.timeout_sec
+        return self.idle_seconds() >= self.timeout_sec
 
     def login(self, user: str, role: str = "Administrator") -> None:
         self.user = user
+        self.role = role or "Administrator"
         self.locked = False
         self.authenticated = True
         self.touch()
-        set_identity(user=user, role=role, authenticated=True)
+        set_identity(user=user, role=self.role, authenticated=True)
         audit("login", user)
 
     def logout(self) -> None:
@@ -51,7 +56,8 @@ class Session:
         self.locked = False
         self.authenticated = True
         self.touch()
-        set_identity(user=user or self.user, role=current_role(), authenticated=True)
+        role = self.role or current_role()
+        set_identity(user=user or self.user, role=role, authenticated=True)
         audit("unlock", self.user)
 
 

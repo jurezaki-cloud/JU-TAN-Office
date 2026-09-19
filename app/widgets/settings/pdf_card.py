@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -11,6 +12,14 @@ from PySide6.QtWidgets import (
 )
 
 from app.widgets.cards.enterprise_card import EnterpriseCard
+
+
+def _da_ne(value: bool) -> str:
+    return "DA" if value else "NE"
+
+
+def _is_da(text: str) -> bool:
+    return str(text or "").strip().upper() == "DA"
 
 
 class PdfCard(QWidget):
@@ -28,23 +37,25 @@ class PdfCard(QWidget):
         card.body.addWidget(title)
 
         self.chk_logo = QCheckBox("Logo")
-        self.chk_signature = QCheckBox("Podpis")
-        self.chk_stamp = QCheckBox("Žig")
         self.chk_vat = QCheckBox("DDV")
         self.chk_discounts = QCheckBox("Popusti")
         self.chk_notes = QCheckBox("Opombe")
 
-        for box in (
-            self.chk_logo,
-            self.chk_signature,
-            self.chk_stamp,
-            self.chk_vat,
-            self.chk_discounts,
-            self.chk_notes,
-        ):
+        for box in (self.chk_logo, self.chk_vat, self.chk_discounts, self.chk_notes):
             box.setChecked(True)
             box.toggled.connect(self.changed.emit)
             card.body.addWidget(box)
+
+        self.show_signature = QComboBox()
+        self.show_signature.addItems(["DA", "NE"])
+        self.show_signature.setCurrentText("DA")
+        self.show_stamp = QComboBox()
+        self.show_stamp.addItems(["DA", "NE"])
+        self.show_stamp.setCurrentText("DA")
+        card.body.addLayout(self._da_ne_row("Prikaži podpis na dokumentih", self.show_signature))
+        card.body.addLayout(self._da_ne_row("Prikaži žig na dokumentih", self.show_stamp))
+        self.show_signature.currentTextChanged.connect(self._persist_signature_stamp)
+        self.show_stamp.currentTextChanged.connect(self._persist_signature_stamp)
 
         footer_caption = QLabel("Noga dokumenta")
         footer_caption.setObjectName("DashboardMuted")
@@ -87,6 +98,15 @@ class PdfCard(QWidget):
         layout.addWidget(card)
         self.btn_folder.clicked.connect(self._pick_folder)
 
+    def _da_ne_row(self, caption: str, combo: QComboBox):
+        wrap = QVBoxLayout()
+        wrap.setSpacing(4)
+        label = QLabel(caption)
+        label.setObjectName("DashboardMuted")
+        wrap.addWidget(label)
+        wrap.addWidget(combo)
+        return wrap
+
     def _file_row(self, caption: str, field: QLineEdit, handler):
         wrap = QVBoxLayout()
         wrap.setSpacing(4)
@@ -108,8 +128,8 @@ class PdfCard(QWidget):
     def values(self) -> dict:
         return {
             "logo": self.chk_logo.isChecked(),
-            "signature": self.chk_signature.isChecked(),
-            "stamp": self.chk_stamp.isChecked(),
+            "signature": _is_da(self.show_signature.currentText()),
+            "stamp": _is_da(self.show_stamp.currentText()),
             "vat": self.chk_vat.isChecked(),
             "discounts": self.chk_discounts.isChecked(),
             "notes": self.chk_notes.isChecked(),
@@ -121,8 +141,12 @@ class PdfCard(QWidget):
 
     def set_values(self, pdf: dict) -> None:
         self.chk_logo.setChecked(bool(pdf.get("logo", True)))
-        self.chk_signature.setChecked(bool(pdf.get("signature", True)))
-        self.chk_stamp.setChecked(bool(pdf.get("stamp", True)))
+        self.show_signature.blockSignals(True)
+        self.show_stamp.blockSignals(True)
+        self.show_signature.setCurrentText(_da_ne(bool(pdf.get("signature", True))))
+        self.show_stamp.setCurrentText(_da_ne(bool(pdf.get("stamp", True))))
+        self.show_signature.blockSignals(False)
+        self.show_stamp.blockSignals(False)
         self.chk_vat.setChecked(bool(pdf.get("vat", True)))
         self.chk_discounts.setChecked(bool(pdf.get("discounts", True)))
         self.chk_notes.setChecked(bool(pdf.get("notes", True)))
@@ -140,6 +164,24 @@ class PdfCard(QWidget):
     def set_excel(self, excel: dict) -> None:
         self.excel_export.setText(str(excel.get("export_folder", "")))
         self.excel_import.setText(str(excel.get("import_folder", "")))
+
+    def _persist_signature_stamp(self, _text: str = "") -> None:
+        """Write signature/stamp flags immediately so PDF matches the visible UI."""
+        try:
+            from app.modules.settings.settings_controller import SettingsController
+
+            ctrl = SettingsController()
+            extras = ctrl.load_extras()
+            pdf = dict(extras.get("pdf") or {})
+            pdf["signature"] = _is_da(self.show_signature.currentText())
+            pdf["stamp"] = _is_da(self.show_stamp.currentText())
+            extras["pdf"] = pdf
+            ctrl.save_extras(extras)
+        except Exception as exc:
+            from app.core.logger import logger
+
+            logger.error("PDF signature/stamp persist failed: %s", exc)
+        self.changed.emit()
 
     def _pick_folder(self):
         path = QFileDialog.getExistingDirectory(self, "Privzeta mapa za PDF")

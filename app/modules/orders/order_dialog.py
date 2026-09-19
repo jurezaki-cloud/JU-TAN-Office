@@ -31,6 +31,11 @@ class OrderDialog(EnterpriseDialog):
         self.order_id = order_id
         self.setObjectName("OrderDialog")
         self.bind_save(self.save)
+        from app.utils.vat import company_vat_liable, parse_vat_liable
+
+        self.vat_liable = (
+            parse_vat_liable(company_vat_liable()) if order_id is None else True
+        )
 
         header_card = EnterpriseCard("DashboardCard")
         grid = FormGrid()
@@ -66,8 +71,8 @@ class OrderDialog(EnterpriseDialog):
         items_card.body.addWidget(self.items_table)
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
-        self.btn_add_item = QPushButton("Dodaj postavko")
-        self.btn_add_item.setObjectName("SecondaryButton")
+        self.btn_add_item = QPushButton("+ Dodaj postavko")
+        self.btn_add_item.setObjectName("PrimaryButton")
         self.btn_remove_item = QPushButton("Odstrani postavko")
         self.btn_remove_item.setObjectName("DangerButton")
         for button in (self.btn_add_item, self.btn_remove_item):
@@ -84,24 +89,47 @@ class OrderDialog(EnterpriseDialog):
         total_layout.addStretch()
         self.lbl_subtotal = QLabel("0.00 €")
         self.lbl_vat = QLabel("0.00 €")
+        self.lbl_vat_caption = QLabel("DDV:")
         self.lbl_total = QLabel("0.00 €")
         self.lbl_total.setObjectName("TotalValue")
         total_layout.addWidget(QLabel("Osnova:"))
         total_layout.addWidget(self.lbl_subtotal)
         total_layout.addSpacing(20)
-        total_layout.addWidget(QLabel("DDV:"))
+        total_layout.addWidget(self.lbl_vat_caption)
         total_layout.addWidget(self.lbl_vat)
         total_layout.addSpacing(20)
         total_layout.addWidget(QLabel("SKUPAJ:"))
         total_layout.addWidget(self.lbl_total)
         totals_card.body.addLayout(total_layout)
+        self.lbl_vat_notice = QLabel("")
+        self.lbl_vat_notice.setObjectName("DashboardMuted")
+        self.lbl_vat_notice.setWordWrap(True)
+        self.lbl_vat_notice.hide()
+        totals_card.body.addWidget(self.lbl_vat_notice)
         self.body.addWidget(totals_card)
 
         self.btn_add_item.clicked.connect(self.add_item)
         self.btn_remove_item.clicked.connect(self.remove_item)
         self.load_customers()
+        self._apply_vat_ui()
         if self.order_id is not None:
             self.load_order()
+
+    def _apply_vat_ui(self):
+        from app.utils.vat import ARTICLE_94_NOTICE, parse_vat_liable
+
+        self.vat_liable = parse_vat_liable(self.vat_liable)
+        show_vat = self.vat_liable
+        self.lbl_vat_caption.setVisible(show_vat)
+        self.lbl_vat.setVisible(show_vat)
+        if hasattr(self, "items_table"):
+            self.items_table.setColumnHidden(6, not show_vat)
+        if show_vat:
+            self.lbl_vat_notice.hide()
+            self.lbl_vat_notice.clear()
+        else:
+            self.lbl_vat_notice.setText(ARTICLE_94_NOTICE)
+            self.lbl_vat_notice.show()
 
     def load_customers(self):
         self.customer.clear()
@@ -109,7 +137,7 @@ class OrderDialog(EnterpriseDialog):
             self.customer.addItem(customer[1], customer[0])
 
     def add_item(self):
-        dialog = InvoiceItemDialog(self)
+        dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
         if dialog.exec():
             self.items_model.add_item(dialog.get_data())
             self.update_total()
@@ -124,7 +152,7 @@ class OrderDialog(EnterpriseDialog):
     def update_total(self):
         from app.utils.money import document_totals, format_eur
 
-        totals = document_totals(self.items_model.items)
+        totals = document_totals(self.items_model.items, vat_liable=self.vat_liable)
         self.lbl_subtotal.setText(format_eur(totals["subtotal"]))
         self.lbl_vat.setText(format_eur(totals["vat"]))
         self.lbl_total.setText(format_eur(totals["total"]))
@@ -133,6 +161,7 @@ class OrderDialog(EnterpriseDialog):
         from app.core.permissions import allow, audit
         from app.core.ui.notify import toast
         from app.utils.money import as_float, document_totals, line_gross
+        from app.utils.vat import assert_vat_consistent
 
         if not allow("write", self):
             return
@@ -143,7 +172,28 @@ class OrderDialog(EnterpriseDialog):
             toast(self, "Dodajte vsaj eno postavko.")
             return
 
-        totals = document_totals(self.items_model.items)
+        if not self.vat_liable:
+            normalized = []
+            for row in self.items_model.items:
+                row = list(row)
+                if len(row) >= 9:
+                    row[6] = 0
+                    row[7] = as_float(line_gross(row[2], row[4], 0, row[5], vat_liable=False))
+                normalized.append(row)
+            self.items_model.refresh(normalized)
+
+        totals = document_totals(self.items_model.items, vat_liable=self.vat_liable)
+        try:
+            assert_vat_consistent(
+                vat_liable=self.vat_liable,
+                lines=self.items_model.items,
+                vat_total=totals["vat"],
+                show_article_94=not self.vat_liable,
+            )
+        except ValueError as exc:
+            toast(self, str(exc))
+            return
+
         payload = dict(
             customer_id=self.customer.currentData(),
             issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
@@ -154,6 +204,7 @@ class OrderDialog(EnterpriseDialog):
             vat=totals["vat"],
             total=totals["total"],
             notes=self.notes.toPlainText(),
+            vat_liable=self.vat_liable,
         )
 
         if self.order_id is None:
@@ -167,18 +218,31 @@ class OrderDialog(EnterpriseDialog):
             order_id = self.order_id
 
         for row in self.items_model.items:
+            # Prefer discount-aware editor rows; fall back to legacy 8-column rows.
+            if len(row) >= 9:
+                qty, unit, price, discount, vat, article_id = (
+                    row[2], row[3], row[4], row[5], row[6], row[8],
+                )
+            else:
+                qty, unit, price, discount, vat, article_id = (
+                    row[2], row[3], row[4], 0, row[5], row[7],
+                )
+            if not self.vat_liable:
+                vat = 0
             order_repository.add_item(
                 order_id=order_id,
-                article_id=row[7],
+                article_id=article_id,
                 code=row[0],
                 name=row[1],
                 description="",
-                quantity=row[2],
-                unit=row[3],
-                price=row[4],
-                discount=0,
-                vat=row[5],
-                total=as_float(line_gross(row[2], row[4], row[5], 0)),
+                quantity=qty,
+                unit=unit,
+                price=price,
+                discount=discount,
+                vat=vat,
+                total=as_float(
+                    line_gross(qty, price, vat, discount, vat_liable=self.vat_liable)
+                ),
             )
         audit("create" if self.order_id is None else "edit", f"order:{order_id}")
         self.accept()
@@ -187,6 +251,9 @@ class OrderDialog(EnterpriseDialog):
         order = order_repository.get_by_id(self.order_id)
         if order is None:
             return
+
+        self.vat_liable = order_repository.get_vat_liable(self.order_id)
+        self._apply_vat_ui()
 
         self.lbl_number.setText(order[1])
         index = self.customer.findData(order[2])
@@ -206,8 +273,15 @@ class OrderDialog(EnterpriseDialog):
         ui_items = []
         for item in order_repository.get_items(self.order_id):
             ui_items.append([
-                item[2], item[3], item[5], item[6],
-                item[7], item[9], item[10], item[1],
+                item[2],
+                item[3],
+                item[5],
+                item[6],
+                item[7],
+                item[8] or 0,
+                item[9],
+                item[10],
+                item[1],
             ])
         self.items_model.refresh(ui_items)
         self.update_total()

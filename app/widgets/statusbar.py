@@ -9,7 +9,7 @@ class StatusBar(QStatusBar):
     def __init__(self):
         super().__init__()
         self.setObjectName("AppStatusBar")
-        self._user = QLabel("Administrator")
+        self._user = QLabel("Uporabnik")
         self._company = QLabel("—")
         self._version = QLabel(f"v{APP_VERSION}")
         self._db = QLabel("Baza: …")
@@ -21,7 +21,17 @@ class StatusBar(QStatusBar):
         self.refresh()
 
     def refresh(self) -> None:
-        self._user.setText("Administrator")
+        try:
+            from app.core.session import session
+
+            user = session.user or "Uporabnik"
+            role = session.role or ""
+            if role and role.casefold() != str(user).casefold():
+                self._user.setText(f"{user} · {role}")
+            else:
+                self._user.setText(str(user))
+        except Exception:
+            self._user.setText("Uporabnik")
         self._version.setText(f"v{APP_VERSION}")
         try:
             from app.database.company_repository import company_repository

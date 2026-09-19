@@ -101,34 +101,36 @@ class PaymentRepository:
 
     def sync_invoice_status(self, invoice_id, invoice_total) -> str:
         """Update invoice status from payment ledger. Returns new status."""
+        from app.core.ui_freeze_diag import span as _diag_span
         from app.database.invoice_repository import invoice_repository
 
-        current = invoice_repository.get_by_id(invoice_id)
-        if current is None:
-            return ""
-        if (current[5] or "").strip() == "Storniran":
-            return "Storniran"
+        with _diag_span("PaymentRepository.sync_invoice_status", invoice_id=invoice_id):
+            current = invoice_repository.get_by_id(invoice_id)
+            if current is None:
+                return ""
+            if (current[5] or "").strip() == "Storniran":
+                return "Storniran"
 
-        paid = money(self.sum_for_invoice(invoice_id))
-        total = money(invoice_total)
-        if paid <= 0:
-            status = "Izdan"
-        elif paid + money("0.01") >= total:
-            status = "Plačan"
-        else:
-            status = "Delno plačan"
+            paid = money(self.sum_for_invoice(invoice_id))
+            total = money(invoice_total)
+            if paid <= 0:
+                status = "Izdan"
+            elif paid + money("0.01") >= total:
+                status = "Plačan"
+            else:
+                status = "Delno plačan"
 
-        conn = db.connect()
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE invoices SET status=? WHERE id=?",
-            (status, invoice_id),
-        )
-        conn.commit()
-        conn.close()
-        # keep repository helper available for callers that only mark paid
-        _ = invoice_repository
-        return status
+            conn = db.connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE invoices SET status=? WHERE id=?",
+                (status, invoice_id),
+            )
+            conn.commit()
+            conn.close()
+            # keep repository helper available for callers that only mark paid
+            _ = invoice_repository
+            return status
 
 
 payment_repository = PaymentRepository()

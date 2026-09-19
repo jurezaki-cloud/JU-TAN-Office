@@ -124,39 +124,43 @@ class PaymentDialog(EnterpriseDialog):
     def save(self):
         from app.core.permissions import allow, audit
         from app.core.ui.notify import toast
+        from app.core.ui_freeze_diag import span as _diag_span
 
-        if not allow("write", self):
-            return
-        invoice_id = self.invoice.currentData()
-        if invoice_id is None:
-            return
+        with _diag_span("PaymentDialog.save"):
+            if not allow("write", self):
+                return
+            invoice_id = self.invoice.currentData()
+            if invoice_id is None:
+                return
 
-        full = invoice_repository.get_by_id(invoice_id)
-        if full is None:
-            return
-        if (full[5] or "").strip() == "Storniran":
-            toast(self, "Storniranega računa ni mogoče plačati.")
-            return
-        total = float(full[9] or 0)
-        remaining = payment_repository.remaining(invoice_id, total)
-        amount = money(self.amount.value())
-        if amount <= 0:
-            toast(self, "Znesek mora biti večji od 0.")
-            return
-        if amount > money(remaining) + money("0.01"):
-            toast(self, "Znesek presega preostalo vsoto.")
-            return
+            full = invoice_repository.get_by_id(invoice_id)
+            if full is None:
+                return
+            if (full[5] or "").strip() == "Storniran":
+                toast(self, "Storniranega računa ni mogoče plačati.")
+                return
+            total = float(full[9] or 0)
+            remaining = payment_repository.remaining(invoice_id, total)
+            amount = money(self.amount.value())
+            if amount <= 0:
+                toast(self, "Znesek mora biti večji od 0.")
+                return
+            if amount > money(remaining) + money("0.01"):
+                toast(self, "Znesek presega preostalo vsoto.")
+                return
 
-        paid = self.paid_date.date().toString("yyyy-MM-dd")
-        method = self.method.currentText()
-        payment_repository.add(invoice_id, paid, amount, method)
-        status = payment_repository.sync_invoice_status(invoice_id, total)
+            paid = self.paid_date.date().toString("yyyy-MM-dd")
+            method = self.method.currentText()
+            with _diag_span("PaymentRepository.add", invoice_id=invoice_id, amount=float(amount)):
+                payment_repository.add(invoice_id, paid, amount, method)
+            status = payment_repository.sync_invoice_status(invoice_id, total)
 
-        line = f"[PLAČILO] {paid} · {method} · {format_eur(amount)}"
-        notes = (full[10] or "").rstrip()
-        notes = f"{notes}\n{line}".strip() if notes else line
-        invoice_repository.update_notes(invoice_id, notes)
+            line = f"[PLAČILO] {paid} · {method} · {format_eur(amount)}"
+            notes = (full[10] or "").rstrip()
+            notes = f"{notes}\n{line}".strip() if notes else line
+            with _diag_span("invoice_repository.update_notes", invoice_id=invoice_id):
+                invoice_repository.update_notes(invoice_id, notes)
 
-        audit("edit", f"payment:{invoice_id}:{status}")
-        toast(self, f"Plačilo shranjeno ({status}).")
-        self.accept()
+            audit("edit", f"payment:{invoice_id}:{status}")
+            toast(self, f"Plačilo shranjeno ({status}).")
+            self.accept()

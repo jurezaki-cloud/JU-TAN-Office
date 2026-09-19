@@ -13,7 +13,7 @@ from app.widgets.cards.enterprise_card import EnterpriseCard
 class LeadDialog(EnterpriseDialog):
 
     def __init__(self, parent=None, controller: CrmController | None = None) -> None:
-        super().__init__(parent, title="New Lead", heading="New Lead", size="MEDIUM", state_key="dialog.lead")
+        super().__init__(parent, title="Nova priložnost", heading="Nova priložnost", size="MEDIUM", state_key="dialog.lead")
         self.controller = controller or CrmController()
         self.setObjectName("CrmDialog")
         self.bind_save(self._accept)
@@ -106,7 +106,7 @@ class ActivityDialog(EnterpriseDialog):
         customer_id=None,
         pipeline_id=None,
     ) -> None:
-        title = "New Activity" if activity_type != "Meeting" else "New Meeting"
+        title = "Nova aktivnost" if activity_type != "Meeting" else "Nov sestanek"
         super().__init__(parent, title=title, heading=title, size="SMALL", state_key="dialog.activity")
         self.controller = controller or CrmController()
         self.setObjectName("CrmDialog")

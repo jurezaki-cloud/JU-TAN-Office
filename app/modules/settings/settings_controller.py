@@ -25,8 +25,8 @@ SETTINGS_PATH = DATA_DIR / "settings.json"
 
 ACCENTS = {
     "blue": ("#2563EB", "#1D4ED8"),
-    "green": ("#16A34A", "#15803D"),
-    "orange": ("#F59E0B", "#D97706"),
+    "green": ("#059669", "#047857"),
+    "orange": ("#D97706", "#B45309"),
 }
 
 FONT_POINTS = {"small": 9, "normal": 10, "large": 12}
@@ -52,7 +52,7 @@ def default_settings() -> dict:
         "numbering": {key: dict(value) for key, value in DOC_DEFAULTS.items()},
         "appearance": {
             "theme": "light",
-            "accent": "blue",
+            "accent": "green",
             "font_size": "normal",
             "radius": "medium",
         },
@@ -64,7 +64,10 @@ def default_settings() -> dict:
             "discounts": True,
             "notes": True,
             "folder": str(DATA_DIR),
-            "footer": "Hvala za zaupanje. JU-TAN Office Enterprise.",
+            "footer": (
+                "Hvala za vaše zaupanje. "
+                "Trudimo se, da za vas vedno poiščemo najboljše rešitve."
+            ),
             "signature_path": "",
             "stamp_path": "",
             "payment_method": "Nakazilo",
@@ -185,6 +188,36 @@ class SettingsController:
         )
         bank = current[10] if current else ""
         numbering = extras.get("numbering", DOC_DEFAULTS)
+        from app.utils.vat import vat_liable_int
+
+        # Never lower live document counters — settings "start" previously overwrote
+        # company.invoice_counter and caused UNIQUE failures / freeze on save.
+        live_invoice = int(current[18]) if current and current[18] is not None else 1
+        live_offer = int(current[19]) if current and current[19] is not None else 1
+        want_invoice = int(numbering["invoice"]["start"])
+        want_offer = int(numbering["offer"]["start"])
+        try:
+            from app.database.invoice_repository import invoice_repository
+
+            # Heal against existing rows before persisting settings.
+            invoice_repository.get_next_number()
+            refreshed = company_repository.get_company()
+            if refreshed and refreshed[18] is not None:
+                live_invoice = max(live_invoice, int(refreshed[18]))
+        except Exception:
+            pass
+        invoice_counter = max(want_invoice, live_invoice)
+        offer_counter = max(want_offer, live_offer)
+        numbering["invoice"]["start"] = invoice_counter
+        numbering["offer"]["start"] = offer_counter
+        extras["numbering"] = numbering
+
+        if "vat_liable" in company_values:
+            vat_liable = vat_liable_int(company_values.get("vat_liable"))
+        elif current and len(current) > 22:
+            vat_liable = vat_liable_int(current[22])
+        else:
+            vat_liable = 1
         company_repository.save(
             company_values.get("name", ""),
             legal,
@@ -203,10 +236,11 @@ class SettingsController:
             logo or "",
             numbering["invoice"]["prefix"],
             numbering["offer"]["prefix"],
-            int(numbering["invoice"]["start"]),
-            int(numbering["offer"]["start"]),
+            invoice_counter,
+            offer_counter,
             vat if vat is not None else 22,
             notes or "",
+            vat_liable,
         )
         self.save_extras(extras)
 
@@ -215,12 +249,12 @@ class SettingsController:
         appearance = extras["appearance"]
         app = app or QApplication.instance()
         mode = self.resolve_theme(appearance.get("theme", "light"))
-        accent = appearance.get("accent", "blue")
+        accent = appearance.get("accent", "green")
         radius = appearance.get("radius", "medium")
         font_key = appearance.get("font_size", "normal")
-        primary, hover = ACCENTS.get(accent, ACCENTS["blue"])
+        primary, hover = ACCENTS.get(accent, ACCENTS["green"])
         card, control = RADII.get(radius, RADII["medium"])
-        theme_manager.apply(
+        applied = theme_manager.apply(
             app,
             mode,
             accent_primary=primary,
@@ -228,7 +262,21 @@ class SettingsController:
             card_radius=card,
             control_radius=control,
         )
+        if not applied:
+            # Modal dialog open — stylesheet deferred; skip icon/titlebar thrash too.
+            return mode.value
         apply_fonts(app, FONT_POINTS.get(font_key, 10))
+        try:
+            from app.core.ui.app_identity import sync_titlebar_for_app
+            from app.core.ui.brand_icons import clear_icon_cache
+            from app.widgets.navigation.sidebar_header import refresh_brand_logos
+
+            clear_icon_cache()
+            sync_titlebar_for_app(mode)
+            # Live LIGHT↔DARK brand logo swap (sidebar) without restart.
+            refresh_brand_logos()
+        except Exception:
+            pass
         return mode.value
 
     def resolve_theme(self, preference: str) -> ThemeMode:

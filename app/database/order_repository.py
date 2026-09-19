@@ -22,6 +22,7 @@ class OrderRepository:
                 vat REAL DEFAULT 0,
                 total REAL DEFAULT 0,
                 notes TEXT,
+                vat_liable INTEGER DEFAULT 1,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE RESTRICT
             )
@@ -44,11 +45,35 @@ class OrderRepository:
                 FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE SET NULL
             )
         """)
+        cols = {
+            row[1]
+            for row in cursor.execute("PRAGMA table_info(orders)").fetchall()
+        }
+        if cols and "vat_liable" not in cols:
+            cursor.execute(
+                "ALTER TABLE orders ADD COLUMN vat_liable INTEGER DEFAULT 1"
+            )
+            cursor.execute(
+                "UPDATE orders SET vat_liable=1 WHERE vat_liable IS NULL"
+            )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_number ON orders(number)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id)")
         conn.commit()
         conn.close()
+
+    def get_vat_liable(self, order_id) -> bool:
+        from app.utils.vat import parse_vat_liable
+
+        self.ensure_schema()
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute("SELECT vat_liable FROM orders WHERE id=?", (order_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row is None:
+            return True
+        return parse_vat_liable(row[0])
 
     def get_all(self):
         self.ensure_schema()
@@ -136,19 +161,24 @@ class OrderRepository:
         vat,
         total,
         notes,
+        vat_liable=None,
     ):
+        from app.utils.vat import company_vat_liable, vat_liable_int
+
         self.ensure_schema()
+        if vat_liable is None:
+            vat_liable = company_vat_liable()
         conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO orders(
                 number, customer_id, issue_date, delivery_date, status,
-                subtotal, discount, vat, total, notes
+                subtotal, discount, vat, total, notes, vat_liable
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
         """, (
             number, customer_id, issue_date, delivery_date, status,
-            subtotal, discount, vat, total, notes,
+            subtotal, discount, vat, total, notes, vat_liable_int(vat_liable),
         ))
         conn.commit()
         order_id = cursor.lastrowid
@@ -167,8 +197,13 @@ class OrderRepository:
         vat,
         total,
         notes,
+        vat_liable=None,
     ):
+        from app.utils.vat import vat_liable_int
+
         self.ensure_schema()
+        if vat_liable is None:
+            vat_liable = self.get_vat_liable(order_id)
         conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("""
@@ -181,11 +216,12 @@ class OrderRepository:
                 discount=?,
                 vat=?,
                 total=?,
-                notes=?
+                notes=?,
+                vat_liable=?
             WHERE id=?
         """, (
             customer_id, issue_date, delivery_date, status,
-            subtotal, discount, vat, total, notes, order_id,
+            subtotal, discount, vat, total, notes, vat_liable_int(vat_liable), order_id,
         ))
         conn.commit()
         conn.close()

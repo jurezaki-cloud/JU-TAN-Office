@@ -15,13 +15,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.ui.brand_icons import brand_icon
 from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
 from app.database.offer_repository import offer_repository
 from app.database.payment_repository import payment_repository
+from app.theme.colors import semantic_color
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
 from app.widgets.cards.revenue_chart import SLO_MONTHS, RevenueChart
+from app.widgets.invoices.status_badge import StatusBadgeDelegate, invoice_badge
 
 SLO_MONTHS_FULL = (
     "januar", "februar", "marec", "april", "maj", "junij",
@@ -53,9 +56,9 @@ class Dashboard(QWidget):
         self._canvas = QWidget()
         self._canvas.setObjectName("DashboardCanvas")
         self._grid = QGridLayout(self._canvas)
-        self._grid.setContentsMargins(4, 4, 4, 4)
-        self._grid.setHorizontalSpacing(16)
-        self._grid.setVerticalSpacing(16)
+        self._grid.setContentsMargins(2, 2, 2, 2)
+        self._grid.setHorizontalSpacing(12)
+        self._grid.setVerticalSpacing(12)
 
         self._welcome = self._build_welcome()
         self._kpi_invoices = KpiCard("Število računov", "0", "Vsi dokumenti")
@@ -78,14 +81,14 @@ class Dashboard(QWidget):
         wrap = QWidget()
         wrap.setObjectName("DashboardWelcomeBlock")
         layout = QHBoxLayout(wrap)
-        layout.setContentsMargins(4, 0, 4, 8)
-        layout.setSpacing(16)
+        layout.setContentsMargins(2, 0, 2, 4)
+        layout.setSpacing(12)
 
         text = QVBoxLayout()
         text.setContentsMargins(0, 0, 0, 0)
-        text.setSpacing(4)
+        text.setSpacing(2)
 
-        hello = QLabel("Dobrodošli v JU-TAN Office")
+        hello = QLabel("Pregled poslovanja")
         hello.setObjectName("DashboardWelcome")
 
         self._date_label = QLabel(self._today_label())
@@ -112,18 +115,26 @@ class Dashboard(QWidget):
 
     def _build_quick_card(self) -> EnterpriseCard:
         card = EnterpriseCard("DashboardCard")
-        title = QLabel("Hitri gumbi")
+        title = QLabel("Hitre akcije")
         title.setObjectName("DashboardSectionTitle")
         card.body.addWidget(title)
 
+        muted = semantic_color("TEXT", "#0F172A")
         self.btn_new_invoice = QPushButton("Nov račun")
         self.btn_new_invoice.setObjectName("PrimaryButton")
+        self.btn_new_invoice.setIcon(brand_icon("invoices", color="#FFFFFF", size=14))
+
         self.btn_new_offer = QPushButton("Nova ponudba")
         self.btn_new_offer.setObjectName("SecondaryButton")
+        self.btn_new_offer.setIcon(brand_icon("offers", color=muted, size=14))
+
         self.btn_new_customer = QPushButton("Nova stranka")
         self.btn_new_customer.setObjectName("SecondaryButton")
+        self.btn_new_customer.setIcon(brand_icon("customers", color=muted, size=14))
+
         self.btn_new_article = QPushButton("Nov artikel")
-        self.btn_new_article.setObjectName("SecondaryButton")
+        self.btn_new_article.setObjectName("GhostButton")
+        self.btn_new_article.setIcon(brand_icon("articles", color=muted, size=14))
 
         for button in (
             self.btn_new_invoice,
@@ -132,7 +143,7 @@ class Dashboard(QWidget):
             self.btn_new_article,
         ):
             button.setCursor(Qt.PointingHandCursor)
-            button.setMinimumHeight(40)
+            button.setMinimumHeight(36)
             card.body.addWidget(button)
 
         card.body.addStretch()
@@ -155,13 +166,16 @@ class Dashboard(QWidget):
             ["Številka", "Datum", "Znesek", "Status"]
         )
         self.invoice_table.verticalHeader().setVisible(False)
+        self.invoice_table.verticalHeader().setDefaultSectionSize(40)
         self.invoice_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.invoice_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.invoice_table.setSelectionMode(QTableWidget.SingleSelection)
         self.invoice_table.setShowGrid(False)
+        self.invoice_table.setAlternatingRowColors(True)
         self.invoice_table.setFocusPolicy(Qt.NoFocus)
         self.invoice_table.horizontalHeader().setStretchLastSection(True)
-        self.invoice_table.setMinimumHeight(180)
+        self.invoice_table.setMinimumHeight(200)
+        self.invoice_table.setItemDelegateForColumn(3, StatusBadgeDelegate(self.invoice_table))
         card.body.addWidget(self.invoice_table)
         return card
 
@@ -173,7 +187,7 @@ class Dashboard(QWidget):
 
         self.activity_list = QListWidget()
         self.activity_list.setObjectName("DashboardActivity")
-        self.activity_list.setMinimumHeight(180)
+        self.activity_list.setMinimumHeight(200)
         self.activity_list.setFocusPolicy(Qt.NoFocus)
         card.body.addWidget(self.activity_list)
         return card
@@ -247,8 +261,6 @@ class Dashboard(QWidget):
             self._grid.setColumnStretch(3, 0)
 
     def refresh(self):
-        from app.widgets.invoices.status_badge import invoice_badge
-
         invoices = invoice_repository.get_all()
         offers = offer_repository.get_all()
         customers = customer_repository.get_all()
@@ -309,11 +321,18 @@ class Dashboard(QWidget):
             number = str(invoice[1] if len(invoice) > 1 else "")
             issued = str(invoice[2] if len(invoice) > 2 else "")
             total = invoice[4] if len(invoice) > 4 else 0
-            status = str(invoice[5] if len(invoice) > 5 else "")
+            raw_status = str(invoice[5] if len(invoice) > 5 else "")
+            full = invoice_repository.get_by_id(invoice[0]) if invoice else None
+            due = full[4] if full else None
+            status = invoice_badge(raw_status, due)
+
             values = [number, issued, self._money(total), status]
+            aligns = [Qt.AlignLeft | Qt.AlignVCenter, Qt.AlignLeft | Qt.AlignVCenter,
+                      Qt.AlignRight | Qt.AlignVCenter, Qt.AlignCenter]
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                item.setTextAlignment(aligns[column])
                 self.invoice_table.setItem(row, column, item)
 
     def _fill_activity(self, invoices, offers, customers) -> None:

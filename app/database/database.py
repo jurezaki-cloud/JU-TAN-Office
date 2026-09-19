@@ -115,6 +115,8 @@ class Database:
 
             notes TEXT,
 
+            vat_liable INTEGER DEFAULT 1,
+
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
         """)
@@ -200,6 +202,10 @@ class Database:
 
             notes TEXT,
 
+            converted_invoice_id INTEGER,
+
+            vat_liable INTEGER DEFAULT 1,
+
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
 
             FOREIGN KEY(customer_id)
@@ -239,6 +245,8 @@ class Database:
             total REAL DEFAULT 0,
 
             notes TEXT,
+
+            vat_liable INTEGER DEFAULT 1,
 
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
 
@@ -387,6 +395,30 @@ class Database:
 
         conn.commit()
         conn.close()
+
+        try:
+            from app.database.company_repository import company_repository
+            company_repository.ensure_schema()
+        except Exception:
+            logger.debug("Company schema upgrade skipped.", exc_info=True)
+
+        try:
+            from app.database.offer_repository import offer_repository
+            offer_repository.ensure_schema()
+        except Exception:
+            logger.debug("Offer schema upgrade skipped.", exc_info=True)
+
+        try:
+            from app.database.invoice_repository import invoice_repository
+            invoice_repository.ensure_schema()
+        except Exception:
+            logger.debug("Invoice schema upgrade skipped.", exc_info=True)
+
+        try:
+            from app.database.order_repository import order_repository
+            order_repository.ensure_schema()
+        except Exception:
+            logger.debug("Order schema upgrade skipped.", exc_info=True)
 
         logger.info("SQLite baza inicializirana.")
 

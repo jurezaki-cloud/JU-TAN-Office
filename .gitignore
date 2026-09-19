@@ -24,6 +24,16 @@ data/last_vacuum.txt
 data/drafts/
 data/documents/
 data/cache/
+data/logo_old.png
 *.egg-info/
 .DS_Store
 Thumbs.db
+
+# Generated / local artifacts (never for release)
+reports/
+scripts/_ui_audit_shots/
+scripts/_*_out.txt
+scripts/_full_pytest.txt
+
+# Local-only capture helper (developer absolute paths)
+demo-session/_capture_customers_shot.py

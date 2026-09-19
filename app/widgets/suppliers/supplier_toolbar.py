@@ -2,7 +2,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
-from app.theme.colors import LightColors
+from app.theme.colors import semantic_color
 
 
 def _search_icon() -> QIcon:
@@ -10,7 +10,7 @@ def _search_icon() -> QIcon:
     pixmap.fill(Qt.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
-    pen = QPen(QColor(LightColors.SECONDARY))
+    pen = QPen(QColor(semantic_color("SECONDARY")))
     pen.setWidth(2)
     painter.setPen(pen)
     painter.drawEllipse(2, 2, 10, 10)
@@ -46,8 +46,8 @@ class SupplierToolbar(QWidget):
         self.status.setObjectName("EnterpriseFilter")
         self.status.setMinimumHeight(36)
         self.status.addItem("Vsi statusi", "all")
-        self.status.addItem("Active", "Active")
-        self.status.addItem("Inactive", "Inactive")
+        self.status.addItem("Aktiven", "Active")
+        self.status.addItem("Neaktiven", "Inactive")
 
         self.btn_new = QPushButton("Nov dobavitelj")
         self.btn_new.setObjectName("PrimaryButton")
@@ -55,7 +55,7 @@ class SupplierToolbar(QWidget):
         self.btn_edit.setObjectName("SecondaryButton")
         self.btn_delete = QPushButton("Izbriši")
         self.btn_delete.setObjectName("DangerButton")
-        self.btn_refresh = QPushButton("Refresh")
+        self.btn_refresh = QPushButton("Osveži")
         self.btn_refresh.setObjectName("SecondaryButton")
 
         layout.addWidget(self.search)

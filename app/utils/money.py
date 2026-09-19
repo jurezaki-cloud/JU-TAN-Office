@@ -52,23 +52,27 @@ def line_discount_amount(quantity, unit_price, discount_percent=0) -> Decimal:
     return money(base * to_decimal(discount_percent) / HUNDRED)
 
 
-def line_vat(quantity, unit_price, vat_percent, discount_percent=0) -> Decimal:
+def line_vat(quantity, unit_price, vat_percent, discount_percent=0, *, vat_liable: bool = True) -> Decimal:
+    if not vat_liable:
+        return money(0)
     net = line_net(quantity, unit_price, discount_percent)
     return money(net * to_decimal(vat_percent) / HUNDRED)
 
 
-def line_gross(quantity, unit_price, vat_percent, discount_percent=0) -> Decimal:
+def line_gross(quantity, unit_price, vat_percent, discount_percent=0, *, vat_liable: bool = True) -> Decimal:
     net = line_net(quantity, unit_price, discount_percent)
-    return money(net + line_vat(quantity, unit_price, vat_percent, discount_percent))
+    return money(net + line_vat(quantity, unit_price, vat_percent, discount_percent, vat_liable=vat_liable))
 
 
-def document_totals(lines: Iterable) -> dict[str, float]:
+def document_totals(lines: Iterable, *, vat_liable: bool = True) -> dict[str, float]:
     """
     Aggregate document totals from line tuples/lists.
 
     Each line must expose quantity, price, discount%, vat% at indexes
     compatible with editor rows: [..., qty, unit, price, discount?, vat]
     or dicts with keys quantity/price/discount/vat.
+
+    When vat_liable is False, VAT % is forced to 0 (non-VAT company documents).
     """
     subtotal = Decimal("0")
     discount_total = Decimal("0")
@@ -77,6 +81,8 @@ def document_totals(lines: Iterable) -> dict[str, float]:
 
     for line in lines:
         qty, price, discount, vat = _unpack_line(line)
+        if not vat_liable:
+            vat = 0
         base = to_decimal(qty) * to_decimal(price)
         disc = base * to_decimal(discount) / HUNDRED
         net = base - disc

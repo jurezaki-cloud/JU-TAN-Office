@@ -106,12 +106,16 @@ class EnterpriseDialog(QDialog):
         for button in (self.btn_cancel, self.btn_save):
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(36)
-        self.btn_save.setDefault(True)
-        self.btn_save.setAutoDefault(True)
         apply_button_icon(self.btn_cancel, "cancel")
         apply_button_icon(self.btn_save, "save")
         self.footer_layout.addWidget(self.btn_cancel)
         self.footer_layout.addWidget(self.btn_save)
+        # Cancel must not steal Enter: in QDialog, autoDefault buttons become
+        # default on FocusIn during show(), which made ENTER activate Cancel.
+        self.btn_cancel.setAutoDefault(False)
+        self.btn_cancel.setDefault(False)
+        self.btn_save.setAutoDefault(True)
+        self.btn_save.setDefault(True)
         self.btn_cancel.clicked.connect(self.reject)
         self.btn_save.clicked.connect(self.accept)
         save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
@@ -148,10 +152,17 @@ class EnterpriseDialog(QDialog):
             QTimer.singleShot(0, self._after_show)
 
     def _after_show(self) -> None:
-        self.fit_to_content()
-        self._focus_first()
-        self._snapshot = self._form_snapshot()
+        from app.core.ui_freeze_diag import span as _diag_span
 
+        with _diag_span("EnterpriseDialog._after_show", title=self.windowTitle()):
+            with _diag_span("EnterpriseDialog.fit_to_content"):
+                self.fit_to_content()
+            with _diag_span("EnterpriseDialog._focus_first"):
+                self._focus_first()
+            # Reaffirm primary action as default after focus moves into the form.
+            if self.btn_save.isVisible():
+                self.btn_save.setDefault(True)
+            self._snapshot = self._form_snapshot()
     def _focus_first(self) -> None:
         inner = self.scroll.widget()
         if inner is None:

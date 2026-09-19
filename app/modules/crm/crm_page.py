@@ -33,7 +33,7 @@ class CrmPage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         self.dashboard = CrmDashboard()
         layout.addWidget(self.dashboard)
@@ -56,9 +56,9 @@ class CrmPage(QWidget):
         split.addWidget(self.activities)
         split.setSizes([520, 360])
 
-        self.tabs.addTab(self.board, "Pipeline")
-        self.tabs.addTab(split, "Customer 360")
-        self.tabs.addTab(self.followup, "Follow up")
+        self.tabs.addTab(self.board, "Prodajni lijak")
+        self.tabs.addTab(split, "Stranka 360")
+        self.tabs.addTab(self.followup, "Sledenje")
         layout.addWidget(self.tabs, 1)
 
         self.actions.lead_clicked.connect(self.new_lead)

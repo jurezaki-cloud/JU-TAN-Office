@@ -6,6 +6,41 @@ class InvoiceRepository:
     def _connect(self):
         return db.connect()
 
+    def ensure_schema(self) -> None:
+        """Add vat_liable snapshot column without rewriting existing invoices."""
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='invoices'"
+        )
+        if cursor.fetchone():
+            cols = {
+                row[1]
+                for row in cursor.execute("PRAGMA table_info(invoices)").fetchall()
+            }
+            if "vat_liable" not in cols:
+                cursor.execute(
+                    "ALTER TABLE invoices ADD COLUMN vat_liable INTEGER DEFAULT 1"
+                )
+                cursor.execute(
+                    "UPDATE invoices SET vat_liable=1 WHERE vat_liable IS NULL"
+                )
+        conn.commit()
+        conn.close()
+
+    def get_vat_liable(self, invoice_id) -> bool:
+        from app.utils.vat import parse_vat_liable
+
+        self.ensure_schema()
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute("SELECT vat_liable FROM invoices WHERE id=?", (invoice_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row is None:
+            return True
+        return parse_vat_liable(row[0])
+
     # =====================================================
     # RAČUNI
     # =====================================================
@@ -83,7 +118,7 @@ class InvoiceRepository:
         return rows
 
     def get_next_number(self):
-
+        """Next invoice number, never colliding with existing RAC-* rows."""
         conn = self._connect()
         cursor = conn.cursor()
 
@@ -94,14 +129,35 @@ class InvoiceRepository:
             FROM company
             WHERE id=1
         """)
-
         row = cursor.fetchone()
-
-        conn.close()
-
         prefix = (row[0] if row and row[0] else "RAC")
         counter = int(row[1] if row and row[1] is not None else 1)
 
+        # Settings can overwrite invoice_counter downward; lift to max existing + 1.
+        cursor.execute(
+            """
+            SELECT invoice_number FROM invoices
+            WHERE invoice_number LIKE ?
+            """,
+            (f"{prefix}-%",),
+        )
+        highest = counter
+        for (number,) in cursor.fetchall():
+            try:
+                suffix = str(number).rsplit("-", 1)[-1]
+                highest = max(highest, int(suffix) + 1)
+            except (TypeError, ValueError):
+                continue
+
+        if highest != counter:
+            cursor.execute(
+                "UPDATE company SET invoice_counter=? WHERE id=1",
+                (highest,),
+            )
+            conn.commit()
+            counter = highest
+
+        conn.close()
         return f"{prefix}-{counter:04d}"
 
     def increase_counter(self):
@@ -118,6 +174,12 @@ class InvoiceRepository:
         conn.commit()
         conn.close()
 
+    def allocate_next_number(self) -> str:
+        """Atomically peek+bump so two open dialogs cannot share one number."""
+        number = self.get_next_number()
+        self.increase_counter()
+        return number
+
     def add(
         self,
         invoice_number,
@@ -130,7 +192,13 @@ class InvoiceRepository:
         total,
         notes,
         status="Osnutek",
+        vat_liable=None,
     ):
+        from app.utils.vat import company_vat_liable, vat_liable_int
+
+        self.ensure_schema()
+        if vat_liable is None:
+            vat_liable = company_vat_liable()
 
         conn = self._connect()
         cursor = conn.cursor()
@@ -146,9 +214,10 @@ class InvoiceRepository:
                 discount,
                 vat,
                 total,
-                notes
+                notes,
+                vat_liable
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
         """, (
             invoice_number,
             customer_id,
@@ -160,6 +229,7 @@ class InvoiceRepository:
             vat,
             total,
             notes,
+            vat_liable_int(vat_liable),
         ))
 
         conn.commit()
@@ -182,7 +252,13 @@ class InvoiceRepository:
         total,
         status,
         notes,
+        vat_liable=None,
     ):
+        from app.utils.vat import vat_liable_int
+
+        self.ensure_schema()
+        if vat_liable is None:
+            vat_liable = self.get_vat_liable(invoice_id)
 
         conn = self._connect()
         cursor = conn.cursor()
@@ -198,7 +274,8 @@ class InvoiceRepository:
                 vat=?,
                 total=?,
                 status=?,
-                notes=?
+                notes=?,
+                vat_liable=?
             WHERE id=?
         """, (
             customer_id,
@@ -210,6 +287,7 @@ class InvoiceRepository:
             total,
             status,
             notes,
+            vat_liable_int(vat_liable),
             invoice_id,
         ))
 
@@ -385,6 +463,7 @@ class InvoiceRepository:
             total=invoice[9],
             notes=invoice[10],
             status="Osnutek",
+            vat_liable=self.get_vat_liable(invoice_id),
         )
 
         for item in items:

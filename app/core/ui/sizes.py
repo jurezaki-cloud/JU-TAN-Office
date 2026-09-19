@@ -92,17 +92,42 @@ def dialog_table_height(table: QTableView) -> int:
 
 
 def apply_dialog_table(table: QTableView) -> None:
-    table.setAlternatingRowColors(True)
-    header = table.horizontalHeader()
-    header.setStretchLastSection(True)
-    header.setSectionResizeMode(QHeaderView.Stretch)
-    height = dialog_table_height(table)
-    table.setMinimumHeight(height)
-    table.setMaximumHeight(height)
-    if not table.property("_jutan_row_size"):
-        table.setProperty("_jutan_row_size", True)
-        model = table.model()
-        if model is not None:
-            model.modelReset.connect(lambda: apply_dialog_table(table))
-            model.rowsInserted.connect(lambda *_: apply_dialog_table(table))
-            model.rowsRemoved.connect(lambda *_: apply_dialog_table(table))
+    """Size dialog tables to content; connect model signals at most once."""
+    from app.core.ui_freeze_diag import enabled as _diag_on, span as _diag_span
+
+    depth = int(getattr(table, "_jutan_apply_depth", 0) or 0)
+    if _diag_on():
+        table._jutan_apply_depth = depth + 1
+        if depth > 8:
+            from app.core.logger import logger
+
+            logger.error(
+                "apply_dialog_table recursion depth=%s — possible layout loop",
+                depth,
+            )
+    try:
+        with _diag_span("apply_dialog_table", depth=depth):
+            table.setAlternatingRowColors(True)
+            header = table.horizontalHeader()
+            header.setStretchLastSection(True)
+            header.setSectionResizeMode(QHeaderView.Stretch)
+            height = dialog_table_height(table)
+            table.setMinimumHeight(height)
+            table.setMaximumHeight(height)
+            # Prefer a Python attribute over QObject dynamic property — survives
+            # stylesheet polish and cannot be confused with falsy False.
+            if not getattr(table, "_jutan_row_size_bound", False):
+                table._jutan_row_size_bound = True
+                model = table.model()
+                if model is not None:
+
+                    def _resize(*_args, _table=table) -> None:
+                        apply_dialog_table(_table)
+
+                    table._jutan_row_size_slot = _resize
+                    model.modelReset.connect(_resize)
+                    model.rowsInserted.connect(_resize)
+                    model.rowsRemoved.connect(_resize)
+    finally:
+        if _diag_on():
+            table._jutan_apply_depth = max(0, depth)

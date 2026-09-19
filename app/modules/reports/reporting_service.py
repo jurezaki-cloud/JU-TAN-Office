@@ -23,8 +23,8 @@ from app.widgets.invoices.status_badge import invoice_badge
 PAGE_SIZE = DEFAULT_PAGE_SIZE
 
 CATALOG: list[tuple[str, list[tuple[str, str]]]] = [
-    ("Dashboard", [("dashboard", "Pregled")]),
-    ("Sales", [
+    ("Pregled", [("dashboard", "Pregled")]),
+    ("Prodaja", [
         ("sales_invoices", "Računi"),
         ("sales_trend", "Mesečni trend"),
     ]),
@@ -32,23 +32,23 @@ CATALOG: list[tuple[str, list[tuple[str, str]]]] = [
         ("finance_outstanding", "Odprti računi"),
         ("finance_paid", "Plačila"),
     ]),
-    ("Inventory", [
+    ("Zaloga", [
         ("inventory_stock", "Zaloga"),
         ("inventory_low", "Nizka zaloga"),
     ]),
-    ("Purchase", [
+    ("Nabava", [
         ("purchase_orders", "Nabavna naročila"),
     ]),
     ("CRM", [
-        ("crm_pipeline", "Pipeline"),
+        ("crm_pipeline", "Prodajni lijak"),
     ]),
-    ("Service", [
+    ("Servis", [
         ("service_jobs", "Servisni nalogi"),
     ]),
-    ("Customers", [
+    ("Stranke", [
         ("customers_list", "Stranke"),
     ]),
-    ("Products", [
+    ("Artikli", [
         ("products_list", "Artikli"),
         ("products_top", "Top artikli"),
     ]),

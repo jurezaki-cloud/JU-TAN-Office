@@ -1,6 +1,8 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
 
+from app.core.ui.brand_icons import brand_icon
+
 UNITS = [
     "kos",
     "ura",
@@ -42,6 +44,7 @@ class ArticleActions(QWidget):
 
         self.btn_new = QPushButton("Nov artikel")
         self.btn_new.setObjectName("PrimaryButton")
+        self.btn_new.setIcon(brand_icon("new", color="#FFFFFF", size=14))
 
         self.btn_edit = QPushButton("Uredi")
         self.btn_edit.setObjectName("SecondaryButton")
@@ -50,11 +53,11 @@ class ArticleActions(QWidget):
         self.btn_delete.setObjectName("DangerButton")
 
         self.btn_refresh = QPushButton("Osveži")
-        self.btn_refresh.setObjectName("SecondaryButton")
+        self.btn_refresh.setObjectName("GhostButton")
         self.btn_excel = QPushButton("Excel")
         self.btn_excel.setObjectName("SecondaryButton")
         self.btn_import = QPushButton("Uvoz")
-        self.btn_import.setObjectName("SecondaryButton")
+        self.btn_import.setObjectName("GhostButton")
 
         layout.addWidget(self.filter)
 
@@ -67,7 +70,7 @@ class ArticleActions(QWidget):
             self.btn_refresh,
         ):
             button.setCursor(Qt.PointingHandCursor)
-            button.setMinimumHeight(36)
+            button.setMinimumHeight(34)
             layout.addWidget(button)
 
         self.btn_new.clicked.connect(self.new_clicked.emit)

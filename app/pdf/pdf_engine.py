@@ -19,6 +19,7 @@ from app.pdf.pdf_header import build_header
 from app.pdf.pdf_images import image_or_space
 from app.pdf.pdf_styles import BORDER, PAD, MUTED, styles
 from app.pdf.pdf_tables import build_items_table, build_summary
+from app.utils.vat import ARTICLE_94_NOTICE, DOCUMENT_FOOTER_MESSAGE, WEBSITE_URL
 
 
 TITLES = {
@@ -48,6 +49,7 @@ class PdfDocument:
     vat: float = 0
     total: float = 0
     status: str = ""
+    vat_liable: bool = True
 
     @property
     def title(self) -> str:
@@ -59,6 +61,10 @@ class PdfEngine:
     def render(self, document: PdfDocument, output: Path) -> Path:
         company = load_company()
         options = load_pdf_options()
+        # Document snapshot overrides display preference for VAT columns.
+        if not document.vat_liable:
+            options = dict(options)
+            options["show_vat"] = False
         output.parent.mkdir(parents=True, exist_ok=True)
 
         doc = SimpleDocTemplate(
@@ -67,7 +73,7 @@ class PdfEngine:
             leftMargin=15 * mm,
             rightMargin=15 * mm,
             topMargin=16 * mm,
-            bottomMargin=22 * mm,
+            bottomMargin=28 * mm,
             title=f"{document.title} {document.number}",
             author=company.name or "JU-TAN Office",
         )
@@ -89,6 +95,10 @@ class PdfEngine:
                 options,
             )
         )
+        if not document.vat_liable:
+            look = styles()
+            story.append(Spacer(1, PAD))
+            story.append(Paragraph(ARTICLE_94_NOTICE, look["body"]))
         story.extend(self._payment_block(document, company, options))
         if options.get("show_notes") and document.notes:
             look = styles()
@@ -97,17 +107,20 @@ class PdfEngine:
             story.append(Paragraph(document.notes.replace("\n", "<br/>"), look["body"]))
         story.extend(self._signature_block(options))
 
-        footer_text = options.get("footer") or ""
+        footer_text = options.get("footer") or DOCUMENT_FOOTER_MESSAGE
+        website = options.get("website_url") or company.website or WEBSITE_URL
+        if website and not str(website).startswith(("http://", "https://")):
+            website = f"http://{website}"
         doc.build(
             story,
-            onFirstPage=lambda c, d: draw_footer(c, d, footer_text),
-            onLaterPages=lambda c, d: draw_footer(c, d, footer_text),
+            onFirstPage=lambda c, d: draw_footer(c, d, footer_text, website_url=website),
+            onLaterPages=lambda c, d: draw_footer(c, d, footer_text, website_url=website),
         )
         return output
 
     def _title_block(self, document: PdfDocument):
         look = styles()
-        due_label = "Rok plačila" if document.doc_type == "invoice" else "Veljavnost"
+        due_label = "Rok plačila" if document.doc_type == "invoice" else "Velja do"
         if document.doc_type == "order":
             due_label = "Dobava"
         if document.doc_type == "delivery":
@@ -160,12 +173,17 @@ class PdfEngine:
             return []
         look = styles()
         method = document.payment_method or options.get("payment_method") or "Nakazilo"
+        due_label = "Rok plačila" if document.doc_type == "invoice" else "Velja do"
         data = [
             [Paragraph("Način plačila", look["label"]), Paragraph(method, look["body"])],
             [Paragraph("TRR", look["label"]), Paragraph(company.iban or "—", look["body"])],
-            [Paragraph("Rok plačila", look["label"]), Paragraph(document.due_date or "—", look["body"])],
-            [Paragraph("Sklic", look["label"]), Paragraph(document.reference or document.number, look["body"])],
+            [Paragraph(due_label, look["label"]), Paragraph(document.due_date or "—", look["body"])],
         ]
+        # Payment reference (sklic) is invoice-specific; keep commercial TRR/method on offers.
+        if document.doc_type == "invoice":
+            data.append(
+                [Paragraph("Sklic", look["label"]), Paragraph(document.reference or document.number, look["body"])],
+            )
         table = Table(data, colWidths=[40 * mm, 140 * mm])
         table.setStyle(
             TableStyle([
@@ -176,13 +194,16 @@ class PdfEngine:
             ])
         )
         blocks = [Spacer(1, PAD), table]
-        qr = self._qr_flowable(document, company)
+        # Slightly denser QR when signature/stamp also consume vertical space,
+        # so a short invoice + UPN + signing lines still fit on one A4 page.
+        compact = bool(options.get("show_signature") or options.get("show_stamp"))
+        qr = self._qr_flowable(document, company, module_mm=0.52 if compact else 0.65)
         if qr is not None:
             blocks.append(Spacer(1, PAD))
             blocks.append(qr)
         return blocks
 
-    def _qr_flowable(self, document: PdfDocument, company: CompanyProfile):
+    def _qr_flowable(self, document: PdfDocument, company: CompanyProfile, *, module_mm: float = 0.65):
         if document.doc_type != "invoice":
             return None
         import segno
@@ -221,8 +242,8 @@ class PdfEngine:
             micro=False,
             boost_error=False,
         )
-        # ZBS: V15 = 77x77 modules, module 0.42333 mm, 4-module quiet zone.
-        module = 0.65 * mm  # enlarged on invoice for reliable phone-camera scanning
+        # ZBS: V15 = 77x77 modules, module ~0.4–0.65 mm, 4-module quiet zone.
+        module = float(module_mm) * mm
         border = 4
         matrix = tuple(code.matrix)
         modules = len(matrix)
@@ -247,24 +268,70 @@ class PdfEngine:
         return KeepTogether([label, drawing])
 
     def _signature_block(self, options: dict):
+        """Signature/stamp only when enabled. OFF => zero Flowables (no labels/spacers)."""
+        show_stamp = bool(options.get("show_stamp"))
+        show_sign = bool(options.get("show_signature"))
+        if not show_stamp and not show_sign:
+            return []
+
         look = styles()
         stamp_path = existing_path(options.get("stamp_path", ""))
         sign_path = existing_path(options.get("signature_path", ""))
-        stamp = image_or_space(stamp_path, 40, 28) if options.get("show_stamp") else Spacer(40 * mm, 28 * mm)
-        sign = image_or_space(sign_path, 40, 28) if options.get("show_signature") else Spacer(40 * mm, 28 * mm)
-        left = [stamp, Paragraph("Žig", look["caption"])]
-        right = [sign, Paragraph("Podpis", look["caption"])]
-        table = Table([[left, right]], colWidths=[90 * mm, 90 * mm])
-        table.setStyle(
-            TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+
+        def _signing_line(width_mm: float = 40):
+            # Compact ink line — never reserve a tall empty image box (forced page 2).
+            line = Table([[""]], colWidths=[width_mm * mm], rowHeights=[6])
+            line.setStyle(
+                TableStyle([
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.7, MUTED),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ])
+            )
+            return line
+
+        def _slot(enabled: bool, path: str, caption: str):
+            if not enabled:
+                return []
+            if path:
+                graphic = image_or_space(path, 36, 14)
+            else:
+                graphic = _signing_line(36)
+            return [graphic, Paragraph(caption, look["caption"])]
+
+        left = _slot(show_stamp, stamp_path, "Žig")
+        right = _slot(show_sign, sign_path, "Podpis")
+        if show_stamp and show_sign:
+            row = [[left, right]]
+            widths = [90 * mm, 90 * mm]
+        elif show_stamp:
+            row = [[left]]
+            widths = [180 * mm]
+        else:
+            row = [[right]]
+            widths = [180 * mm]
+
+        table = Table(row, colWidths=widths)
+        style_cmds = [
+            ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("TEXTCOLOR", (0, 0), (-1, -1), MUTED),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]
+        if show_stamp and show_sign:
+            style_cmds += [
                 ("ALIGN", (0, 0), (0, 0), "LEFT"),
                 ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-                ("TOPPADDING", (0, 0), (-1, -1), PAD),
-                ("TEXTCOLOR", (0, 0), (-1, -1), MUTED),
-            ])
-        )
-        return [Spacer(1, PAD), table]
+            ]
+        elif show_sign:
+            style_cmds.append(("ALIGN", (0, 0), (0, 0), "RIGHT"))
+        else:
+            style_cmds.append(("ALIGN", (0, 0), (0, 0), "LEFT"))
+        table.setStyle(TableStyle(style_cmds))
+        return [Spacer(1, 6), table]
 
 
 pdf_engine = PdfEngine()

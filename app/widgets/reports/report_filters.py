@@ -1,5 +1,7 @@
 from PySide6.QtCore import QDate, Signal
-from PySide6.QtWidgets import QComboBox, QDateEdit, QHBoxLayout, QLabel, QWidget
+from PySide6.QtWidgets import QComboBox, QDateEdit, QHBoxLayout, QLabel, QSizePolicy, QWidget
+
+from app.widgets.common.filter_controls import compact_filter
 
 
 class ReportFiltersBar(QWidget):
@@ -8,6 +10,7 @@ class ReportFiltersBar(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("ReportFilters")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -19,9 +22,8 @@ class ReportFiltersBar(QWidget):
         self.date_to.setDate(today)
         for widget in (self.date_from, self.date_to):
             widget.setCalendarPopup(True)
-            widget.setObjectName("EnterpriseFilter")
-            widget.setMinimumHeight(36)
             widget.setDisplayFormat("dd. MM. yyyy")
+            compact_filter(widget)
 
         self.customer = QComboBox()
         self.supplier = QComboBox()
@@ -29,8 +31,7 @@ class ReportFiltersBar(QWidget):
         self.status = QComboBox()
         self.category = QComboBox()
         for combo in (self.customer, self.supplier, self.salesperson, self.status, self.category):
-            combo.setObjectName("EnterpriseFilter")
-            combo.setMinimumHeight(36)
+            compact_filter(combo)
 
         layout.addWidget(QLabel("Od"))
         layout.addWidget(self.date_from)

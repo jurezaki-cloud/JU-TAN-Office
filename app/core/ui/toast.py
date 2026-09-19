@@ -44,7 +44,12 @@ def show_toast(context: QWidget | None, message: str, kind: str = "success", ms:
     banner = ToastBanner(host, message, kind)
     banner.place()
     banner.show()
-    fade = QPropertyAnimation(banner, b"windowOpacity", banner)
+    # Fade via graphics effect — never windowOpacity (promotes child to top-level).
+    from PySide6.QtWidgets import QGraphicsOpacityEffect
+
+    effect = QGraphicsOpacityEffect(banner)
+    banner.setGraphicsEffect(effect)
+    fade = QPropertyAnimation(effect, b"opacity", banner)
     fade.setDuration(280)
     fade.setStartValue(0.0)
     fade.setEndValue(1.0)

@@ -1,7 +1,7 @@
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
 
-from app.pdf.pdf_styles import BORDER, FONT_BOLD, NAVY, PAD, TABLE_HEADER, WHITE, ensure_fonts, styles
+from app.pdf.pdf_styles import BORDER, NAVY, PAD, TABLE_HEADER, WHITE, ensure_fonts, styles
 
 
 def _money(value) -> str:
@@ -13,7 +13,7 @@ def _money(value) -> str:
 
 def build_items_table(items: list[dict], options: dict):
     look = styles()
-    ensure_fonts()
+    _regular, bold = ensure_fonts()
     show_vat = options.get("show_vat", True)
     show_discount = options.get("show_discount", True)
 
@@ -63,7 +63,7 @@ def build_items_table(items: list[dict], options: dict):
         TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), TABLE_HEADER),
             ("TEXTCOLOR", (0, 0), (-1, 0), NAVY),
-            ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
+            ("FONTNAME", (0, 0), (-1, 0), bold),
             ("LINEBELOW", (0, 0), (-1, 0), 0.6, BORDER),
             ("LINEBELOW", (0, 1), (-1, -1), 0.3, BORDER),
             ("LEFTPADDING", (0, 0), (-1, -1), PAD / 2),
@@ -80,6 +80,7 @@ def build_items_table(items: list[dict], options: dict):
 
 def build_summary(subtotal, discount, vat, total, options: dict):
     look = styles()
+    _regular, bold = ensure_fonts()
     rows = [["Osnova", _money(subtotal)]]
     if options.get("show_discount", True) and float(discount or 0) != 0:
         rows.append(["Popust", _money(discount)])
@@ -90,7 +91,7 @@ def build_summary(subtotal, discount, vat, total, options: dict):
     table = Table(rows, colWidths=[40 * mm, 35 * mm])
     table.setStyle(
         TableStyle([
-            ("FONTNAME", (0, -1), (-1, -1), FONT_BOLD),
+            ("FONTNAME", (0, -1), (-1, -1), bold),
             ("TEXTCOLOR", (0, 0), (-1, -1), NAVY),
             ("ALIGN", (1, 0), (1, -1), "RIGHT"),
             ("TOPPADDING", (0, 0), (-1, -1), 4),

@@ -8,7 +8,7 @@ class KpiCard(EnterpriseCard):
     def __init__(self, title: str, value: str = "0", hint: str = "", parent=None):
         super().__init__("KpiCard", parent)
 
-        self.setMinimumHeight(132)
+        self.setMinimumHeight(112)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
 
         self.caption = QLabel(title)

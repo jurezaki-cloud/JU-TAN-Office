@@ -25,6 +25,11 @@ def test_line_with_vat_and_discount():
     assert line_gross(2, 100, 22, 10) == Decimal("219.60")
 
 
+def test_offer_line_total_regression_6x150_discount2_vat22():
+    # 6 × 150 = 900, 2% → 882 net, 22% VAT → 194.04, gross 1076.04
+    assert line_gross(6, 150, 22, 2) == Decimal("1076.04")
+
+
 def test_document_totals_multi_line():
     rows = [
         ["A", "Item", 1, "kos", 100, 22, 122, 1],
@@ -40,3 +45,12 @@ def test_document_totals_multi_line():
 def test_format_eur_spaced():
     assert format_eur(1234.5) == "1 234.50 €"
     assert as_float(line_gross(1, 10, 22)) == 12.2
+
+
+def test_non_vat_document_totals_ignore_line_vat_percent():
+    rows = [["A", "Item", 2, "kos", 100, 10, 22, 0, 1]]
+    totals = document_totals(rows, vat_liable=False)
+    # 2×100=200, 10% → 180 net, VAT forced off
+    assert totals["discount"] == 20.0
+    assert totals["vat"] == 0.0
+    assert totals["total"] == 180.0

@@ -8,8 +8,9 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
-from app.database.offer_repository import offer_repository
+from app.database.offer_repository import CONVERTED_OFFER_MESSAGE, offer_repository
 from app.pdf.pdf_export import pdf_export
+from app.services.offer_service import offer_service
 from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
 from app.modules.offers.models.offer_table_model import OfferTableModel
 from app.modules.offers.offer_dialog import OfferDialog
@@ -33,16 +34,16 @@ class OfferPage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Ponudbe")
         title.setObjectName("PageTitle")
         title.hide()
         layout.addWidget(title)
 
-        top = QHBoxLayout()
-        top.setSpacing(12)
+        from app.widgets.common.page_chrome import PageToolbar
 
+        toolbar = PageToolbar()
         self.actions = OfferActions()
         self.btn_new = self.actions.btn_new
         self.btn_edit = self.actions.btn_edit
@@ -54,10 +55,9 @@ class OfferPage(QWidget):
         self.search_field = OfferSearch()
         self.search = self.search_field.input
 
-        top.addWidget(self.actions)
-        top.addStretch()
-        top.addWidget(self.search_field)
-        layout.addLayout(top)
+        toolbar.layout.addWidget(self.search_field, 1)
+        toolbar.layout.addWidget(self.actions, 0)
+        layout.addWidget(toolbar)
 
         self.table = OfferTable()
         self.model = OfferTableModel()
@@ -134,6 +134,16 @@ class OfferPage(QWidget):
             )
             return
 
+        if offer_service.is_converted(offer_id):
+            QMessageBox.information(
+                self,
+                "Ponudbe",
+                CONVERTED_OFFER_MESSAGE,
+            )
+            dialog = OfferDialog(self, offer_id=offer_id, read_only=True)
+            dialog.exec()
+            return
+
         dialog = OfferDialog(self, offer_id=offer_id)
         if dialog.exec():
             self.refresh()
@@ -149,6 +159,10 @@ class OfferPage(QWidget):
             )
             return
 
+        if offer_service.is_converted(offer_id):
+            QMessageBox.warning(self, "Ponudbe", CONVERTED_OFFER_MESSAGE)
+            return
+
         reply = QMessageBox.question(
             self,
             "Ponudbe",
@@ -159,8 +173,12 @@ class OfferPage(QWidget):
 
             if not allow("delete", self):
                 return
-            offer_repository.delete_items(offer_id)
-            offer_repository.delete(offer_id)
+            try:
+                offer_repository.delete_items(offer_id)
+                offer_repository.delete(offer_id)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Ponudbe", str(exc))
+                return
             audit("delete", f"offer:{offer_id}")
             self.details.clear()
             self.refresh()
@@ -183,8 +201,6 @@ class OfferPage(QWidget):
     def convert_invoice(self):
         from app.core.permissions import allow, audit
         from app.core.ui.notify import toast
-        from app.database.invoice_repository import invoice_repository
-        from datetime import date, timedelta
 
         if not allow("write", self):
             return
@@ -198,9 +214,12 @@ class OfferPage(QWidget):
             QMessageBox.warning(self, "Ponudbe", "Ponudba ne obstaja.")
             return
 
-        items = offer_repository.get_items(offer_id)
-        if not items:
-            QMessageBox.warning(self, "Ponudbe", "Ponudba nima postavk.")
+        if offer_service.is_converted(offer_id):
+            QMessageBox.warning(
+                self,
+                "Ponudbe",
+                "Ponudba je že pretvorjena v račun. Ponovna pretvorba ni dovoljena.",
+            )
             return
 
         confirm = QMessageBox.question(
@@ -213,54 +232,15 @@ class OfferPage(QWidget):
         if confirm != QMessageBox.Yes:
             return
 
-        today = date.today()
-        due = today + timedelta(days=30)
-        number = invoice_repository.get_next_number()
-        invoice_id = invoice_repository.add(
-            invoice_number=number,
-            customer_id=offer[2],
-            issue_date=today.isoformat(),
-            due_date=due.isoformat(),
-            subtotal=float(offer[6] or 0),
-            discount=float(offer[7] or 0),
-            vat=float(offer[8] or 0),
-            total=float(offer[9] or 0),
-            notes=(offer[10] or "") + (f"\n[Iz ponudbe {offer[1]}]" if offer[1] else ""),
-            status="Izdan",
-        )
-        invoice_repository.increase_counter()
+        try:
+            invoice_id, number = offer_service.convert_to_invoice(offer_id)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Ponudbe", str(exc))
+            return
 
-        for item in items:
-            # offer item: id, article_id, code, name, description,
-            # quantity, unit, price, discount, vat, total
-            invoice_repository.add_item(
-                invoice_id=invoice_id,
-                article_id=item[1],
-                code=item[2],
-                name=item[3],
-                description=item[4] or "",
-                quantity=item[5],
-                unit=item[6],
-                price=item[7],
-                discount=item[8] or 0,
-                vat=item[9],
-                total=item[10],
-            )
-
-        offer_repository.update(
-            offer_id,
-            customer_id=offer[2],
-            issue_date=offer[3],
-            valid_until=offer[4],
-            status="Sprejeta",
-            subtotal=offer[6],
-            discount=offer[7],
-            vat=offer[8],
-            total=offer[9],
-            notes=offer[10] or "",
-        )
         audit("create", f"invoice_from_offer:{offer_id}->{invoice_id}")
         self.refresh()
+        self._reload_details(offer_id)
         toast(self, f"Račun {number} je ustvarjen.")
         QMessageBox.information(
             self,
@@ -280,13 +260,18 @@ class OfferPage(QWidget):
         self._update_status()
 
     def _reload_details(self, offer_id):
+        """Reload the details panel from persisted list data for offer_id."""
         for row in self.model.offers:
             if row[0] == offer_id:
                 self.details.load_offer(row)
                 return
+        # Offer may be filtered out of the current view; clear stale panel.
+        if self.details.offer_id == offer_id:
+            self.details.clear()
 
     def _apply_view(self, *_args):
         text = self.search.text().strip().lower()
+        selected_detail_id = self.details.offer_id
         offers = list(offer_repository.get_all())
 
         if text:
@@ -305,6 +290,8 @@ class OfferPage(QWidget):
 
         self.model.refresh(offers)
         self._sync_empty_state(text, selected)
+        if selected_detail_id is not None:
+            self._reload_details(selected_detail_id)
         self._update_status()
 
     def _sync_empty_state(self, text, selected):

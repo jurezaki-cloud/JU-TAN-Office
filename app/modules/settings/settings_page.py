@@ -54,7 +54,7 @@ class SettingsPage(QWidget):
         self._canvas = QWidget()
         self._canvas.setObjectName("SettingsCanvas")
         self._grid = QGridLayout(self._canvas)
-        self._grid.setContentsMargins(20, 20, 20, 20)
+        self._grid.setContentsMargins(12, 12, 12, 12)
         self._grid.setHorizontalSpacing(12)
         self._grid.setVerticalSpacing(12)
 
@@ -88,9 +88,8 @@ class SettingsPage(QWidget):
         self.refresh()
         from app.core.ui.window_state import remember_layout
         remember_layout(self, "page.settings")
-        app = QApplication.instance()
-        if app is not None:
-            self.controller.apply_appearance(app)
+        # Theme is applied at process startup (before MainWindow). Do NOT re-apply
+        # here — that made opening Nastavitve the first moment DARK appeared.
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -108,24 +107,25 @@ class SettingsPage(QWidget):
                 item.widget().setParent(self._canvas)
 
         if mode == "wide":
+            # Logical groups: company → documents/PDF → numbering → look → travel → security → backup → about
             self._grid.addWidget(self.company_card, 0, 0, 1, 2)
-            self._grid.addWidget(self.numbering_card, 1, 0)
-            self._grid.addWidget(self.appearance_card, 1, 1)
-            self._grid.addWidget(self.pdf_card, 2, 0)
-            self._grid.addWidget(self.backup_card, 2, 1)
-            self._grid.addWidget(self.travel_card, 3, 0, 1, 2)
-            self._grid.addWidget(self.security_card, 4, 0, 1, 2)
+            self._grid.addWidget(self.pdf_card, 1, 0)
+            self._grid.addWidget(self.numbering_card, 1, 1)
+            self._grid.addWidget(self.appearance_card, 2, 0)
+            self._grid.addWidget(self.travel_card, 2, 1)
+            self._grid.addWidget(self.security_card, 3, 0, 1, 2)
+            self._grid.addWidget(self.backup_card, 4, 0, 1, 2)
             self._grid.addWidget(self.about_card, 5, 0, 1, 2)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 1)
         else:
             self._grid.addWidget(self.company_card, 0, 0)
-            self._grid.addWidget(self.numbering_card, 1, 0)
-            self._grid.addWidget(self.appearance_card, 2, 0)
-            self._grid.addWidget(self.pdf_card, 3, 0)
-            self._grid.addWidget(self.backup_card, 4, 0)
-            self._grid.addWidget(self.travel_card, 5, 0)
-            self._grid.addWidget(self.security_card, 6, 0)
+            self._grid.addWidget(self.pdf_card, 1, 0)
+            self._grid.addWidget(self.numbering_card, 2, 0)
+            self._grid.addWidget(self.appearance_card, 3, 0)
+            self._grid.addWidget(self.travel_card, 4, 0)
+            self._grid.addWidget(self.security_card, 5, 0)
+            self._grid.addWidget(self.backup_card, 6, 0)
             self._grid.addWidget(self.about_card, 7, 0)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 0)
@@ -168,14 +168,27 @@ class SettingsPage(QWidget):
             )
             extras["role"] = current_role()
             self.security_card.role.setCurrentText(current_role())
+        appearance_before = dict(getattr(self, "_applied_appearance", {}) or {})
         self.controller.save_bundle(self.company_card.values(), extras)
         if can("users"):
             set_identity(role=requested_role)
-        session.timeout_sec = int(self.security_card.timeout.value()) * 60
+        timeout_sec = max(5, int(self.security_card.timeout.value())) * 60
+        session.timeout_sec = timeout_sec
+        try:
+            from app.core.idle_guard import get_idle_guard
+
+            guard = get_idle_guard()
+            if guard is not None:
+                guard.set_timeout_sec(timeout_sec)
+        except Exception:
+            pass
         sidebar = getattr(self.window(), "sidebar", None)
         if sidebar is not None and hasattr(sidebar, "apply_role"):
             sidebar.apply_role()
-        self._apply_appearance()
+        # Re-apply theme only when appearance actually changed — full
+        # setStyleSheet on every company save was a freeze amplifier.
+        if self.appearance_card.values() != appearance_before:
+            self._apply_appearance()
         self.save_settings.emit()
         toast(self, "Nastavitve so shranjene.")
 
@@ -184,16 +197,21 @@ class SettingsPage(QWidget):
         self.reset_settings.emit()
 
     def _on_theme(self, theme: str):
+        # AppearanceCard._emit_theme also emits changed → _apply_appearance.
+        # Do not apply twice (double setStyleSheet freezes complex dialogs).
         self.theme_changed.emit(theme)
-        self._apply_appearance()
 
     def _apply_appearance(self):
         extras = self.controller.load_extras()
-        extras["appearance"] = self.appearance_card.values()
+        appearance = self.appearance_card.values()
+        extras["appearance"] = appearance
         self.controller.save_extras(extras)
+        if appearance == getattr(self, "_applied_appearance", None):
+            return
         app = QApplication.instance()
         if app is not None:
             self.controller.apply_appearance(app)
+            self._applied_appearance = dict(appearance)
 
     def _backup(self):
         self.backup_requested.emit()

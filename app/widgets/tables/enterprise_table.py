@@ -25,7 +25,7 @@ class EnterpriseTable(QTableView):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(48)
+        self.verticalHeader().setDefaultSectionSize(44)
         self.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.setVerticalScrollMode(QTableView.ScrollPerPixel)
         self.setHorizontalScrollMode(QTableView.ScrollPerPixel)

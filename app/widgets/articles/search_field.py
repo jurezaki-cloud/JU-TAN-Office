@@ -2,7 +2,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QWidget
 
-from app.theme.colors import LightColors
+from app.theme.colors import semantic_color
 
 
 def _search_icon() -> QIcon:
@@ -10,7 +10,7 @@ def _search_icon() -> QIcon:
     pixmap.fill(Qt.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
-    pen = QPen(QColor(LightColors.SECONDARY))
+    pen = QPen(QColor(semantic_color("SECONDARY")))
     pen.setWidth(2)
     painter.setPen(pen)
     painter.drawEllipse(2, 2, 10, 10)
@@ -37,7 +37,7 @@ class ArticleSearch(QWidget):
         self.input.setClearButtonEnabled(True)
         self.input.setMinimumHeight(36)
         self.input.addAction(_search_icon(), QLineEdit.LeadingPosition)
-        self.input.setMinimumWidth(280)
+        self.input.setMinimumWidth(160)
 
         layout.addWidget(self.input)
         self.input.textChanged.connect(self.textChanged.emit)

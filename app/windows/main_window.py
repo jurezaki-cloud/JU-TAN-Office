@@ -11,14 +11,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from app.core.lazy_page import LazyPage
 from app.core.logger import install_excepthook, logger
-from app.theme import theme_manager
+from app.widgets.common.responsive_stack import ResponsiveStackedWidget
 from app.widgets.navigation import ModernSidebar
 from app.widgets.statusbar import StatusBar
 from app.widgets.toolbar import ModernToolbar
@@ -39,7 +38,12 @@ class EmptyPage(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("JU-TAN Office Enterprise")
+        from app.core.constants import APP_NAME
+        from app.core.ui.app_identity import apply_native_titlebar_theme, apply_window_icon
+        from app.theme.theme import theme_manager
+
+        self.setWindowTitle(APP_NAME)
+        apply_window_icon(self)
         self.resize(1400, 900)
         try:
             from app.core.ui.sizes import preset_size
@@ -61,14 +65,15 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.sidebar)
 
         right = QWidget()
+        right.setObjectName("AppWorkspace")
         right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(16, 16, 16, 16)
-        right_layout.setSpacing(16)
+        right_layout.setContentsMargins(14, 12, 14, 12)
+        right_layout.setSpacing(10)
 
         self.toolbar = ModernToolbar()
         right_layout.addWidget(self.toolbar)
 
-        self.stack = QStackedWidget()
+        self.stack = ResponsiveStackedWidget()
 
         self.dashboard = Dashboard()
         self.invoices = LazyPage(_page_invoices, "Računi")
@@ -86,8 +91,8 @@ class MainWindow(QMainWindow):
         self.documents = LazyPage(_page_documents, "Dokumenti")
         self.crm = LazyPage(_page_crm, "CRM")
         self.reports = LazyPage(_page_reports, "Poročila")
-        self.automation = LazyPage(_page_automation, "Automation")
         self.travel_orders = LazyPage(_page_travel_orders, "Potni nalogi")
+        self.automation = LazyPage(_page_automation, "Avtomatizacija")
 
         self.stack.addWidget(self.dashboard)          # 0
         self.stack.addWidget(self.invoices)           # 1
@@ -117,10 +122,13 @@ class MainWindow(QMainWindow):
 
         self.sidebar.page_changed.connect(self.change_page)
         self.toolbar.new_invoice_clicked.connect(lambda: self.invoices.new_invoice())
+        self.toolbar.new_offer_clicked.connect(lambda: self.offers.new_offer())
+        self.toolbar.new_order_clicked.connect(lambda: self.orders.new_order())
         self.toolbar.new_customer_clicked.connect(lambda: self.customers.new_customer())
         self.toolbar.settings_clicked.connect(lambda: self.change_page(8))
-        self.toolbar.search_changed.connect(self._toolbar_search)
+        self.toolbar.lock_clicked.connect(self._manual_lock)
         self.toolbar.set_context(0)
+        apply_native_titlebar_theme(self, theme_manager.mode)
 
         self.dashboard.new_invoice_requested.connect(lambda: self.invoices.new_invoice())
         self.dashboard.new_customer_requested.connect(lambda: self.customers.new_customer())
@@ -129,11 +137,13 @@ class MainWindow(QMainWindow):
 
     def change_page(self, index):
         from app.core.permissions import can_open_page
+        from app.core.session import session
         from app.core.ui.notify import toast
 
         if not can_open_page(index):
             toast(self, "Ni dovoljenja za ta modul.")
             return
+        session.touch()
         if index == 0:
             self.dashboard.refresh()
         elif index == 1:
@@ -185,6 +195,45 @@ class MainWindow(QMainWindow):
         search = getattr(page, "search", None)
         if search is not None and hasattr(search, "setText"):
             search.setText(text)
+
+    def _manual_lock(self) -> None:
+        from app.core.idle_guard import get_idle_guard
+        from app.core.session import session
+
+        guard = get_idle_guard()
+        if guard is not None:
+            guard.lock_now()
+            return
+        if not session.authenticated:
+            return
+        from app.windows.unlock_dialog import UnlockDialog
+
+        session.lock()
+        unlock = UnlockDialog(self)
+        if unlock.exec() != QDialog.DialogCode.Accepted:
+            import sys
+
+            sys.exit(0)
+        self.sidebar.apply_role()
+        self.toolbar.set_context(self.stack.currentIndex())
+        self.statusBar().refresh()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        from app.core.ui.app_identity import apply_native_titlebar_theme
+        from app.theme.theme import theme_manager
+
+        apply_native_titlebar_theme(self, theme_manager.mode)
+
+    def closeEvent(self, event) -> None:
+        """MainWindow is the sole quit authority — PDF viewers must not end the app."""
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if app is not None:
+            # Allow quit now that the user explicitly closes the main window.
+            app.setQuitOnLastWindowClosed(True)
+        super().closeEvent(event)
 
 
 def _page_invoices():
@@ -282,7 +331,7 @@ def _qt_message(mode, _context, message: str) -> None:
 
 
 def run():
-    from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+    from PySide6.QtCore import Qt, QTimer
     from PySide6.QtGui import QColor, QGuiApplication, QPixmap, QPixmapCache
     from PySide6.QtWidgets import QSplashScreen
 
@@ -294,21 +343,38 @@ def run():
     )
     install_excepthook()
     qInstallMessageHandler(_qt_message)
+    existing = QApplication.instance()
+    if existing is not None:
+        # A leftover QApplication (failed prior start in-process) makes the UI appear "dead".
+        logger.error("QApplication že obstaja — prekinjen zagon.")
+        sys.exit(1)
     app = QApplication(sys.argv)
+    # False until MainWindow is shown so UnlockDialog can run without a main window.
     app.setQuitOnLastWindowClosed(False)
+    from app.core.ui.app_identity import apply_application_identity
+
+    apply_application_identity(app)
     QPixmapCache.setCacheLimit(20 * 1024)
+    # Apply persisted appearance BEFORE any visible window (fixes light→dark flash).
+    from app.modules.settings.settings_controller import SettingsController
+
+    settings = SettingsController()
+    mode_name = settings.apply_appearance(app)
+    span.mark("theme")
+    splash_bg = QColor("#0B1220" if mode_name == "dark" else "#F4F6F8")
+    splash_fg = QColor("#F8FAFC" if mode_name == "dark" else "#0F172A")
     splash_pix = QPixmap(420, 200)
-    splash_pix.fill(QColor("#0F172A"))
+    splash_pix.fill(splash_bg)
     splash = QSplashScreen(splash_pix)
+    splash.setWindowIcon(app.windowIcon())
     splash.showMessage(
-        "JU-TAN Office Enterprise",
+        "JU-TAN Office",
         Qt.AlignBottom | Qt.AlignCenter,
-        QColor("#F8FAFC"),
+        splash_fg,
     )
     splash.show()
     app.processEvents()
     span.mark("splash")
-    theme_manager.apply(app)
     from app.core.update import apply_schema_upgrade
     apply_schema_upgrade()
     from app.core.db_guard import ensure_runtime
@@ -333,12 +399,18 @@ def run():
             sys.exit(0)
         splash.show()
         app.processEvents()
-    from app.modules.settings.settings_controller import SettingsController
-    extras = SettingsController().load_extras()
+    extras = settings.load_extras()
     if extras.get("password_hash"):
         splash.hide()
+        from app.core.ui.app_identity import apply_native_titlebar_theme
+        from app.theme.colors import ThemeMode
         from app.windows.unlock_dialog import UnlockDialog
+
         unlock = UnlockDialog()
+        apply_native_titlebar_theme(
+            unlock,
+            ThemeMode.DARK if mode_name == "dark" else ThemeMode.LIGHT,
+        )
         if unlock.exec() != QDialog.DialogCode.Accepted:
             sys.exit(0)
         splash.show()
@@ -378,29 +450,19 @@ def run():
         log_snapshot("warmup")
 
     QTimer.singleShot(0, _background)
-    from app.core.session import session as app_session
-    app_session.timeout_sec = int(extras.get("session_timeout_min") or 30) * 60
+    from app.core.idle_guard import install_idle_guard
 
-    class _Idle(QObject):
-        def eventFilter(self, _obj, event):
-            if event.type() in (QEvent.MouseMove, QEvent.KeyPress, QEvent.MouseButtonPress):
-                app_session.touch()
-            return False
-
-    idle = _Idle(app)
-    app.installEventFilter(idle)
-
-    def _tick():
-        if extras.get("password_hash") and app_session.idle_too_long() and not app_session.locked:
-            app_session.lock()
-            from app.windows.unlock_dialog import UnlockDialog
-            dlg = UnlockDialog(window)
-            if dlg.exec() != QDialog.DialogCode.Accepted:
-                sys.exit(0)
-
-    lock_timer = QTimer(window)
-    lock_timer.timeout.connect(_tick)
-    lock_timer.start(15000)
+    # Keep False after MainWindow is shown. External PDF viewers / transient
+    # toasts must never trigger lastWindowClosed quit. MainWindow.closeEvent
+    # re-enables quit when the user explicitly closes the application.
+    app.setQuitOnLastWindowClosed(False)
+    timeout_sec = max(5, int(extras.get("session_timeout_min") or 30)) * 60
+    install_idle_guard(
+        app,
+        window,
+        password_required=bool(extras.get("password_hash")),
+        timeout_sec=timeout_sec,
+    )
     logger.info("%s", span.summary())
     sys.exit(app.exec())
 

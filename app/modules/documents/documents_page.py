@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QSplitter,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -18,6 +19,7 @@ from app.modules.documents.documents_controller import DocumentsController
 from app.modules.documents.models.document_table_model import DocumentTableModel
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
+from app.widgets.customers.empty_state import EmptyStateCard
 from app.widgets.invoices.status_badge import StatusBadgeDelegate
 from app.widgets.documents.document_filters import DocumentFilters
 from app.widgets.documents.document_table import DocumentTable
@@ -36,7 +38,7 @@ class DocumentsPage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Dokumenti")
         title.setObjectName("PageTitle")
@@ -44,7 +46,7 @@ class DocumentsPage(QWidget):
         layout.addWidget(title)
 
         kpis = QHBoxLayout()
-        kpis.setSpacing(16)
+        kpis.setSpacing(12)
         self.kpi_total = KpiCard("Skupno dokumentov", "0", "Datoteke")
         self.kpi_pdf = KpiCard("PDF", "0", "Adobe PDF")
         self.kpi_images = KpiCard("Slike", "0", "PNG / JPG")
@@ -84,7 +86,18 @@ class DocumentsPage(QWidget):
         splitter.addWidget(self.preview)
         splitter.setSizes([780, 320])
         splitter.setChildrenCollapsible(False)
-        layout.addWidget(splitter, 1)
+
+        self.empty_state = EmptyStateCard(
+            "Ni dokumentov",
+            "Naložite prvo datoteko ali ustvarite mapo.",
+            action_text="Naloži",
+        )
+        self.empty_state.action_clicked.connect(self.upload)
+
+        self.content_stack = QStackedWidget()
+        self.content_stack.addWidget(self.empty_state)
+        self.content_stack.addWidget(splitter)
+        layout.addWidget(self.content_stack, 1)
 
         self.actions.upload_clicked.connect(self.upload)
         self.actions.folder_clicked.connect(self.new_folder)
@@ -122,6 +135,21 @@ class DocumentsPage(QWidget):
         self.kpi_word.set_value(str(kpis["word"]))
         self.kpi_excel.set_value(str(kpis["excel"]))
         self.kpi_size.set_value(_size(kpis["size"]))
+        if self.model.rowCount() == 0:
+            query = self.search.text().strip()
+            if query:
+                self.empty_state.set_message(
+                    "Ni zadetkov",
+                    "Poskusite z drugim iskanjem ali filtrom.",
+                )
+            else:
+                self.empty_state.set_message(
+                    "Ni dokumentov",
+                    "Naložite prvo datoteko ali ustvarite mapo.",
+                )
+            self.content_stack.setCurrentIndex(0)
+        else:
+            self.content_stack.setCurrentIndex(1)
         self._preview()
 
     def dragEnterEvent(self, event) -> None:
@@ -136,7 +164,7 @@ class DocumentsPage(QWidget):
             try:
                 self.controller.upload(Path(url.toLocalFile()), owner=owner)
             except Exception as exc:
-                QMessageBox.warning(self, "Upload", str(exc))
+                QMessageBox.warning(self, "Nalaganje", str(exc))
         self.refresh()
 
     def upload(self) -> None:
@@ -148,7 +176,7 @@ class DocumentsPage(QWidget):
             try:
                 self.controller.upload(path, **meta)
             except Exception as exc:
-                QMessageBox.warning(self, "Upload", str(exc))
+                QMessageBox.warning(self, "Nalaganje", str(exc))
         self.refresh()
 
     def new_folder(self) -> None:
@@ -167,11 +195,11 @@ class DocumentsPage(QWidget):
         if document_id is None or row is None or row[3]:
             QMessageBox.information(self, "Dokumenti", "Izberi datoteko.")
             return
-        target, _ = QFileDialog.getSaveFileName(self, "Download", row[2])
+        target, _ = QFileDialog.getSaveFileName(self, "Prenos", row[2])
         if not target:
             return
         self.controller.download(document_id, Path(target))
-        QMessageBox.information(self, "Download", f"Shranjeno:\n{target}")
+        QMessageBox.information(self, "Prenos", f"Shranjeno:\n{target}")
 
     def delete(self) -> None:
         document_id = self._selected_id()
@@ -185,7 +213,7 @@ class DocumentsPage(QWidget):
 
     def export_list(self) -> None:
         start = str(self.controller.export_start_path())
-        path, _ = QFileDialog.getSaveFileName(self, "Export List", start, "Excel (*.xlsx)")
+        path, _ = QFileDialog.getSaveFileName(self, "Izvoz seznama", start, "Excel (*.xlsx)")
         if not path:
             return
         self.controller.export_excel(Path(path), self.model.rows)
@@ -195,7 +223,7 @@ class DocumentsPage(QWidget):
         row = self._selected_row()
         if row is None:
             return
-        dialog = FolderDialog(self, "Rename", str(row[2]))
+        dialog = FolderDialog(self, "Preimenuj", str(row[2]))
         if dialog.exec():
             self.controller.rename(row[0], dialog.value())
             self.refresh()
@@ -236,12 +264,12 @@ class DocumentsPage(QWidget):
             return
         menu.addSeparator()
         for text, slot in (
-            ("Open", self.open_file),
-            ("Rename", self.rename),
-            ("Move", lambda: self.move(False)),
-            ("Copy", lambda: self.move(True)),
-            ("Download", self.download),
-            ("Delete", self.delete),
+            ("Odpri", self.open_file),
+            ("Preimenuj", self.rename),
+            ("Premakni", lambda: self.move(False)),
+            ("Kopiraj", lambda: self.move(True)),
+            ("Prenesi", self.download),
+            ("Izbriši", self.delete),
         ):
             action = QAction(text, menu)
             action.triggered.connect(slot)

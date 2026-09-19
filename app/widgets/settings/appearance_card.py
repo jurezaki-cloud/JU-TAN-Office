@@ -63,7 +63,7 @@ class AppearanceCard(QWidget):
             accent_row.addWidget(button)
         accent_row.addStretch()
         card.body.addLayout(accent_row)
-        self.accent_buttons["blue"].setChecked(True)
+        self.accent_buttons["green"].setChecked(True)
 
         card.body.addWidget(self._caption("Font Size"))
         font_row = QHBoxLayout()

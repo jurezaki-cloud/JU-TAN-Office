@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -6,11 +6,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QWidget,
 )
-from PySide6.QtCore import QDate
 
-from app.theme.colors import LightColors
+from app.theme.colors import semantic_color
+from app.widgets.common.filter_controls import compact_filter
+from app.widgets.common.toolbar_overflow import ToolbarOverflowButton
 
 
 def _search_icon() -> QIcon:
@@ -18,7 +20,7 @@ def _search_icon() -> QIcon:
     pixmap.fill(Qt.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
-    pen = QPen(QColor(LightColors.SECONDARY))
+    pen = QPen(QColor(semantic_color("SECONDARY")))
     pen.setWidth(2)
     painter.setPen(pen)
     painter.drawEllipse(2, 2, 10, 10)
@@ -39,6 +41,7 @@ class PurchaseToolbar(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("PurchaseToolbar")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -49,7 +52,8 @@ class PurchaseToolbar(QWidget):
         self.search.setPlaceholderText("Išči nabavo...")
         self.search.setClearButtonEnabled(True)
         self.search.setMinimumHeight(36)
-        self.search.setMinimumWidth(180)
+        self.search.setMinimumWidth(140)
+        self.search.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.search.addAction(_search_icon(), QLineEdit.LeadingPosition)
 
         self.supplier = QComboBox()
@@ -58,11 +62,9 @@ class PurchaseToolbar(QWidget):
         self.date = QDateEdit()
         self.date.setCalendarPopup(True)
         self.date.setDate(QDate.currentDate())
-        self.date.setObjectName("EnterpriseFilter")
-        self.date.setMinimumHeight(36)
         for combo in (self.supplier, self.status, self.date_mode):
-            combo.setObjectName("EnterpriseFilter")
-            combo.setMinimumHeight(36)
+            compact_filter(combo)
+        compact_filter(self.date)
         self.date_mode.addItem("Vsi datumi", "all")
         self.date_mode.addItem("Danes", "today")
         self.date_mode.addItem("Ta mesec", "month")
@@ -72,7 +74,8 @@ class PurchaseToolbar(QWidget):
         self.btn_new.setObjectName("PrimaryButton")
         self.btn_receive = QPushButton("Prevzem")
         self.btn_receive.setObjectName("SecondaryButton")
-        self.btn_print = QPushButton("Print")
+
+        self.btn_print = QPushButton("Natisni")
         self.btn_print.setObjectName("SecondaryButton")
         self.btn_pdf = QPushButton("PDF")
         self.btn_pdf.setObjectName("SecondaryButton")
@@ -80,23 +83,32 @@ class PurchaseToolbar(QWidget):
         self.btn_excel.setObjectName("SecondaryButton")
         self.btn_refresh = QPushButton("Refresh")
         self.btn_refresh.setObjectName("SecondaryButton")
+        for hidden in (self.btn_print, self.btn_pdf, self.btn_excel, self.btn_refresh):
+            hidden.hide()
 
-        layout.addWidget(self.search)
+        self.btn_more = ToolbarOverflowButton()
+        self.btn_more.add_actions(
+            (
+                ("Natisni", self.print_clicked.emit),
+                ("PDF", self.pdf_clicked.emit),
+                ("Excel", self.excel_clicked.emit),
+                ("Refresh", self.refresh_clicked.emit),
+            )
+        )
+
+        layout.addWidget(self.search, 1)
         layout.addWidget(self.supplier)
         layout.addWidget(self.status)
         layout.addWidget(self.date_mode)
         layout.addWidget(self.date)
-        for button in (
-            self.btn_new,
-            self.btn_receive,
-            self.btn_print,
-            self.btn_pdf,
-            self.btn_excel,
-            self.btn_refresh,
-        ):
+        for button in (self.btn_new, self.btn_receive):
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(36)
             layout.addWidget(button)
+        for button in (self.btn_print, self.btn_pdf, self.btn_excel, self.btn_refresh):
+            button.setCursor(Qt.PointingHandCursor)
+            button.setMinimumHeight(36)
+        layout.addWidget(self.btn_more)
 
         self.btn_new.clicked.connect(self.new_clicked.emit)
         self.btn_receive.clicked.connect(self.receive_clicked.emit)

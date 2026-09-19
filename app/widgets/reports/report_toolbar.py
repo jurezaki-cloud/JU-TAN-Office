@@ -17,11 +17,11 @@ class ReportToolbar(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        self.btn_refresh = QPushButton("Refresh")
+        self.btn_refresh = QPushButton("Osveži")
         self.btn_pdf = QPushButton("PDF")
         self.btn_excel = QPushButton("Excel")
         self.btn_csv = QPushButton("CSV")
-        self.btn_print = QPushButton("Print")
+        self.btn_print = QPushButton("Natisni")
         self.btn_more = QPushButton("Naloži več")
         self.btn_refresh.setObjectName("PrimaryButton")
         for button in (self.btn_pdf, self.btn_excel, self.btn_csv, self.btn_print, self.btn_more):

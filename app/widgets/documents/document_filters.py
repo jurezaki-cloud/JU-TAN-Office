@@ -1,9 +1,17 @@
-from PySide6.QtCore import QDate, Signal
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QComboBox, QDateEdit, QHBoxLayout, QLabel, QLineEdit, QWidget
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDateEdit,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QSizePolicy,
+    QWidget,
+)
 
-from app.theme.colors import LightColors
+from app.theme.colors import semantic_color
+from app.widgets.common.filter_controls import compact_filter
 
 
 def _search_icon() -> QIcon:
@@ -11,7 +19,7 @@ def _search_icon() -> QIcon:
     pixmap.fill(Qt.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
-    pen = QPen(QColor(LightColors.SECONDARY))
+    pen = QPen(QColor(semantic_color("SECONDARY")))
     pen.setWidth(2)
     painter.setPen(pen)
     painter.drawEllipse(2, 2, 10, 10)
@@ -26,6 +34,7 @@ class DocumentFilters(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("DocumentFilters")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -33,13 +42,16 @@ class DocumentFilters(QWidget):
 
         self.path = QLabel("Dokumenti")
         self.path.setObjectName("KpiHint")
+        self.path.setMinimumWidth(0)
+        self.path.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
         self.search = QLineEdit()
         self.search.setObjectName("EnterpriseSearch")
         self.search.setPlaceholderText("Išči dokument...")
         self.search.setClearButtonEnabled(True)
         self.search.setMinimumHeight(36)
-        self.search.setMinimumWidth(180)
+        self.search.setMinimumWidth(120)
+        self.search.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.search.addAction(_search_icon(), QLineEdit.LeadingPosition)
 
         self.kind = QComboBox()
@@ -49,12 +61,10 @@ class DocumentFilters(QWidget):
         self.date = QDateEdit()
         self.date.setCalendarPopup(True)
         self.date.setDate(QDate.currentDate())
-        self.date.setObjectName("EnterpriseFilter")
-        self.date.setMinimumHeight(36)
 
         for combo in (self.kind, self.module, self.owner, self.date_mode):
-            combo.setObjectName("EnterpriseFilter")
-            combo.setMinimumHeight(36)
+            compact_filter(combo)
+        compact_filter(self.date)
 
         self.kind.addItem("Vsi tipi", "all")
         self.kind.addItem("PDF", "pdf")
@@ -69,8 +79,8 @@ class DocumentFilters(QWidget):
         self.date_mode.addItem("Ta mesec", "month")
         self.date_mode.addItem("Izbrani dan", "day")
 
-        layout.addWidget(self.path, 1)
-        layout.addWidget(self.search)
+        layout.addWidget(self.path)
+        layout.addWidget(self.search, 1)
         layout.addWidget(self.kind)
         layout.addWidget(self.module)
         layout.addWidget(self.date_mode)

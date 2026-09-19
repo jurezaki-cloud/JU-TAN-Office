@@ -28,94 +28,133 @@ from app.widgets.invoices.invoice_table import InvoiceTable
 class InvoiceDialog(EnterpriseDialog):
 
     def __init__(self, parent=None, invoice_id=None):
-        super().__init__(
-            parent,
-            title="Račun",
-            heading="Račun" if invoice_id else "Nov račun",
-            size="LARGE",
-            state_key="dialog.invoice",
-        )
-        self.invoice_id = invoice_id
-        self.setObjectName("InvoiceDialog")
-        self.bind_save(self.save)
+        from app.core.ui_freeze_diag import span as _diag_span
 
-        header_card = EnterpriseCard("DashboardCard")
-        grid = FormGrid()
+        with _diag_span("InvoiceDialog.__init__", invoice_id=invoice_id):
+            super().__init__(
+                parent,
+                title="Račun",
+                heading="Račun" if invoice_id else "Nov račun",
+                size="LARGE",
+                state_key="dialog.invoice",
+            )
+            self.invoice_id = invoice_id
+            self.setObjectName("InvoiceDialog")
+            self.bind_save(self.save)
+            from app.utils.vat import company_vat_liable, parse_vat_liable
 
-        self.lbl_number = QLabel(invoice_repository.get_next_number())
-        self.customer = QComboBox()
-        self.issue_date = QDateEdit()
-        self.issue_date.setCalendarPopup(True)
-        self.issue_date.setDate(QDate.currentDate())
-        self.due_date = QDateEdit()
-        self.due_date.setCalendarPopup(True)
-        self.due_date.setDate(QDate.currentDate().addDays(30))
-        self.notes = QTextEdit()
-        self.notes.setAcceptRichText(False)
-        self.notes.setMinimumHeight(72)
-        self.notes.setMaximumHeight(120)
+            # Snapshot regime at dialog open for new docs; load overwrites for edits.
+            self.vat_liable = (
+                parse_vat_liable(company_vat_liable()) if invoice_id is None else True
+            )
 
-        grid.add("Številka", self.lbl_number, "Datum izdaje", self.issue_date)
-        grid.add("Stranka", self.customer, "Rok plačila", self.due_date)
-        grid.add_full("Opombe", self.notes)
-        header_card.body.addLayout(grid.layout)
-        self.body.addWidget(header_card)
+            header_card = EnterpriseCard("DashboardCard")
+            grid = FormGrid()
 
-        items_card = EnterpriseCard("DashboardCard")
-        items_title = QLabel("Postavke")
-        items_title.setObjectName("DashboardSectionTitle")
-        items_card.body.addWidget(items_title)
+            self.lbl_number = QLabel(invoice_repository.get_next_number())
+            self.customer = QComboBox()
+            self.issue_date = QDateEdit()
+            self.issue_date.setCalendarPopup(True)
+            self.issue_date.setDate(QDate.currentDate())
+            self.due_date = QDateEdit()
+            self.due_date.setCalendarPopup(True)
+            self.due_date.setDate(QDate.currentDate().addDays(30))
+            self.notes = QTextEdit()
+            self.notes.setAcceptRichText(False)
+            self.notes.setMinimumHeight(72)
+            self.notes.setMaximumHeight(120)
 
-        self.items_model = InvoiceItemsModel()
-        self.items_table = InvoiceTable()
-        self.items_table.setModel(self.items_model)
-        self.bind_table(self.items_table)
-        items_card.body.addWidget(self.items_table)
+            grid.add("Številka", self.lbl_number, "Datum izdaje", self.issue_date)
+            grid.add("Stranka", self.customer, "Rok plačila", self.due_date)
+            grid.add_full("Opombe", self.notes)
+            header_card.body.addLayout(grid.layout)
+            self.body.addWidget(header_card)
 
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(8)
-        self.btn_add_item = QPushButton("Dodaj postavko")
-        self.btn_add_item.setObjectName("SecondaryButton")
-        self.btn_remove_item = QPushButton("Odstrani postavko")
-        self.btn_remove_item.setObjectName("DangerButton")
-        self.btn_add_item.setMinimumHeight(36)
-        self.btn_remove_item.setMinimumHeight(36)
-        self.btn_add_item.setCursor(Qt.PointingHandCursor)
-        self.btn_remove_item.setCursor(Qt.PointingHandCursor)
-        toolbar.addWidget(self.btn_add_item)
-        toolbar.addWidget(self.btn_remove_item)
-        toolbar.addStretch()
-        items_card.body.addLayout(toolbar)
-        self.body.addWidget(items_card)
+            items_card = EnterpriseCard("DashboardCard")
+            items_title = QLabel("Postavke")
+            items_title.setObjectName("DashboardSectionTitle")
+            items_card.body.addWidget(items_title)
 
-        totals_card = EnterpriseCard("DashboardCard")
-        totals_card.body.setContentsMargins(16, 12, 16, 12)
-        total_layout = QHBoxLayout()
-        total_layout.setSpacing(16)
-        total_layout.addStretch()
-        self.lbl_subtotal = QLabel("0.00 €")
-        self.lbl_vat = QLabel("0.00 €")
-        self.lbl_total = QLabel("0.00 €")
-        self.lbl_total.setObjectName("TotalValue")
-        total_layout.addWidget(QLabel("Osnova:"))
-        total_layout.addWidget(self.lbl_subtotal)
-        total_layout.addSpacing(20)
-        total_layout.addWidget(QLabel("DDV:"))
-        total_layout.addWidget(self.lbl_vat)
-        total_layout.addSpacing(20)
-        total_layout.addWidget(QLabel("SKUPAJ:"))
-        total_layout.addWidget(self.lbl_total)
-        totals_card.body.addLayout(total_layout)
-        self.body.addWidget(totals_card)
+            self.items_model = InvoiceItemsModel()
+            self.items_table = InvoiceTable()
+            self.items_table.setModel(self.items_model)
+            self.bind_table(self.items_table)
+            items_card.body.addWidget(self.items_table)
 
-        self.btn_add_item.clicked.connect(self.add_item)
-        self.btn_remove_item.clicked.connect(self.remove_item)
+            toolbar = QHBoxLayout()
+            toolbar.setSpacing(8)
+            self.btn_add_item = QPushButton("+ Dodaj postavko")
+            self.btn_add_item.setObjectName("PrimaryButton")
+            self.btn_remove_item = QPushButton("Odstrani")
+            self.btn_remove_item.setObjectName("DangerButton")
+            self.btn_add_item.setMinimumHeight(36)
+            self.btn_remove_item.setMinimumHeight(36)
+            self.btn_add_item.setCursor(Qt.PointingHandCursor)
+            self.btn_remove_item.setCursor(Qt.PointingHandCursor)
+            from app.core.ui.icons import apply_button_icon
 
-        self.load_customers()
+            apply_button_icon(self.btn_add_item, "new")
+            apply_button_icon(self.btn_remove_item, "delete")
+            toolbar.addWidget(self.btn_add_item)
+            toolbar.addWidget(self.btn_remove_item)
+            toolbar.addStretch()
+            items_card.body.addLayout(toolbar)
+            self.body.addWidget(items_card)
 
-        if self.invoice_id is not None:
-            self.load_invoice()
-            self._apply_financial_lock()
+            totals_card = EnterpriseCard("DashboardCard")
+            totals_card.body.setContentsMargins(16, 12, 16, 12)
+            total_layout = QHBoxLayout()
+            total_layout.setSpacing(16)
+            total_layout.addStretch()
+            self.lbl_subtotal = QLabel("0.00 €")
+            self.lbl_vat = QLabel("0.00 €")
+            self.lbl_vat_caption = QLabel("DDV:")
+            self.lbl_total = QLabel("0.00 €")
+            self.lbl_total.setObjectName("TotalValue")
+            total_layout.addWidget(QLabel("Osnova:"))
+            total_layout.addWidget(self.lbl_subtotal)
+            total_layout.addSpacing(20)
+            total_layout.addWidget(self.lbl_vat_caption)
+            total_layout.addWidget(self.lbl_vat)
+            total_layout.addSpacing(20)
+            total_layout.addWidget(QLabel("SKUPAJ:"))
+            total_layout.addWidget(self.lbl_total)
+            totals_card.body.addLayout(total_layout)
+            self.lbl_vat_notice = QLabel("")
+            self.lbl_vat_notice.setObjectName("DashboardMuted")
+            self.lbl_vat_notice.setWordWrap(True)
+            self.lbl_vat_notice.hide()
+            totals_card.body.addWidget(self.lbl_vat_notice)
+            self.body.addWidget(totals_card)
+
+            self.btn_add_item.clicked.connect(self.add_item)
+            self.btn_remove_item.clicked.connect(self.remove_item)
+
+            with _diag_span("InvoiceDialog.load_customers"):
+                self.load_customers()
+            with _diag_span("InvoiceDialog._apply_vat_ui"):
+                self._apply_vat_ui()
+
+            if self.invoice_id is not None:
+                with _diag_span("InvoiceDialog.load_invoice", invoice_id=self.invoice_id):
+                    self.load_invoice()
+                with _diag_span("InvoiceDialog._apply_financial_lock", invoice_id=self.invoice_id):
+                    self._apply_financial_lock()
+    def _apply_vat_ui(self):
+        from app.utils.vat import ARTICLE_94_NOTICE, parse_vat_liable
+
+        self.vat_liable = parse_vat_liable(self.vat_liable)
+        show_vat = self.vat_liable
+        self.lbl_vat_caption.setVisible(show_vat)
+        self.lbl_vat.setVisible(show_vat)
+        if hasattr(self, "items_table"):
+            self.items_table.setColumnHidden(6, not show_vat)
+        if show_vat:
+            self.lbl_vat_notice.hide()
+            self.lbl_vat_notice.clear()
+        else:
+            self.lbl_vat_notice.setText(ARTICLE_94_NOTICE)
+            self.lbl_vat_notice.show()
 
     def _apply_financial_lock(self):
         """Issued financial history is viewable, but paid/cancelled invoices are immutable."""
@@ -151,7 +190,7 @@ class InvoiceDialog(EnterpriseDialog):
 
     def add_item(self):
 
-        dialog = InvoiceItemDialog(self)
+        dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
 
         if dialog.exec():
 
@@ -181,7 +220,7 @@ class InvoiceDialog(EnterpriseDialog):
     def update_total(self):
         from app.utils.money import document_totals, format_eur
 
-        totals = document_totals(self.items_model.items)
+        totals = document_totals(self.items_model.items, vat_liable=self.vat_liable)
         self.lbl_subtotal.setText(format_eur(totals["subtotal"]))
         self.lbl_vat.setText(format_eur(totals["vat"]))
         self.lbl_total.setText(format_eur(totals["total"]))
@@ -194,7 +233,12 @@ class InvoiceDialog(EnterpriseDialog):
         from app.core.permissions import allow, audit
         from app.core.ui.notify import toast
         from app.utils.money import as_float, document_totals, line_gross
+        from app.utils.vat import assert_vat_consistent
+        import sqlite3
+        import time
 
+        if getattr(self, "_saving", False):
+            return
         if not allow("write", self):
             return
 
@@ -206,11 +250,32 @@ class InvoiceDialog(EnterpriseDialog):
             toast(self, "Dodajte vsaj eno postavko.")
             return
 
-        totals = document_totals(self.items_model.items)
+        # Normalize line VAT under non-VAT regime before totals/persistence.
+        if not self.vat_liable:
+            normalized = []
+            for row in self.items_model.items:
+                row = list(row)
+                row[6] = 0
+                row[7] = as_float(line_gross(row[2], row[4], 0, row[5], vat_liable=False))
+                normalized.append(row)
+            self.items_model.refresh(normalized)
+
+        totals = document_totals(self.items_model.items, vat_liable=self.vat_liable)
         subtotal = totals["subtotal"]
         discount = totals["discount"]
         vat_amount = totals["vat"]
         total = totals["total"]
+
+        try:
+            assert_vat_consistent(
+                vat_liable=self.vat_liable,
+                lines=self.items_model.items,
+                vat_total=vat_amount,
+                show_article_94=not self.vat_liable,
+            )
+        except ValueError as exc:
+            toast(self, str(exc))
+            return
 
         if self.invoice_id is not None:
             from app.database.payment_repository import payment_repository
@@ -220,69 +285,99 @@ class InvoiceDialog(EnterpriseDialog):
                 toast(self, "Skupni znesek računa ne sme biti nižji od že prejetih plačil.")
                 return
 
-        if self.invoice_id is None:
-            invoice_id = invoice_repository.add(
-                invoice_number=self.lbl_number.text(),
-                customer_id=self.customer.currentData(),
-                issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
-                due_date=self.due_date.date().toString("yyyy-MM-dd"),
-                subtotal=subtotal,
-                discount=discount,
-                vat=vat_amount,
-                total=total,
-                notes=self.notes.toPlainText(),
-                status="Izdan",
-            )
+        self._saving = True
+        previous_label = self.btn_save.text()
+        self.btn_save.setEnabled(False)
+        self.btn_save.setText("Shranjujem ...")
+        t0 = time.perf_counter()
+        try:
+            if self.invoice_id is None:
+                invoice_id = None
+                last_exc: Exception | None = None
+                for _attempt in range(5):
+                    number = invoice_repository.get_next_number()
+                    self.lbl_number.setText(number)
+                    try:
+                        invoice_id = invoice_repository.add(
+                            invoice_number=number,
+                            customer_id=self.customer.currentData(),
+                            issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
+                            due_date=self.due_date.date().toString("yyyy-MM-dd"),
+                            subtotal=subtotal,
+                            discount=discount,
+                            vat=vat_amount,
+                            total=total,
+                            notes=self.notes.toPlainText(),
+                            status="Izdan",
+                            vat_liable=self.vat_liable,
+                        )
+                        invoice_repository.increase_counter()
+                        break
+                    except sqlite3.IntegrityError as exc:
+                        last_exc = exc
+                        # Skip colliding counter slot and retry with healed next number.
+                        invoice_repository.increase_counter()
+                if invoice_id is None:
+                    raise last_exc or RuntimeError("Računa ni bilo mogoče shraniti.")
+            else:
+                invoice = invoice_repository.get_by_id(self.invoice_id)
+                status = invoice[5] if invoice else "Osnutek"
 
-            invoice_repository.increase_counter()
-        else:
-            invoice = invoice_repository.get_by_id(self.invoice_id)
-            status = invoice[5] if invoice else "Osnutek"
+                invoice_repository.update(
+                    invoice_id=self.invoice_id,
+                    customer_id=self.customer.currentData(),
+                    issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
+                    due_date=self.due_date.date().toString("yyyy-MM-dd"),
+                    subtotal=subtotal,
+                    discount=discount,
+                    vat=vat_amount,
+                    total=total,
+                    status=status,
+                    notes=self.notes.toPlainText(),
+                    vat_liable=self.vat_liable,
+                )
 
-            invoice_repository.update(
-                invoice_id=self.invoice_id,
-                customer_id=self.customer.currentData(),
-                issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
-                due_date=self.due_date.date().toString("yyyy-MM-dd"),
-                subtotal=subtotal,
-                discount=discount,
-                vat=vat_amount,
-                total=total,
-                status=status,
-                notes=self.notes.toPlainText(),
-            )
+                invoice_repository.delete_items(self.invoice_id)
+                invoice_id = self.invoice_id
 
-            invoice_repository.delete_items(self.invoice_id)
-            invoice_id = self.invoice_id
+            for row in self.items_model.items:
+                qty = row[2]
+                price = row[4]
+                discount = row[5]
+                vat = 0 if not self.vat_liable else row[6]
+                invoice_repository.add_item(
+                    invoice_id=invoice_id,
+                    article_id=row[8],
+                    code=row[0],
+                    name=row[1],
+                    description="",
+                    quantity=qty,
+                    unit=row[3],
+                    price=price,
+                    discount=discount,
+                    vat=vat,
+                    total=as_float(line_gross(qty, price, vat, discount, vat_liable=self.vat_liable)),
+                )
 
-        for row in self.items_model.items:
-            qty = row[2]
-            price = row[4]
-            discount = row[5]
-            vat = row[6]
-            invoice_repository.add_item(
-                invoice_id=invoice_id,
-                article_id=row[8],
-                code=row[0],
-                name=row[1],
-                description="",
-                quantity=qty,
-                unit=row[3],
-                price=price,
-                discount=discount,
-                vat=vat,
-                total=as_float(line_gross(qty, price, vat, discount)),
-            )
+            # Editing the amount of an invoice with recorded payments must also
+            # refresh its payment-derived status (e.g. paid -> partially paid).
+            if self.invoice_id is not None:
+                from app.database.payment_repository import payment_repository
+                payment_repository.sync_invoice_status(invoice_id, total)
 
-        # Editing the amount of an invoice with recorded payments must also
-        # refresh its payment-derived status (e.g. paid -> partially paid).
-        if self.invoice_id is not None:
-            from app.database.payment_repository import payment_repository
-            payment_repository.sync_invoice_status(invoice_id, total)
-
-        audit("create" if self.invoice_id is None else "edit", f"invoice:{invoice_id}")
-        self.accept()
-
+            audit("create" if self.invoice_id is None else "edit", f"invoice:{invoice_id}")
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            from app.core.logger import logger
+            logger.info("invoice.save id=%s elapsed_ms=%.1f", invoice_id, elapsed_ms)
+            self.accept()
+        except Exception as exc:
+            from app.core.errors import handle_error
+            handle_error(exc, context="invoice-save", parent=self)
+        finally:
+            self._saving = False
+            if self.isVisible():
+                self.btn_save.setEnabled(True)
+                self.btn_save.setText(previous_label)
     # =====================================================
 
     def load_invoice(self):
@@ -296,6 +391,9 @@ class InvoiceDialog(EnterpriseDialog):
 
         if invoice is None:
             return
+
+        self.vat_liable = invoice_repository.get_vat_liable(self.invoice_id)
+        self._apply_vat_ui()
 
         self.lbl_number.setText(invoice[1])
 

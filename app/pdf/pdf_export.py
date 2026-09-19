@@ -99,6 +99,7 @@ class PdfExport:
                 vat=float(invoice[8] or 0),
                 total=float(invoice[9] or 0),
                 status=str(invoice[5] or ""),
+                vat_liable=invoice_repository.get_vat_liable(invoice_id),
             )
         )
 
@@ -124,6 +125,7 @@ class PdfExport:
                 discount=float(offer[7] or 0),
                 vat=float(offer[8] or 0),
                 total=float(offer[9] or 0),
+                vat_liable=offer_repository.get_vat_liable(offer_id),
             )
         )
 
@@ -158,11 +160,24 @@ class PdfExport:
                 discount=float(order[7] or 0),
                 vat=float(order[8] or 0),
                 total=float(order[9] or 0),
+                vat_liable=order_repository.get_vat_liable(order_id),
             )
         )
 
     def open_pdf(self, path: Path) -> None:
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+        """Open in the OS viewer without affecting JU-TAN window lifetime.
+
+        Windows: os.startfile is detached and must never close MainWindow.
+        Opening a PDF must never call quit/accept/reject on the app.
+        """
+        target = Path(path)
+        if not target.exists():
+            raise FileNotFoundError(f"PDF ne obstaja: {target}")
+        if os.name == "nt":
+            # Detached ShellExecute — does not transfer Qt ownership or focus quit.
+            os.startfile(str(target))  # noqa: S606 — intentional OS file open
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
 
     def print_pdf(self, path: Path) -> None:
         from app.core.permissions import audit, require

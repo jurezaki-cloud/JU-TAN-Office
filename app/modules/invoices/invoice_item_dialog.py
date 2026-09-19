@@ -8,12 +8,13 @@ from PySide6.QtWidgets import (
 from app.core.ui.enterprise_dialog import EnterpriseDialog
 from app.core.ui.form_grid import FormGrid
 from app.database.article_repository import article_repository
+from app.utils.vat import company_vat_liable, parse_vat_liable
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
 class InvoiceItemDialog(EnterpriseDialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, vat_liable=None):
         super().__init__(
             parent,
             title="Dodaj postavko",
@@ -22,6 +23,10 @@ class InvoiceItemDialog(EnterpriseDialog):
             state_key="dialog.invoice_item",
         )
         self.article_id = None
+        # Never use bare bool(): bool("NE")/bool("0") are True and would charge VAT.
+        self.vat_liable = (
+            company_vat_liable() if vat_liable is None else parse_vat_liable(vat_liable)
+        )
         self.setObjectName("InvoiceItemDialog")
 
         card = EnterpriseCard("DashboardCard")
@@ -52,6 +57,10 @@ class InvoiceItemDialog(EnterpriseDialog):
         card.body.addLayout(grid.layout)
         self.body.addWidget(card)
 
+        if not self.vat_liable:
+            self.vat.setValue(0)
+            self.vat.setEnabled(False)
+
         self.article.currentIndexChanged.connect(self.article_changed)
         self.quantity.valueChanged.connect(self.calculate)
         self.price.valueChanged.connect(self.calculate)
@@ -74,7 +83,10 @@ class InvoiceItemDialog(EnterpriseDialog):
             return
         self.article_id = article[0]
         self.price.setValue(float(article[4]))
-        self.vat.setValue(float(article[5]))
+        if self.vat_liable:
+            self.vat.setValue(float(article[5]))
+        else:
+            self.vat.setValue(0)
         self.calculate()
 
     def calculate(self):
@@ -85,6 +97,7 @@ class InvoiceItemDialog(EnterpriseDialog):
             self.price.value(),
             self.vat.value(),
             self.discount.value(),
+            vat_liable=self.vat_liable,
         )
         self.total.setText(format_eur(total))
 
@@ -92,11 +105,14 @@ class InvoiceItemDialog(EnterpriseDialog):
         from app.utils.money import as_float, line_gross
 
         article = self.article.currentData()
+        discount = self.discount.value()
+        vat = 0 if not self.vat_liable else self.vat.value()
         total = line_gross(
             self.quantity.value(),
             self.price.value(),
-            self.vat.value(),
-            0,
+            vat,
+            discount,
+            vat_liable=self.vat_liable,
         )
         return [
             article[1],
@@ -104,8 +120,8 @@ class InvoiceItemDialog(EnterpriseDialog):
             self.quantity.value(),
             article[3],
             self.price.value(),
-            self.discount.value(),
-            self.vat.value(),
+            discount,
+            vat,
             as_float(total),
             article[0],
         ]

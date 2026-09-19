@@ -47,7 +47,13 @@ def load_company() -> CompanyProfile:
 
 
 def load_pdf_options() -> dict:
+    from app.utils.vat import DOCUMENT_FOOTER_MESSAGE, WEBSITE_URL
+
     pdf = SettingsController().load_extras().get("pdf", {})
+    footer = str(pdf.get("footer") or DOCUMENT_FOOTER_MESSAGE).strip()
+    # Migrate legacy marketing footer to the professional default.
+    if "JU-TAN Office Enterprise" in footer or footer == "Hvala za zaupanje.":
+        footer = DOCUMENT_FOOTER_MESSAGE
     return {
         "show_logo": bool(pdf.get("logo", True)),
         "show_signature": bool(pdf.get("signature", True)),
@@ -56,10 +62,11 @@ def load_pdf_options() -> dict:
         "show_discount": bool(pdf.get("discounts", True)),
         "show_notes": bool(pdf.get("notes", True)),
         "folder": str(pdf.get("folder") or ""),
-        "footer": str(pdf.get("footer") or "Hvala za zaupanje."),
+        "footer": footer or DOCUMENT_FOOTER_MESSAGE,
         "signature_path": str(pdf.get("signature_path") or ""),
         "stamp_path": str(pdf.get("stamp_path") or ""),
         "payment_method": str(pdf.get("payment_method") or "Nakazilo"),
+        "website_url": WEBSITE_URL,
     }
 
 

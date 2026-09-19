@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import QStyledItemDelegate
 
-from app.theme.colors import LightColors
+from app.theme.colors import semantic_color
 
 
 def invoice_badge(raw_status, due_date=None) -> str:
@@ -33,80 +33,108 @@ def invoice_badge(raw_status, due_date=None) -> str:
     return status or "Osnutek"
 
 
-BADGE_COLORS = {
-    "Plačano": LightColors.SUCCESS,
-    "Delno plačano": LightColors.WARNING,
-    "Neplačano": LightColors.WARNING,
-    "Zapadlo": LightColors.DANGER,
-    "Osnutek": LightColors.SECONDARY,
-    "Stornirano": LightColors.SECONDARY,
-    "Poslana": LightColors.PRIMARY,
-    "Sprejeta": LightColors.SUCCESS,
-    "Zavrnjena": LightColors.DANGER,
-    "Potekla": LightColors.DANGER,
-    "22 %": LightColors.PRIMARY,
-    "9.5 %": LightColors.WARNING,
-    "5 %": LightColors.SUCCESS,
-    "0 %": LightColors.SECONDARY,
-    "Potrjeno": LightColors.PRIMARY,
-    "V obdelavi": LightColors.WARNING,
-    "Dobavljeno": LightColors.SUCCESS,
-    "Preklicano": LightColors.DANGER,
-    "🟢 Na zalogi": LightColors.SUCCESS,
-    "🟡 Nizka zaloga": LightColors.WARNING,
-    "🔴 Ni zaloge": LightColors.DANGER,
-    "Prevzem": LightColors.SUCCESS,
-    "Izdaja": LightColors.DANGER,
-    "Korekcija": LightColors.WARNING,
-    "Inventura": LightColors.PRIMARY,
-    "Rezervacija": LightColors.SECONDARY,
-    "Active": LightColors.SUCCESS,
-    "Inactive": LightColors.SECONDARY,
-    "Draft": LightColors.SECONDARY,
-    "Ordered": LightColors.PRIMARY,
-    "Partially Received": LightColors.WARNING,
-    "Received": LightColors.SUCCESS,
-    "Cancelled": LightColors.DANGER,
-    "PDF": LightColors.DANGER,
-    "PNG": LightColors.SUCCESS,
-    "JPG": LightColors.SUCCESS,
-    "DOCX": LightColors.PRIMARY,
-    "XLSX": LightColors.SUCCESS,
-    "ZIP": LightColors.WARNING,
-    "TXT": LightColors.SECONDARY,
-    "Mapa": LightColors.PRIMARY,
-    "Lead": LightColors.SECONDARY,
-    "Qualified": LightColors.PRIMARY,
-    "Proposal": LightColors.WARNING,
-    "Negotiation": LightColors.WARNING,
-    "Won": LightColors.SUCCESS,
-    "Lost": LightColors.DANGER,
-    "High": LightColors.DANGER,
-    "Urgent": LightColors.DANGER,
-    "Normal": LightColors.PRIMARY,
-    "Low": LightColors.SECONDARY,
-}
+def _badge_map() -> dict[str, str]:
+    return {
+        "Plačano": semantic_color("SUCCESS"),
+        "Delno plačano": semantic_color("WARNING"),
+        "Neplačano": semantic_color("WARNING"),
+        "Zapadlo": semantic_color("DANGER"),
+        "Osnutek": semantic_color("SECONDARY"),
+        "Odobren": semantic_color("PRIMARY"),
+        "Zaključen": semantic_color("SUCCESS"),
+        "Storniran": semantic_color("SECONDARY"),
+        "Stornirano": semantic_color("SECONDARY"),
+        "Poslana": semantic_color("PRIMARY"),
+        "Sprejeta": semantic_color("SUCCESS"),
+        "Zavrnjena": semantic_color("DANGER"),
+        "Potekla": semantic_color("DANGER"),
+        "22 %": semantic_color("PRIMARY"),
+        "9.5 %": semantic_color("WARNING"),
+        "5 %": semantic_color("SUCCESS"),
+        "0 %": semantic_color("SECONDARY"),
+        "Potrjeno": semantic_color("PRIMARY"),
+        "V obdelavi": semantic_color("WARNING"),
+        "Dobavljeno": semantic_color("SUCCESS"),
+        "Preklicano": semantic_color("DANGER"),
+        "🟢 Na zalogi": semantic_color("SUCCESS"),
+        "🟡 Nizka zaloga": semantic_color("WARNING"),
+        "🔴 Ni zaloge": semantic_color("DANGER"),
+        "Na zalogi": semantic_color("SUCCESS"),
+        "Nizka zaloga": semantic_color("WARNING"),
+        "Ni zaloge": semantic_color("DANGER"),
+        "Izdan": semantic_color("WARNING"),
+        "Prevzem": semantic_color("SUCCESS"),
+        "Izdaja": semantic_color("DANGER"),
+        "Korekcija": semantic_color("WARNING"),
+        "Inventura": semantic_color("PRIMARY"),
+        "Rezervacija": semantic_color("SECONDARY"),
+        "Active": semantic_color("SUCCESS"),
+        "Inactive": semantic_color("SECONDARY"),
+        "Draft": semantic_color("SECONDARY"),
+        "Ordered": semantic_color("PRIMARY"),
+        "Partially Received": semantic_color("WARNING"),
+        "Received": semantic_color("SUCCESS"),
+        "Cancelled": semantic_color("DANGER"),
+        "PDF": semantic_color("DANGER"),
+        "PNG": semantic_color("SUCCESS"),
+        "JPG": semantic_color("SUCCESS"),
+        "DOCX": semantic_color("PRIMARY"),
+        "XLSX": semantic_color("SUCCESS"),
+        "ZIP": semantic_color("WARNING"),
+        "TXT": semantic_color("SECONDARY"),
+        "Mapa": semantic_color("PRIMARY"),
+        "Lead": semantic_color("SECONDARY"),
+        "Qualified": semantic_color("PRIMARY"),
+        "Proposal": semantic_color("WARNING"),
+        "Negotiation": semantic_color("WARNING"),
+        "Won": semantic_color("SUCCESS"),
+        "Lost": semantic_color("DANGER"),
+        "High": semantic_color("DANGER"),
+        "Urgent": semantic_color("DANGER"),
+        "Normal": semantic_color("PRIMARY"),
+        "Low": semantic_color("SECONDARY"),
+    }
+
+
+class _BadgeColorsProxy(dict):
+    def get(self, key, default=None):  # type: ignore[override]
+        return _badge_map().get(
+            key,
+            default if default is not None else semantic_color("SECONDARY"),
+        )
+
+    def __getitem__(self, key):
+        return _badge_map()[key]
+
+    def __contains__(self, key):
+        return key in _badge_map()
+
+
+BADGE_COLORS = _BadgeColorsProxy()
 
 
 class StatusBadgeDelegate(QStyledItemDelegate):
 
     def paint(self, painter, option, index):
         text = index.data(Qt.DisplayRole) or ""
-        color = QColor(BADGE_COLORS.get(str(text), LightColors.SECONDARY))
+        color = QColor(BADGE_COLORS.get(str(text), semantic_color("SECONDARY")))
 
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
 
         rect = option.rect.adjusted(8, 10, -8, -10)
         fill = QColor(color)
-        fill.setAlpha(28)
+        fill.setAlpha(32)
         painter.setPen(Qt.NoPen)
         painter.setBrush(fill)
         painter.drawRoundedRect(rect, 8, 8)
 
         painter.setPen(color)
+        # QSS uses pixel fonts (pointSize == -1). Never call setPointSize with
+        # that sentinel — paint with an explicit pixel size instead.
         font = QFont(option.font)
-        font.setPointSize(9)
+        px = font.pixelSize()
+        font.setPixelSize(9 if px <= 0 else min(px, 11))
         font.setWeight(QFont.DemiBold)
         painter.setFont(font)
         painter.drawText(rect, Qt.AlignCenter, str(text))
@@ -114,5 +142,5 @@ class StatusBadgeDelegate(QStyledItemDelegate):
 
     def sizeHint(self, option, index):
         hint = super().sizeHint(option, index)
-        hint.setHeight(48)
+        hint.setHeight(44)
         return hint

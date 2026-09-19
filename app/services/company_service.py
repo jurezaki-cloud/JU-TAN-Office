@@ -31,6 +31,7 @@ class CompanyService:
         offer_counter,
         default_vat,
         notes,
+        vat_liable=1,
     ):
 
         company_repository.save(
@@ -55,6 +56,7 @@ class CompanyService:
             offer_counter,
             default_vat,
             notes,
+            vat_liable,
         )
 
 

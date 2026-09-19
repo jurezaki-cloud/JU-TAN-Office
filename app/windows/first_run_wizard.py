@@ -52,6 +52,9 @@ class FirstRunWizard(EnterpriseDialog):
         self.vat.setRange(0, 100)
         self.vat.setDecimals(2)
         self.vat.setValue(22)
+        self.vat_liable = QComboBox()
+        self.vat_liable.addItems(["DA", "NE"])
+        self.vat_liable.setCurrentText("DA")
         self.currency = QComboBox()
         self.currency.addItems(["EUR", "USD", "CHF", "GBP"])
         self.logo_path = QLineEdit()
@@ -61,7 +64,8 @@ class FirstRunWizard(EnterpriseDialog):
         browse.clicked.connect(self._pick_logo)
         grid.add("Podjetje", self.company, "Administrator", self.admin)
         grid.add("Naslov", self.address, "Davčna št.", self.tax)
-        grid.add("DDV %", self.vat, "Valuta", self.currency)
+        grid.add("DDV %", self.vat, "Zavezanec za DDV", self.vat_liable)
+        grid.add("Valuta", self.currency)
         grid.add("Geslo", self.password, "Ponovi geslo", self.password2)
         grid.add_full("Logotip", self.logo_path)
         card.body.addLayout(grid.layout)
@@ -120,6 +124,8 @@ class FirstRunWizard(EnterpriseDialog):
             extras["administrator"] = self.admin.text().strip() or "Administrator"
             SettingsController().save_extras(extras)
         vat = float(self.vat.value())
+        from app.utils.vat import vat_liable_int
+
         company_repository.save(
             name,
             name,
@@ -142,6 +148,7 @@ class FirstRunWizard(EnterpriseDialog):
             1,
             vat,
             "",
+            vat_liable_int(self.vat_liable.currentText()),
         )
         mark_setup_complete(
             administrator=self.admin.text().strip() or "Administrator",

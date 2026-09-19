@@ -36,5 +36,10 @@ def export_travel_order(row) -> Path:
     sig=Table([["Podpis zaposlenega","Odobril / podpis odgovorne osebe"],["\n\n________________________","\n\n________________________"]],colWidths=[90*mm,90*mm])
     sig.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),("PADDING",(0,0),(-1,-1),6)])); story.append(sig)
     footer=options.get("footer") or ""
-    doc.build(story,onFirstPage=lambda c,d: draw_footer(c,d,footer),onLaterPages=lambda c,d: draw_footer(c,d,footer))
+    website=options.get("website_url") or ""
+    doc.build(
+        story,
+        onFirstPage=lambda c,d: draw_footer(c,d,footer,website_url=website),
+        onLaterPages=lambda c,d: draw_footer(c,d,footer,website_url=website),
+    )
     return path

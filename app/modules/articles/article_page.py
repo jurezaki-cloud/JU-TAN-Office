@@ -1,7 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
     QLabel,
     QSplitter,
     QMessageBox,
@@ -31,16 +30,16 @@ class ArticlePage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Artikli")
         title.setObjectName("PageTitle")
         title.hide()
         layout.addWidget(title)
 
-        top_layout = QHBoxLayout()
-        top_layout.setSpacing(12)
+        from app.widgets.common.page_chrome import PageToolbar
 
+        toolbar = PageToolbar()
         self.actions = ArticleActions()
         self.btn_new = self.actions.btn_new
         self.btn_edit = self.actions.btn_edit
@@ -49,11 +48,11 @@ class ArticlePage(QWidget):
 
         self.search_field = ArticleSearch()
         self.search = self.search_field.input
+        self.search.setMinimumWidth(260)
 
-        top_layout.addWidget(self.actions)
-        top_layout.addStretch()
-        top_layout.addWidget(self.search_field)
-        layout.addLayout(top_layout)
+        toolbar.layout.addWidget(self.search_field, 1)
+        toolbar.layout.addWidget(self.actions, 0)
+        layout.addWidget(toolbar)
 
         self.table = ArticleTable()
         self.model = ArticleTableModel([])

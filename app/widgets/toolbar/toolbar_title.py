@@ -18,6 +18,7 @@ PAGE_CONTEXT = {
     14: ("CRM", "Pipeline, stranke 360 in follow-up"),
     15: ("Poročila", "Centralna poročila in izvozi"),
     16: ("Avtomatizacija", "Poslovna pravila, razpored in dnevnik"),
+    17: ("Potni nalogi", "Evidenca potnih nalogov in obračunov"),
 }
 
 

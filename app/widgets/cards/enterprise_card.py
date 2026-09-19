@@ -7,14 +7,14 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.theme.colors import LightColors
+from app.theme.colors import semantic_color
 
 
 def make_card_shadow(parent, alpha: int = 22, blur: int = 16) -> QGraphicsDropShadowEffect:
     shadow = QGraphicsDropShadowEffect(parent)
     shadow.setBlurRadius(blur)
     shadow.setOffset(0, 2)
-    color = QColor(LightColors.TEXT)
+    color = QColor(semantic_color("TEXT", "#0F172A"))
     color.setAlpha(alpha)
     shadow.setColor(color)
     return shadow

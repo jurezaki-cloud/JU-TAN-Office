@@ -11,14 +11,14 @@ class CrmDashboard(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
-        self.kpi_leads = KpiCard("Lead Count", "0", "Stage Lead")
-        self.kpi_active = KpiCard("Active Deals", "0", "V pogajanjih")
-        self.kpi_won = KpiCard("Won Deals", "0", "Dobljeno")
-        self.kpi_lost = KpiCard("Lost Deals", "0", "Izgubljeno")
-        self.kpi_meetings = KpiCard("Meetings Today", "0", "Sestanki")
-        self.kpi_calls = KpiCard("Calls Today", "0", "Klici")
+        self.kpi_leads = KpiCard("Potenciali", "0", "Faza Lead")
+        self.kpi_active = KpiCard("Aktivni posli", "0", "V pogajanjih")
+        self.kpi_won = KpiCard("Dobljeno", "0", "Zaključeno")
+        self.kpi_lost = KpiCard("Izgubljeno", "0", "Zavrnjeno")
+        self.kpi_meetings = KpiCard("Sestanki danes", "0", "Sestanki")
+        self.kpi_calls = KpiCard("Klici danes", "0", "Klici")
         for card in (
             self.kpi_leads,
             self.kpi_active,

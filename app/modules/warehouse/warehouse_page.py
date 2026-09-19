@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QSplitter,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -22,6 +23,7 @@ from app.modules.warehouse.models.stock_table_model import StockTableModel
 from app.modules.warehouse.warehouse_controller import WarehouseController
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
+from app.widgets.customers.empty_state import EmptyStateCard
 from app.widgets.invoices.status_badge import StatusBadgeDelegate
 from app.widgets.warehouse.inventory_dialog import InventoryDialog
 from app.widgets.warehouse.movement_dialog import MovementDialog
@@ -40,7 +42,7 @@ class WarehousePage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Skladišče")
         title.setObjectName("PageTitle")
@@ -48,7 +50,7 @@ class WarehousePage(QWidget):
         layout.addWidget(title)
 
         kpis = QHBoxLayout()
-        kpis.setSpacing(16)
+        kpis.setSpacing(12)
         self.kpi_articles = KpiCard("Skupno artiklov", "0", "Katalog")
         self.kpi_in_stock = KpiCard("Artikli na zalogi", "0", "Količina > 0")
         self.kpi_low = KpiCard("Artikli pod minimalno zalogo", "0", "Pod pragom")
@@ -105,7 +107,16 @@ class WarehousePage(QWidget):
         splitter.addWidget(movement_card)
         splitter.setSizes([520, 260])
         splitter.setChildrenCollapsible(False)
-        layout.addWidget(splitter, 1)
+
+        self.empty_state = EmptyStateCard(
+            "Ni zaloge",
+            "Dodajte artikle v katalog ali spremenite filtre.",
+            show_action=False,
+        )
+        self.content_stack = QStackedWidget()
+        self.content_stack.addWidget(self.empty_state)
+        self.content_stack.addWidget(splitter)
+        layout.addWidget(self.content_stack, 1)
 
         self.actions.movement_clicked.connect(self.new_movement)
         self.actions.inventory_clicked.connect(self.run_inventory)
@@ -143,6 +154,23 @@ class WarehousePage(QWidget):
         self.model.refresh(rows)
         self.movement_model.refresh(self.controller.movements())
         self._update_kpis()
+        if self.model.rowCount() == 0:
+            query = self.search.text().strip()
+            if query or self.actions.status_value() not in ("", "all", None):
+                self.empty_state.set_message(
+                    "Ni zadetkov",
+                    "Poskusite z drugim iskanjem ali filtrom.",
+                    show_action=False,
+                )
+            else:
+                self.empty_state.set_message(
+                    "Ni zaloge",
+                    "Dodajte artikle v katalog ali spremenite filtre.",
+                    show_action=False,
+                )
+            self.content_stack.setCurrentIndex(0)
+        else:
+            self.content_stack.setCurrentIndex(1)
         self._show_details()
 
     def new_movement(self) -> None:

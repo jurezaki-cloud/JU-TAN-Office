@@ -27,16 +27,20 @@ class SuppliersPage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Dobavitelji")
         title.setObjectName("PageTitle")
         title.hide()
         layout.addWidget(title)
 
+        from app.widgets.common.page_chrome import PageToolbar
+
+        toolbar = PageToolbar()
         self.actions = SupplierToolbar()
         self.search = self.actions.search
-        layout.addWidget(self.actions)
+        toolbar.layout.addWidget(self.actions, 1)
+        layout.addWidget(toolbar)
 
         self.table = SupplierTable()
         self.model = SupplierTableModel()

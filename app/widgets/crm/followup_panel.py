@@ -9,7 +9,7 @@ class FollowupPanel(EnterpriseCard):
         super().__init__("DashboardCard", parent)
         self.setObjectName("FollowupPanel")
 
-        title = QLabel("Follow up")
+        title = QLabel("Sledenje")
         title.setObjectName("SectionTitle")
         self.body.addWidget(title)
 

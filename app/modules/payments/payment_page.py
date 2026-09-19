@@ -33,7 +33,7 @@ class PaymentPage(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         title = QLabel("Plačila")
         title.setObjectName("PageTitle")
@@ -41,7 +41,7 @@ class PaymentPage(QWidget):
         layout.addWidget(title)
 
         kpis = QHBoxLayout()
-        kpis.setSpacing(16)
+        kpis.setSpacing(12)
         self.kpi_received = KpiCard("Prejeto", "0,00 €", "Plačani računi")
         self.kpi_open = KpiCard("Odprto", "0,00 €", "Neplačano")
         self.kpi_overdue = KpiCard("Zapadlo", "0,00 €", "Po roku plačila")
@@ -55,9 +55,6 @@ class PaymentPage(QWidget):
             kpis.addWidget(card)
         layout.addLayout(kpis)
 
-        top = QHBoxLayout()
-        top.setSpacing(12)
-
         self.actions = PaymentActions()
         self.btn_new = self.actions.btn_new
         self.btn_unpaid = self.actions.btn_unpaid
@@ -67,10 +64,12 @@ class PaymentPage(QWidget):
         self.search_field = PaymentSearch()
         self.search = self.search_field.input
 
-        top.addWidget(self.actions)
-        top.addStretch()
-        top.addWidget(self.search_field)
-        layout.addLayout(top)
+        from app.widgets.common.page_chrome import PageToolbar
+
+        toolbar = PageToolbar()
+        toolbar.layout.addWidget(self.search_field, 1)
+        toolbar.layout.addWidget(self.actions, 0)
+        layout.addWidget(toolbar)
 
         self.table = PaymentTable()
         self.model = PaymentTableModel()
@@ -121,26 +120,31 @@ class PaymentPage(QWidget):
         self.refresh()
 
     def refresh(self):
-        self._apply_view()
+        from app.core.ui_freeze_diag import span as _diag_span
+
+        with _diag_span("PaymentPage.refresh"):
+            self._apply_view()
 
     def search_changed(self, text):
         self._apply_view()
 
     def new_payment(self):
-        invoice_id = self.selected_invoice()
-        dialog = PaymentDialog(self, invoice_id=invoice_id)
-        if dialog.invoice.count() == 0:
-            QMessageBox.information(
-                self,
-                "Plačila",
-                "Ni odprtih računov za likvidacijo.",
-            )
-            return
-        if dialog.exec():
-            self.refresh()
-            if invoice_id:
-                self._reload_details(invoice_id)
+        from app.core.ui_freeze_diag import span as _diag_span
 
+        invoice_id = self.selected_invoice()
+        with _diag_span("PaymentPage.new_payment", invoice_id=invoice_id):
+            dialog = PaymentDialog(self, invoice_id=invoice_id)
+            if dialog.invoice.count() == 0:
+                QMessageBox.information(
+                    self,
+                    "Plačila",
+                    "Ni odprtih računov za likvidacijo.",
+                )
+                return
+            if dialog.exec():
+                self.refresh()
+                if invoice_id:
+                    self._reload_details(invoice_id)
     def mark_unpaid(self):
         invoice_id = self.selected_invoice()
         if invoice_id is None:
@@ -155,6 +159,8 @@ class PaymentPage(QWidget):
         self._reload_details(invoice_id)
 
     def open_invoice(self):
+        from app.core.ui_freeze_diag import span as _diag_span
+
         invoice_id = self.selected_invoice()
         if invoice_id is None:
             QMessageBox.information(
@@ -163,11 +169,11 @@ class PaymentPage(QWidget):
                 "Najprej izberi račun.",
             )
             return
-        dialog = InvoiceDialog(self, invoice_id=invoice_id)
-        if dialog.exec():
-            self.refresh()
-            self._reload_details(invoice_id)
-
+        with _diag_span("PaymentPage.open_invoice", invoice_id=invoice_id):
+            dialog = InvoiceDialog(self, invoice_id=invoice_id)
+            if dialog.exec():
+                self.refresh()
+                self._reload_details(invoice_id)
     def selected_invoice(self):
         indexes = self.table.selectionModel().selectedRows()
         if not indexes:
@@ -208,19 +214,24 @@ class PaymentPage(QWidget):
         return rows
 
     def _apply_view(self, *_args):
-        rows = self._ledger()
-        self._update_kpis(invoice_repository.get_all())
+        from app.core.ui_freeze_diag import span as _diag_span
 
-        selected = self.actions.filter.currentData()
-        if selected and selected != "all":
-            rows = [
-                row for row in rows
-                if invoice_badge(row[6], row[4]) == selected
-            ]
+        with _diag_span("PaymentPage._apply_view"):
+            with _diag_span("PaymentPage._ledger"):
+                rows = self._ledger()
+            with _diag_span("PaymentPage._update_kpis"):
+                self._update_kpis(invoice_repository.get_all())
 
-        self.model.refresh(rows)
-        self._sync_empty_state(self.search.text().strip(), selected)
-        self._update_status()
+            selected = self.actions.filter.currentData()
+            if selected and selected != "all":
+                rows = [
+                    row for row in rows
+                    if invoice_badge(row[6], row[4]) == selected
+                ]
+
+            self.model.refresh(rows)
+            self._sync_empty_state(self.search.text().strip(), selected)
+            self._update_status()
 
     def _update_kpis(self, invoices):
         received = 0.0
@@ -250,7 +261,6 @@ class PaymentPage(QWidget):
         self.kpi_open.set_value(self._money(open_total))
         self.kpi_overdue.set_value(self._money(overdue_total))
         self.kpi_count.set_value(str(paid_count))
-
     def _sync_empty_state(self, text, selected):
         if self.model.rowCount() == 0:
             if text or (selected and selected != "all"):
