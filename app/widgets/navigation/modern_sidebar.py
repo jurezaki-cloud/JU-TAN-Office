@@ -45,6 +45,7 @@ class ModernSidebar(QWidget):
             ("Dokumenti", 13),
             ("CRM", 14),
             ("Poročila", 15),
+            ("Potni nalogi", 17),
             ("Avtomatizacija", 16),
             ("Podjetje", 5),
             ("Plačila", 6),
