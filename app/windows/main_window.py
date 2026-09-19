@@ -87,6 +87,7 @@ class MainWindow(QMainWindow):
         self.crm = LazyPage(_page_crm, "CRM")
         self.reports = LazyPage(_page_reports, "Poročila")
         self.automation = LazyPage(_page_automation, "Automation")
+        self.travel_orders = LazyPage(_page_travel_orders, "Potni nalogi")
 
         self.stack.addWidget(self.dashboard)          # 0
         self.stack.addWidget(self.invoices)           # 1
@@ -105,6 +106,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.crm)                # 14
         self.stack.addWidget(self.reports)            # 15
         self.stack.addWidget(self.automation)         # 16
+        self.stack.addWidget(self.travel_orders)      # 17
 
         right_layout.addWidget(self.stack)
         root_layout.addWidget(right)
@@ -166,6 +168,8 @@ class MainWindow(QMainWindow):
 
         elif index == 16:
             self.automation.refresh()
+        elif index == 17:
+            self.travel_orders.refresh()
 
         self.stack.setCurrentIndex(index)
         self.toolbar.set_context(index)
@@ -263,6 +267,11 @@ def _page_automation():
     return AutomationPage()
 
 
+def _page_travel_orders():
+    from app.modules.travel_orders import TravelOrderPage
+    return TravelOrderPage()
+
+
 def _qt_message(mode, _context, message: str) -> None:
     if mode in (QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
         logger.error("Qt: %s", message)
@@ -347,7 +356,7 @@ def run():
     splash.finish(window)
     saved = load_ui_session()
     page = saved.get("page")
-    if crashed and isinstance(page, int) and 0 <= page <= 16:
+    if crashed and isinstance(page, int) and 0 <= page <= 17:
         window.change_page(page)
 
     def _background() -> None:
