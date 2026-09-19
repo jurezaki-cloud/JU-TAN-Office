@@ -9,6 +9,7 @@ class InvoiceItemsModel(QAbstractTableModel):
         "Količina",
         "EM",
         "Cena",
+        "Popust %",
         "DDV",
         "Skupaj",
     ]
@@ -63,6 +64,6 @@ class InvoiceItemsModel(QAbstractTableModel):
         total = 0
 
         for row in self.items:
-            total += float(row[6])
+            total += float(row[7])
 
         return total
