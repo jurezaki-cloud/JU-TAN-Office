@@ -45,7 +45,7 @@ def test_customer_crud_search_and_export(qt_app, tmp_path):
 
 def test_main_window_lazy_indices(qt_app):
     window = MainWindow()
-    assert window.stack.count() == 17
+    assert window.stack.count() == 18
     assert window.stack.indexOf(window.dashboard) == 0
     assert window.stack.indexOf(window.invoices) == 1
     assert window.stack.indexOf(window.reports) == 15
