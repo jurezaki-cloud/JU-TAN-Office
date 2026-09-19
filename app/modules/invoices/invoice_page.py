@@ -227,13 +227,13 @@ class InvoicePage(QWidget):
 
         reply = QMessageBox.question(
             self,
-            "Brisanje",
-            "Ali res želiš izbrisati račun?"
+            "Storniranje računa",
+            "Račun bo označen kot storniran in bo ostal v evidenci. Nadaljujem?"
         )
 
         if reply == QMessageBox.Yes:
-            invoice_repository.delete(invoice_id)
-            audit("delete", f"invoice:{invoice_id}")
+            invoice_repository.cancel(invoice_id)
+            audit("edit", f"invoice:{invoice_id}:cancelled")
             self.refresh()
 
     def _apply_view(self, *_args):
