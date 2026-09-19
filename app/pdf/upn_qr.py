@@ -90,6 +90,8 @@ def build_upn_qr(
     ref = _clean(reference.replace(" ", "") if reference else "", 26)
     if ref and not ref.upper().startswith(("SI", "RF")):
         ref = f"SI00{re.sub(r'\D', '', ref) or '0'}"
+    if ref.upper().startswith("SI"):
+        ref = re.sub(r"\s+", "", ref).upper()
 
     fields = [
         "UPNQR",                          # 1
