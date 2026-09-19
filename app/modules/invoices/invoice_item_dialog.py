@@ -35,6 +35,10 @@ class InvoiceItemDialog(EnterpriseDialog):
         self.price = QDoubleSpinBox()
         self.price.setDecimals(2)
         self.price.setMaximum(9999999)
+        self.discount = QDoubleSpinBox()
+        self.discount.setDecimals(2)
+        self.discount.setRange(0, 100)
+        self.discount.setSuffix(" %")
         self.vat = QDoubleSpinBox()
         self.vat.setDecimals(2)
         self.vat.setMaximum(100)
@@ -42,7 +46,8 @@ class InvoiceItemDialog(EnterpriseDialog):
         self.total.setObjectName("TotalValue")
 
         grid.add("Artikel", self.article, "Količina", self.quantity)
-        grid.add("Cena", self.price, "DDV %", self.vat)
+        grid.add("Cena", self.price, "Popust %", self.discount)
+        grid.add("DDV %", self.vat)
         grid.add_full("Skupaj", self.total)
         card.body.addLayout(grid.layout)
         self.body.addWidget(card)
@@ -50,6 +55,7 @@ class InvoiceItemDialog(EnterpriseDialog):
         self.article.currentIndexChanged.connect(self.article_changed)
         self.quantity.valueChanged.connect(self.calculate)
         self.price.valueChanged.connect(self.calculate)
+        self.discount.valueChanged.connect(self.calculate)
         self.vat.valueChanged.connect(self.calculate)
         self.load_articles()
 
@@ -78,7 +84,7 @@ class InvoiceItemDialog(EnterpriseDialog):
             self.quantity.value(),
             self.price.value(),
             self.vat.value(),
-            0,
+            self.discount.value(),
         )
         self.total.setText(format_eur(total))
 
@@ -98,6 +104,7 @@ class InvoiceItemDialog(EnterpriseDialog):
             self.quantity.value(),
             article[3],
             self.price.value(),
+            self.discount.value(),
             self.vat.value(),
             as_float(total),
             article[0],
