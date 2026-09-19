@@ -329,7 +329,7 @@ def run():
         from app.windows.first_run_wizard import FirstRunWizard
         wizard = FirstRunWizard()
         splash.hide()
-        if wizard.exec() != wizard.Accepted:
+        if wizard.exec() != QDialog.DialogCode.Accepted:
             sys.exit(0)
         splash.show()
         app.processEvents()
