@@ -23,6 +23,7 @@ a = Analysis(
         "reportlab",
         "reportlab.pdfbase",
         "reportlab.platypus",
+        "segno",
         "app.windows.first_run_wizard",
         "app.core.update",
         "app.core.setup_state",
