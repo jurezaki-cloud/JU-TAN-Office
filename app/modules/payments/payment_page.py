@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.invoice_repository import invoice_repository
+from app.database.payment_repository import payment_repository
 from app.modules.invoices.invoice_dialog import InvoiceDialog
 from app.modules.payments.models.payment_table_model import PaymentTableModel
 from app.modules.payments.payment_details import PaymentDetails
@@ -234,14 +235,17 @@ class PaymentPage(QWidget):
                 total = float(invoice[4] or 0)
             except (TypeError, ValueError):
                 total = 0.0
+            paid = payment_repository.sum_for_invoice(invoice[0])
+            remaining = payment_repository.remaining(invoice[0], total)
+            if badge != "Stornirano":
+                received += paid
             if badge == "Plačano":
-                received += total
                 paid_count += 1
             elif badge == "Zapadlo":
-                overdue_total += total
-                open_total += total
-            elif badge == "Neplačano":
-                open_total += total
+                overdue_total += remaining
+                open_total += remaining
+            elif badge in ("Neplačano", "Delno plačano"):
+                open_total += remaining
         self.kpi_received.set_value(self._money(received))
         self.kpi_open.set_value(self._money(open_total))
         self.kpi_overdue.set_value(self._money(overdue_total))
