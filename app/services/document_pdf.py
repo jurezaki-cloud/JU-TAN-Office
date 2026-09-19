@@ -11,13 +11,13 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Image, Paragraph, Spacer, Table, TableStyle
 
-NAVY = colors.HexColor("#101A2E")
+NAVY = colors.HexColor("#0F1B2D")
 CYAN = colors.HexColor("#19D3C5")
 BLUE = colors.HexColor("#3B82F6")
 INK = colors.HexColor("#0B1220")
 MUTED = colors.HexColor("#64748B")
 LINE = colors.HexColor("#DDE5EE")
-PALE = colors.HexColor("#F3F7FA")
+PALE = colors.HexColor("#F8FAFC")
 
 STATUS_COLORS = {
     "osnutek": (colors.HexColor("#E2E8F0"), colors.HexColor("#334155")),
@@ -89,7 +89,7 @@ def header(company, document_type, number, status, font, style):
     table = Table([[brand, right]], colWidths=[91*mm, 79*mm], rowHeights=[31*mm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), NAVY), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (0, 0), 9*mm), ("RIGHTPADDING", (1, 0), (1, 0), 9*mm),
+        ("LEFTPADDING", (0, 0), (0, 0), 9*mm), ("RIGHTPADDING", (1, 0), (1, 0), 9*mm),\n        ("TOPPADDING", (0, 0), (-1, -1), 5*mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 5*mm),
     ]))
     return table
 
@@ -138,7 +138,7 @@ def totals_table(rows, font):
     table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), font), ("TEXTCOLOR", (0, 0), (-1, -2), MUTED),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("BACKGROUND", (0, -1), (-1, -1), NAVY),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("LINEABOVE", (0, -1), (-1, -1), 2, CYAN), ("BACKGROUND", (0, -1), (-1, -1), NAVY),
         ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTSIZE", (0, -1), (-1, -1), 11),
         ("LEFTPADDING", (0, -1), (-1, -1), 8), ("RIGHTPADDING", (0, -1), (-1, -1), 8),
     ]))
@@ -197,7 +197,7 @@ def signature_block(company, style):
 def footer_canvas(canvas, doc, company):
     canvas.saveState()
     width, _ = doc.pagesize
-    canvas.setStrokeColor(CYAN); canvas.setLineWidth(1.4)
+    canvas.setStrokeColor(CYAN); canvas.setLineWidth(1.8)
     canvas.line(doc.leftMargin, 11*mm, width-doc.rightMargin, 11*mm)
     canvas.setFont("Helvetica", 7); canvas.setFillColor(MUTED)
     contact = "  •  ".join(filter(None, [company.get("website"), company.get("email"), company.get("phone")]))
