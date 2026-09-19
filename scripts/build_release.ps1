@@ -10,6 +10,7 @@ Copy-Item "dist/JU-TAN-Office" $portable -Recurse
 New-Item -ItemType Directory -Force -Path "$portable/data","$portable/exports","$portable/logs","$portable/Backup","$portable/Temp","$portable/Reports" | Out-Null
 Copy-Item "packaging/Version.txt" "$portable/Version.txt" -Force
 Copy-Item "packaging/LICENSE.txt" "$portable/LICENSE.txt" -Force
+New-Item -ItemType Directory -Force -Path "$portable/config" | Out-Null
 Copy-Item "config/app.example.json" "$portable/config/app.example.json" -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "dist" | Out-Null
 if (Test-Path "dist/JU-TAN-Office-Portable.zip") { Remove-Item "dist/JU-TAN-Office-Portable.zip" -Force }
