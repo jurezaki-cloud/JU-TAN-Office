@@ -36,12 +36,12 @@ class Offers(QWidget):
         layout.addWidget(title)
 
         actions = QHBoxLayout()
-        self.btn_new = QPushButton("➕ Nova ponudba")
-        self.btn_edit = QPushButton("✏️ Uredi")
-        self.btn_delete = QPushButton("🗑 Izbriši")
-        self.btn_refresh = QPushButton("🔄 Osveži")
-        self.btn_pdf = QPushButton("📄 Izvozi PDF")
-        self.btn_invoice = QPushButton("🧾 Pretvori v račun")
+        self.btn_new = QPushButton("Nova ponudba")
+        self.btn_edit = QPushButton("Uredi")
+        self.btn_delete = QPushButton("Izbriši")
+        self.btn_refresh = QPushButton("Osveži")
+        self.btn_pdf = QPushButton("Izvozi PDF")
+        self.btn_invoice = QPushButton("Pretvori v račun")
         for button in (
             self.btn_new, self.btn_edit, self.btn_delete, self.btn_refresh,
             self.btn_pdf, self.btn_invoice,
@@ -62,7 +62,7 @@ class Offers(QWidget):
         splitter = QSplitter()
         splitter.addWidget(self.table)
         splitter.addWidget(self.details)
-        splitter.setSizes([760, 320])
+        splitter.setSizes([820, 340])\n        splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter)
 
         self.btn_new.clicked.connect(self.new_offer)
