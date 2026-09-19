@@ -85,3 +85,17 @@ def test_upn_qr_requires_iban_and_amount():
     assert payload is not None
     assert payload.startswith("UPNQR\n")
     assert "SI56031001001018518" in payload
+
+
+def test_partial_payment_remaining_balance_for_dashboard():
+    """Regression: dashboard must have access to the true outstanding amount."""
+    customer_repository.add(
+        "DASH PAY d.o.o.", "Nina", "", "1000", "Ljubljana", "SI", "", "dash@t.si", "",
+    )
+    customer = customer_repository.search("DASH PAY d.o.o.")[0]
+    invoice_id = invoice_repository.add(
+        "RAC-DASH-PAY-1", customer[0], TODAY, TODAY, 100, 0, 22, 122, "", "Izdan",
+    )
+    payment_repository.add(invoice_id, TODAY, 50, "Nakazilo")
+    payment_repository.sync_invoice_status(invoice_id, 122)
+    assert payment_repository.remaining(invoice_id, 122) == 72.0
