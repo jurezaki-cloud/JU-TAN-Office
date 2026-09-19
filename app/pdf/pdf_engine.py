@@ -47,6 +47,7 @@ class PdfDocument:
     discount: float = 0
     vat: float = 0
     total: float = 0
+    status: str = ""
 
     @property
     def title(self) -> str:
@@ -73,6 +74,10 @@ class PdfEngine:
         story = []
         story.extend(build_header(company, options))
         story.extend(self._title_block(document))
+        if document.doc_type == "invoice" and document.status == "Storniran":
+            look = styles()
+            story.append(Paragraph("STORNIRANO", look["title"]))
+            story.append(Spacer(1, PAD))
         story.extend(self._customer_block(document))
         story.append(build_items_table(document.items, options))
         story.extend(
@@ -151,7 +156,7 @@ class PdfEngine:
         return block + [Spacer(1, PAD)]
 
     def _payment_block(self, document: PdfDocument, company: CompanyProfile, options: dict):
-        if document.doc_type in ("order", "delivery"):
+        if document.doc_type in ("order", "delivery") or document.status == "Storniran":
             return []
         look = styles()
         method = document.payment_method or options.get("payment_method") or "Nakazilo"
