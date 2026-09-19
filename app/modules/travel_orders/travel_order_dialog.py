@@ -20,7 +20,8 @@ class TravelOrderDialog(EnterpriseDialog):
         def money_box(maximum=9999999.99):
             w=QDoubleSpinBox(); w.setDecimals(2); w.setRange(0, maximum); return w
         self.start_km=money_box(); self.end_km=money_box(); self.rate=money_box(100)\n        from app.modules.settings.settings_controller import SettingsController\n        travel_defaults=SettingsController().load_extras().get("travel_orders", {})\n        self.rate.setValue(float(travel_defaults.get("mileage_rate", 0) or 0))
-        self.per_diem=money_box(); self.parking=money_box(); self.tolls=money_box()
+        self.per_diem=money_box(); self.per_diem.setValue(float(travel_defaults.get("domestic_per_diem", 0) or 0))
+        self.parking=money_box(); self.tolls=money_box()
         self.fuel=money_box(); self.other=money_box(); self.advance=money_box()
         self.status=QComboBox(); self.status.addItems(["Osnutek","Odobren","Zaključen"])
         self.notes=QTextEdit(); self.notes.setAcceptRichText(False)
@@ -36,7 +37,15 @@ class TravelOrderDialog(EnterpriseDialog):
         grid.add("Predujem",self.advance,"Status",self.status)
         grid.add_full("Opombe",self.notes)
         self.body.addLayout(grid.layout)
-        if order_id: self.load()
+        if order_id:
+            self.load()
+            self._apply_lock()
+
+    def _apply_lock(self):
+        row=travel_order_repository.get_by_id(self.order_id)
+        if not row or (row[22] or "") not in ("Zaključen","Storniran"): return
+        for w in (self.employee,self.purpose,self.route,self.vehicle,self.registration,self.departure,self.return_at,self.start_km,self.end_km,self.rate,self.per_diem,self.parking,self.tolls,self.fuel,self.other,self.advance,self.status,self.notes): w.setEnabled(False)
+        self.btn_save.setEnabled(False)
 
     def _data(self):
         distance=max(0.0,self.end_km.value()-self.start_km.value())
