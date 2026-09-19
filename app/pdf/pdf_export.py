@@ -98,6 +98,7 @@ class PdfExport:
                 discount=float(invoice[7] or 0),
                 vat=float(invoice[8] or 0),
                 total=float(invoice[9] or 0),
+                status=str(invoice[5] or ""),
             )
         )
 
