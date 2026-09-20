@@ -6,6 +6,9 @@ import json
 import os
 import platform
 import subprocess
+import base64
+import ctypes
+from ctypes import wintypes
 import urllib.error
 import urllib.request
 import uuid
@@ -17,6 +20,41 @@ API_BASE = os.getenv("JU_TAN_LICENSE_API", "https://ju-tan.com/api/v1/licenses")
 APP_VERSION = "1.0.0"
 STATE_DIR = Path(os.getenv("LOCALAPPDATA", str(Path.home()))) / "JU-TAN" / "Office"
 STATE_FILE = STATE_DIR / "license.json"
+
+
+class _DATA_BLOB(ctypes.Structure):
+    _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_byte))]
+
+
+def _dpapi_protect(value: str) -> str:
+    if platform.system() != "Windows":
+        return value
+    raw = value.encode("utf-8")
+    buf = ctypes.create_string_buffer(raw)
+    in_blob = _DATA_BLOB(len(raw), ctypes.cast(buf, ctypes.POINTER(ctypes.c_byte)))
+    out_blob = _DATA_BLOB()
+    if not ctypes.windll.crypt32.CryptProtectData(ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)):
+        raise OSError("Windows DPAPI encryption failed")
+    try:
+        data = ctypes.string_at(out_blob.pbData, out_blob.cbData)
+        return "dpapi:" + base64.b64encode(data).decode("ascii")
+    finally:
+        ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+
+
+def _dpapi_unprotect(value: str) -> str:
+    if not value.startswith("dpapi:"):
+        return value
+    raw = base64.b64decode(value[6:])
+    buf = ctypes.create_string_buffer(raw)
+    in_blob = _DATA_BLOB(len(raw), ctypes.cast(buf, ctypes.POINTER(ctypes.c_byte)))
+    out_blob = _DATA_BLOB()
+    if not ctypes.windll.crypt32.CryptUnprotectData(ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)):
+        raise OSError("Windows DPAPI decryption failed")
+    try:
+        return ctypes.string_at(out_blob.pbData, out_blob.cbData).decode("utf-8")
+    finally:
+        ctypes.windll.kernel32.LocalFree(out_blob.pbData)
 
 
 class LicenseError(RuntimeError):
@@ -35,7 +73,7 @@ class LicenseState:
         try:
             data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
             return cls(
-                activation_token=data["activation_token"],
+                activation_token=_dpapi_unprotect(data["activation_token"]),
                 device_id=data["device_id"],
                 company_name=data.get("company_name", ""),
                 grace_until=data.get("grace_until", ""),
@@ -45,7 +83,9 @@ class LicenseState:
 
     def save(self) -> None:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
-        STATE_FILE.write_text(json.dumps(self.__dict__), encoding="utf-8")
+        data = dict(self.__dict__)
+        data["activation_token"] = _dpapi_protect(self.activation_token)
+        STATE_FILE.write_text(json.dumps(data), encoding="utf-8")
 
 
 def _windows_machine_guid() -> str:
