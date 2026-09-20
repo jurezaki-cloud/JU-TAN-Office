@@ -50,13 +50,29 @@ class PaymentRepository:
 
         conn = db.connect()
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO payments(invoice_id, paid_date, amount, method, notes)
-            VALUES (?,?,?,?,?)
-            """,
-            (invoice_id, paid_date, as_float(value), method, notes),
-        )
+        columns = {
+            row[1] for row in cursor.execute("PRAGMA table_info(payments)").fetchall()
+        }
+        # Phase-8 databases keep legacy payment_date as NOT NULL. Keep both
+        # date columns synchronized during the compatibility period.
+        if "payment_date" in columns:
+            cursor.execute(
+                """
+                INSERT INTO payments(
+                    invoice_id, payment_date, paid_date, amount, method, notes
+                )
+                VALUES (?,?,?,?,?,?)
+                """,
+                (invoice_id, paid_date, paid_date, as_float(value), method, notes),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO payments(invoice_id, paid_date, amount, method, notes)
+                VALUES (?,?,?,?,?)
+                """,
+                (invoice_id, paid_date, as_float(value), method, notes),
+            )
         conn.commit()
         payment_id = cursor.lastrowid
         conn.close()
