@@ -349,6 +349,9 @@ def run():
         logger.error("QApplication že obstaja — prekinjen zagon.")
         sys.exit(1)
     app = QApplication(sys.argv)
+    from app.services.license_gate import ensure_licensed
+    if not ensure_licensed():
+        return 1
     # False until MainWindow is shown so UnlockDialog can run without a main window.
     app.setQuitOnLastWindowClosed(False)
     from app.core.ui.app_identity import apply_application_identity
