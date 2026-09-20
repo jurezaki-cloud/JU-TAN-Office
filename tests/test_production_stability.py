@@ -229,8 +229,12 @@ def test_slovenian_unicode_paragraph_table_footer(tmp_path, pdf_opts):
     path = pdf_engine.render(doc, tmp_path / "unicode.pdf")
     raw = path.read_bytes()
 
-    # Footer canvas path must use the Unicode font (not Helvetica).
-    assert regular.encode("latin-1") in raw or b"EnterpriseSans" in raw or b"Segoe" in raw
+    # The registered font must provide distinct Slovenian glyph metrics.
+    # Do not assert the internal PDF font resource name: ReportLab subsets
+    # embedded TTF fonts and may rename them (for example /F2+0).
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    assert stringWidth("čšž ČŠŽ", regular, 8) > 0
     # Replacement character must not appear for Slovenian text.
     assert "\ufffd".encode("utf-16-be") not in raw
     assert DOCUMENT_FOOTER_MESSAGE
