@@ -47,6 +47,14 @@ export. The dashboard and analytics views use live business data and can
 export a formatted multi-sheet Excel report. Production packaging remains
 under development.
 
+## Licensing
+
+The repository includes the first production-oriented foundation for
+device-limited licenses and a separate License & Control Center API. Licensing
+is disabled in normal development and becomes mandatory only when
+`JU_TAN_LICENSE_REQUIRED=1` is set in a configured release build. See
+[`docs/LICENSING.md`](docs/LICENSING.md) before enabling it.
+
 ## Windows build
 
 On Windows PowerShell run:
