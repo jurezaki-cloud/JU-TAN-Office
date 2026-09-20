@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QMenu, QPushButton, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QWidget
 
 from app.core.permissions import can, can_open_page
 from app.core.ui.brand_icons import brand_icon
@@ -35,13 +35,36 @@ class ToolbarActions(QWidget):
 
         self._new_menu = QMenu(self.btn_new)
         self._new_menu.setObjectName("NewMenu")
-        # Native Windows popup menus can ignore parts of the application QSS
-        # and appear as an opaque black rectangle. Force the menu to use the
-        # same application stylesheet/palette as the JU-TAN shell.
-        app = QApplication.instance()
-        if app is not None:
-            self._new_menu.setStyleSheet(app.styleSheet())
-            self._new_menu.setPalette(app.palette())
+        # Style the popup explicitly. On some Windows/PySide6 combinations
+        # QMenu can render as an opaque black rectangle even though the rest of
+        # the application QSS is correct. Keeping this local also avoids
+        # re-applying the entire application stylesheet to the popup subtree.
+        self._new_menu.setStyleSheet("""
+            QMenu#NewMenu {
+                background-color: #FFFFFF;
+                color: #0F172A;
+                border: 1px solid #CBD5E1;
+                border-radius: 8px;
+                padding: 6px;
+            }
+            QMenu#NewMenu::item {
+                background-color: transparent;
+                color: #0F172A;
+                padding: 8px 22px 8px 12px;
+                border-radius: 6px;
+                min-height: 28px;
+            }
+            QMenu#NewMenu::item:selected {
+                background-color: #E2E8F0;
+                color: #0F172A;
+            }
+            QMenu#NewMenu::item:disabled {
+                color: #94A3B8;
+            }
+            QMenu#NewMenu::icon {
+                padding-left: 4px;
+            }
+        """)
         self.btn_new.setMenu(self._new_menu)
         self._rebuild_new_menu()
 
