@@ -4,7 +4,7 @@ from app.core.constants import *
 # Aplikacija
 # ----------------------------
 
-DEBUG = True
+DEBUG = False
 
 THEME = "dark_teal.xml"
 

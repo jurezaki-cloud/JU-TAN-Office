@@ -1,7 +1,11 @@
-"""Backward-compatible access to the desktop application configuration.
+"""Namizna konfiguracija (Flask/SQLAlchemy nista v rabi).
 
-New code should import from :mod:`app.core.config` or
-:mod:`app.core.constants` directly.
+Skrivnosti ne shranjujte v tem dokumentu. Poti prepišite z okoljskimi spremenljivkami:
+JU_TAN_DATA_DIR, JU_TAN_DATABASE, JU_TAN_LOG_DIR.
 """
 
-from app.core.config import *  # noqa: F401,F403
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.environ.get("JU_TAN_DATA_DIR", str(BASE_DIR / "data")))

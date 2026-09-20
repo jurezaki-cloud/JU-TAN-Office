@@ -1,33 +1,49 @@
-# Python
 __pycache__/
 *.py[cod]
-*.pyo
+*$py.class
 .pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-
-# Virtual environments and local configuration
 .venv/
 venv/
+dist/
+build/
+logs/
+*.log
 .env
-.env.*
-!.env.example
-
-# Runtime data (never commit customer data or application logs)
+.env.local
 data/*.db
 data/*.db-*
-logs/*.log
-backups/
-exports/
-reports/
-build/
-dist/
-*.spec.bak
-
-# Editors and operating systems
-.idea/
-.vscode/
+data/*.pdf
+data/settings.json
+data/ui_layout.json
+data/audit.jsonl
+data/.machine_key
+data/crash.flag
+data/session.json
+data/app_version.txt
+data/last_vacuum.txt
+data/drafts/
+data/documents/
+data/cache/
+data/logo_old.png
+*.egg-info/
 .DS_Store
 Thumbs.db
+
+# Generated / local artifacts (never for release)
+reports/
+scripts/_ui_audit_shots/
+scripts/_*_out.txt
+scripts/_full_pytest.txt
+
+# Local-only capture helper (developer absolute paths)
+demo-session/_capture_customers_shot.py
+
+# Local diagnostic / QA scripts
+scripts/_diag_*.py
+scripts/_inspect_*.py
+scripts/_measure_*.py
+scripts/_probe_*.py
+scripts/_qa_*.py
+scripts/_ui_polish_audit.py
+scripts/_verify_*.py
+scripts/repro_*.py

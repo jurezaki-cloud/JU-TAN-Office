@@ -1,22 +1,24 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QLineEdit,
     QLabel,
-    QTableView,
-    QHeaderView,
     QSplitter,
     QMessageBox,
+    QStackedWidget,
 )
 
 from app.modules.articles.models.article_table_model import ArticleTableModel
 from app.modules.articles.article_dialog import ArticleDialog
 from app.modules.articles.article_details import ArticleDetails
 from app.database.article_repository import article_repository
-from app.widgets.messages import ui_error_boundary
+from app.widgets.cards.enterprise_card import EnterpriseCard
+from app.widgets.customers.empty_state import EmptyStateCard
+from app.widgets.invoices.status_badge import StatusBadgeDelegate
+from app.widgets.articles.article_actions import ArticleActions
+from app.widgets.articles.article_table import ArticleTable
+from app.widgets.articles.search_field import ArticleSearch
+from app.widgets.articles.status_bar import ArticleStatusBar
+from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
 
 
 class ArticlePage(QWidget):
@@ -27,92 +29,108 @@ class ArticlePage(QWidget):
         self.setObjectName("ArticlePage")
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
 
         title = QLabel("Artikli")
-        title.setStyleSheet("""
-            font-size:24px;
-            font-weight:bold;
-            padding:8px;
-        """)
+        title.setObjectName("PageTitle")
+        title.hide()
         layout.addWidget(title)
 
-        top_layout = QHBoxLayout()
+        from app.widgets.common.page_chrome import PageToolbar
 
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Išči artikel...")
+        toolbar = PageToolbar()
+        self.actions = ArticleActions()
+        self.btn_new = self.actions.btn_new
+        self.btn_edit = self.actions.btn_edit
+        self.btn_delete = self.actions.btn_delete
+        self.btn_refresh = self.actions.btn_refresh
 
-        self.btn_new = QPushButton("Nov artikel")
-        self.btn_edit = QPushButton("Uredi")
-        self.btn_delete = QPushButton("Izbriši")
-        self.btn_refresh = QPushButton("Osveži")
+        self.search_field = ArticleSearch()
+        self.search = self.search_field.input
+        self.search.setMinimumWidth(260)
 
-        self.btn_edit.setProperty("variant", "secondary")
-        self.btn_delete.setProperty("variant", "danger")
-        self.btn_refresh.setProperty("variant", "secondary")
-        top_layout.addWidget(self.search)
-        top_layout.addWidget(self.btn_new)
-        top_layout.addWidget(self.btn_edit)
-        top_layout.addWidget(self.btn_delete)
-        top_layout.addWidget(self.btn_refresh)
+        toolbar.layout.addWidget(self.search_field, 1)
+        toolbar.layout.addWidget(self.actions, 0)
+        layout.addWidget(toolbar)
 
-        layout.addLayout(top_layout)
-
-        self.table = QTableView()
-
+        self.table = ArticleTable()
         self.model = ArticleTableModel([])
         self.table.setModel(self.model)
-
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
-
-        self.table.setSelectionBehavior(QTableView.SelectRows)
-        self.table.setSelectionMode(QTableView.SingleSelection)
-        self.table.setAlternatingRowColors(True)
+        self.table.setColumnHidden(0, True)
+        self.table.setItemDelegateForColumn(5, StatusBadgeDelegate(self.table))
 
         self.details = ArticleDetails()
 
+        table_card = EnterpriseCard("DashboardCard")
+        table_card.body.setContentsMargins(8, 8, 8, 8)
+        table_card.body.addWidget(self.table)
+
         splitter = QSplitter()
-        splitter.addWidget(self.table)
+        splitter.setObjectName("ArticleSplitter")
+        splitter.addWidget(table_card)
         splitter.addWidget(self.details)
-        splitter.setSizes([800, 360])
+        splitter.setSizes([720, 360])
         splitter.setChildrenCollapsible(False)
 
-        layout.addWidget(splitter)
+        self.empty_state = EmptyStateCard(
+            "Ni artiklov",
+            "Dodajte prvi artikel v katalog.",
+        )
+        self.empty_state.action_clicked.connect(self.new_article)
 
-        self.search.textChanged.connect(self.search_article)
+        self.content_stack = QStackedWidget()
+        self.content_stack.addWidget(self.empty_state)
+        self.content_stack.addWidget(splitter)
+        layout.addWidget(self.content_stack, 1)
+
+        self.status = ArticleStatusBar()
+        layout.addWidget(self.status)
+
+        from app.core.pagination import IncrementalLoader
+        from app.core.ui.debounce import Debouncer
+        self._loader = IncrementalLoader(
+            lambda offset, size: article_repository.list_page(
+                self.search.text().strip(), limit=size, offset=offset
+            )
+        )
+        self._search_debounced = Debouncer(self.search_article, 180, self)
+        self.search.textChanged.connect(self._search_debounced)
         self.btn_new.clicked.connect(self.new_article)
         self.btn_edit.clicked.connect(self.edit_selected_article)
         self.btn_delete.clicked.connect(self.delete_article)
         self.btn_refresh.clicked.connect(self.refresh)
+        self.actions.excel_clicked.connect(lambda: run_excel_export(self, "products"))
+        self.actions.import_clicked.connect(
+            lambda: run_excel_import(self, "products", self.refresh)
+        )
+        self.actions.filter_changed.connect(self._apply_view)
 
         self.table.clicked.connect(self.show_details)
         self.table.doubleClicked.connect(self.edit_article)
-
         self.details.editButton.clicked.connect(
             self.edit_selected_article
         )
+        self.table.selectionModel().selectionChanged.connect(
+            self._update_status
+        )
 
+        from app.core.ui.window_state import remember_layout
+        remember_layout(self, "page.articles", splitters=[splitter], tables=[self.table], fields=[self.search, self.actions.filter])
+        self.table.verticalScrollBar().valueChanged.connect(self._maybe_more)
         self.refresh()
 
-    @ui_error_boundary("Artiklov ni mogoče naložiti")
     def refresh(self):
-        articles = article_repository.get_all()
-        self.model.refresh(articles)
+        self._apply_view()
 
-    @ui_error_boundary("Iskanja ni mogoče izvesti")
     def search_article(self, text):
-        text = text.strip()
+        self._apply_view()
 
-        if text:
-            articles = article_repository.search(text)
-        else:
-            articles = article_repository.get_all()
-
-        self.model.refresh(articles)
-
-    @ui_error_boundary("Artikla ni mogoče shraniti")
     def new_article(self):
+        from app.core.permissions import allow, audit
+
+        if not allow("write", self):
+            return
         dialog = ArticleDialog(self)
 
         if dialog.exec():
@@ -130,10 +148,10 @@ class ArticlePage(QWidget):
                 data["price"],
                 data["vat"],
             )
+            audit("create", f"article:{data['code']}")
 
             self.refresh()
 
-    @ui_error_boundary("Podrobnosti ni mogoče prikazati")
     def show_details(self, index):
         row = index.row()
 
@@ -143,10 +161,20 @@ class ArticlePage(QWidget):
 
         if article:
             self.details.load_article(article)
+        self._update_status()
 
     def edit_selected_article(self):
 
         if self.details.article_id is None:
+            article = self.current_article()
+            if article:
+                self.edit_article_by_data(article)
+                return
+            QMessageBox.information(
+                self,
+                "Artikli",
+                "Najprej izberi artikel.",
+            )
             return
 
         article = article_repository.get_by_id(
@@ -167,7 +195,6 @@ class ArticlePage(QWidget):
         if article:
             self.edit_article_by_data(article)
 
-    @ui_error_boundary("Artikla ni mogoče posodobiti")
     def edit_article_by_data(self, article):
 
         article_dict = {
@@ -185,6 +212,10 @@ class ArticlePage(QWidget):
         if dialog.exec():
 
             data = dialog.get_data()
+            from app.core.permissions import allow, audit
+
+            if not allow("write", self):
+                return
 
             article_repository.update(
                 article[0],
@@ -195,6 +226,7 @@ class ArticlePage(QWidget):
                 data["price"],
                 data["vat"],
             )
+            audit("edit", f"article:{article[0]}")
 
             self.refresh()
 
@@ -203,14 +235,24 @@ class ArticlePage(QWidget):
             if updated:
                 self.details.load_article(updated)
 
-    @ui_error_boundary("Artikla ni mogoče izbrisati")
     def delete_article(self):
-        if self.details.article_id is None:
-            return
+        from app.core.permissions import allow, audit
 
-        article = article_repository.get_by_id(
-            self.details.article_id
-        )
+        if not allow("delete", self):
+            return
+        article_id = self.details.article_id
+        if article_id is None:
+            selected = self.current_article()
+            if selected is None:
+                QMessageBox.information(
+                    self,
+                    "Artikli",
+                    "Najprej izberi artikel.",
+                )
+                return
+            article_id = selected[0]
+
+        article = article_repository.get_by_id(article_id)
 
         if article is None:
             return
@@ -224,16 +266,10 @@ class ArticlePage(QWidget):
 
         if reply == QMessageBox.Yes:
             article_repository.delete(article[0])
+            audit("delete", f"article:{article[0]}")
 
             self.refresh()
-
-            self.details.article_id = None
-            self.details.code.setText("-")
-            self.details.name.setText("-")
-            self.details.description.setText("-")
-            self.details.unit.setText("-")
-            self.details.price.setText("-")
-            self.details.vat.setText("-")
+            self.details.clear()
 
     def current_article(self):
 
@@ -252,3 +288,55 @@ class ArticlePage(QWidget):
 
         self.search.clear()
         self.refresh()
+
+    def _apply_view(self, *_args):
+        from app.core.search_engine import invalidate_search_cache
+
+        invalidate_search_cache()
+        text = self.search.text().strip()
+        articles = self._loader.first()
+        unit = self.actions.filter.currentData()
+        if unit and unit != "all":
+            articles = [row for row in articles if row[3] == unit]
+            self.model.refresh(articles)
+        else:
+            self.model.refresh(articles)
+        self._sync_empty_state(text, unit)
+        self._update_status()
+
+    def _maybe_more(self, value: int) -> None:
+        bar = self.table.verticalScrollBar()
+        if self._loader.exhausted or value < bar.maximum() - 12:
+            return
+        more = self._loader.more()
+        unit = self.actions.filter.currentData()
+        if unit and unit != "all":
+            more = [row for row in more if row[3] == unit]
+        self.model.append_rows(more)
+        self._update_status()
+
+    def _sync_empty_state(self, text, unit):
+        if self.model.rowCount() == 0:
+            if text or (unit and unit != "all"):
+                self.empty_state.set_message(
+                    "Ni zadetkov",
+                    "Poskusite z drugim iskanjem ali filtrom enote.",
+                )
+            else:
+                self.empty_state.set_message(
+                    "Ni artiklov",
+                    "Dodajte prvi artikel v katalog.",
+                )
+            self.content_stack.setCurrentIndex(0)
+        else:
+            self.content_stack.setCurrentIndex(1)
+
+    def _update_status(self, *_args):
+        self.status.set_count(self.model.rowCount())
+        indexes = self.table.selectionModel().selectedRows()
+        if not indexes or not self.model.articles:
+            self.status.set_selected(None)
+            return
+        row = indexes[0].row()
+        name = self.model.articles[row][2]
+        self.status.set_selected(str(name or ""))

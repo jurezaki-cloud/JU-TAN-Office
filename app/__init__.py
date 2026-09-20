@@ -1,3 +1,5 @@
-"""JU-TAN Office desktop application package."""
+"""JU-TAN Office Enterprise — namizna PySide6 aplikacija."""
 
-__version__ = "0.2.0"
+from app.core.constants import APP_NAME, APP_VERSION
+
+__all__ = ["APP_NAME", "APP_VERSION"]

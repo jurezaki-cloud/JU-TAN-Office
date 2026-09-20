@@ -1,4 +1,5 @@
-from app.database.repository import customer_repository
+from app.core.permissions import gated
+from app.database.customer_repository import customer_repository
 
 
 class CustomerService:
@@ -12,6 +13,7 @@ class CustomerService:
     def search(self, text):
         return customer_repository.search(text)
 
+    @gated("write", "create")
     def add(
         self,
         company,
@@ -36,6 +38,7 @@ class CustomerService:
             phone,
         )
 
+    @gated("delete", "delete")
     def delete(self, customer_id):
         return customer_repository.delete(customer_id)
 

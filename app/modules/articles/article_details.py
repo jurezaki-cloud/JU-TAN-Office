@@ -6,6 +6,8 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 
+from app.widgets.cards.enterprise_card import EnterpriseCard
+
 
 class ArticleDetails(QWidget):
 
@@ -13,10 +15,20 @@ class ArticleDetails(QWidget):
         super().__init__()
 
         self.article_id = None
+        self.setObjectName("ArticleDetails")
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
+        card = EnterpriseCard("DashboardCard")
+        title = QLabel("Podrobnosti artikla")
+        title.setObjectName("SectionTitle")
+        card.body.addWidget(title)
 
         form = QFormLayout()
+        form.setHorizontalSpacing(16)
+        form.setVerticalSpacing(8)
 
         self.code = QLabel("-")
         self.name = QLabel("-")
@@ -25,23 +37,46 @@ class ArticleDetails(QWidget):
         self.price = QLabel("-")
         self.vat = QLabel("-")
 
-        form.addRow("Šifra:", self.code)
-        form.addRow("Naziv:", self.name)
-        form.addRow("Opis:", self.description)
-        form.addRow("Enota:", self.unit)
-        form.addRow("Cena:", self.price)
-        form.addRow("DDV:", self.vat)
+        for label in (
+            self.code,
+            self.name,
+            self.description,
+            self.unit,
+            self.price,
+            self.vat,
+        ):
+            label.setObjectName("DetailValue")
+            label.setWordWrap(True)
 
-        layout.addLayout(form)
+        form.addRow("Šifra", self.code)
+        form.addRow("Naziv", self.name)
+        form.addRow("Opis", self.description)
+        form.addRow("Enota", self.unit)
+        form.addRow("Cena", self.price)
+        form.addRow("DDV", self.vat)
+        card.body.addLayout(form)
 
         self.editButton = QPushButton("Uredi artikel")
-        layout.addWidget(self.editButton)
+        self.editButton.setObjectName("SecondaryButton")
+        self.editButton.setMinimumHeight(36)
+        card.body.addWidget(self.editButton)
+        card.body.addStretch()
 
-        layout.addStretch()
+        layout.addWidget(card)
+
+    def clear(self):
+        self.article_id = None
+        self.code.setText("-")
+        self.name.setText("-")
+        self.description.setText("-")
+        self.unit.setText("-")
+        self.price.setText("-")
+        self.vat.setText("-")
 
     def load_article(self, row):
 
         if row is None:
+            self.clear()
             return
 
         self.article_id = row[0]

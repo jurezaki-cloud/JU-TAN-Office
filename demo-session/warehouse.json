@@ -1,0 +1,88 @@
+{
+  "warehouses": [
+    {
+      "id": "main",
+      "name": "Glavno skladišče"
+    }
+  ],
+  "stock": {
+    "1": {
+      "main": {
+        "qty": 120,
+        "reserved": 10,
+        "min_qty": 20
+      }
+    },
+    "2": {
+      "main": {
+        "qty": 80,
+        "reserved": 5,
+        "min_qty": 15
+      }
+    },
+    "3": {
+      "main": {
+        "qty": 8,
+        "reserved": 2,
+        "min_qty": 10
+      }
+    },
+    "4": {
+      "main": {
+        "qty": 3,
+        "reserved": 0,
+        "min_qty": 5
+      }
+    },
+    "5": {
+      "main": {
+        "qty": 0,
+        "reserved": 0,
+        "min_qty": 2
+      }
+    },
+    "6": {
+      "main": {
+        "qty": 45,
+        "reserved": 0,
+        "min_qty": 10
+      }
+    },
+    "7": {
+      "main": {
+        "qty": 2,
+        "reserved": 1,
+        "min_qty": 8
+      }
+    },
+    "8": {
+      "main": {
+        "qty": 0,
+        "reserved": 0,
+        "min_qty": 5
+      }
+    }
+  },
+  "movements": [
+    {
+      "id": 1,
+      "date": "2026-09-18",
+      "type": "Prevzem",
+      "article_id": 1,
+      "warehouse_id": "main",
+      "quantity": 120,
+      "user": "demo",
+      "note": "Fictional demo stock"
+    },
+    {
+      "id": 2,
+      "date": "2026-09-15",
+      "type": "Izdaja",
+      "article_id": 3,
+      "warehouse_id": "main",
+      "quantity": -5,
+      "user": "demo",
+      "note": "Fictional demo issue"
+    }
+  ]
+}

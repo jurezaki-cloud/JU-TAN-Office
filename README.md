@@ -1,59 +1,48 @@
-# JU-TAN Office
+# JU-TAN Office Enterprise
 
-JU-TAN Office is a Slovenian desktop business application built with Python,
-PySide6 and SQLite. The project is currently in active development.
+Namizna poslovna aplikacija (PySide6 + SQLite).
 
-## Requirements
+**Različica 1.0.0 GOLD** — uradna produkcijska izdaja (2026-09-12).  
+Izdajatelj: **JU-TAN Studio**. Copyright © 2026.
 
-- Python 3.11 or newer
-- Windows, macOS or Linux supported by PySide6
+## Zahteve
 
-## Local setup
+- Windows 10/11
+- Python 3.11+ (za razvoj)
+- [Namestitev](docs/INSTALL.md)
 
-```bash
+## Zagon (razvoj)
+
+```powershell
 python -m venv .venv
-```
-
-Activate the virtual environment, then install and run the application:
-
-```bash
-python -m pip install -r requirements.txt
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 python app.py
 ```
 
-The equivalent module entry point is:
-
-```bash
-python -m app.main
-```
-
-## Tests
-
-```bash
-python -m unittest discover -s tests -v
-```
-
-## Data safety
-
-Local databases, logs, exports and backups are intentionally excluded from
-Git. Never commit real customer, invoice or payment data.
-
-## Current scope
-
-Customer and article management are implemented. The offer editor supports
-line items, discounts, VAT, exact totals and PDF export. Accepted offers can
-be converted to invoices with due dates, payment tracking and invoice PDF
-export. The dashboard and analytics views use live business data and can
-export a formatted multi-sheet Excel report. Production packaging remains
-under development.
-
-## Windows build
-
-On Windows PowerShell run:
+## Testi
 
 ```powershell
-.\scripts\build_windows.ps1
+$env:QT_QPA_PLATFORM="offscreen"
+pytest -q
 ```
 
-The executable is created as `dist\JU-TAN-Office.exe`. Compile
-`installer\JU-TAN-Office.iss` with Inno Setup 6 to create the installer.
+## Izgradnja
+
+```powershell
+.\scripts\build_release.ps1
+```
+
+Portable mapa: `dist/JU-TAN-Office-Portable`  
+Installer (če je Inno Setup 6): `dist/JU-TAN-Office-Setup.exe`
+
+## Dokumentacija
+
+- [Namestitev](docs/INSTALL.md)
+- [Uporabniški vodič](docs/USER_GUIDE.md) / [PDF](docs/USER_GUIDE.pdf)
+- [Skrbniški vodič](docs/ADMIN_GUIDE.md) / [PDF](docs/ADMIN_GUIDE.pdf)
+- [Varnost](docs/SECURITY.md)
+- [QA Gold](docs/QA_GOLD.md)
+- [Changelog](docs/CHANGELOG.md)
+- [Release notes](docs/RELEASE_NOTES.md)
+- [Licenca](LICENSE.txt)

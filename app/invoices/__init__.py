@@ -1,1 +1,0 @@
-"""Invoice user-interface components."""
