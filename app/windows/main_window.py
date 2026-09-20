@@ -64,7 +64,8 @@ class MainWindow(QMainWindow):
         # Desni del
         right = QWidget()
         right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(15, 15, 15, 15)
+        right_layout.setContentsMargins(24, 12, 24, 20)
+        right_layout.setSpacing(0)
 
         self.toolbar = TopToolbar()
         right_layout.addWidget(self.toolbar)
@@ -126,6 +127,8 @@ class MainWindow(QMainWindow):
             self.settings.load()
 
         self.stack.setCurrentIndex(index)
+        self.sidebar.set_active(index)
+        self.toolbar.set_page(index)
 
 
 def run():

@@ -41,11 +41,14 @@ class ArticlePage(QWidget):
         self.search = QLineEdit()
         self.search.setPlaceholderText("Išči artikel...")
 
-        self.btn_new = QPushButton("+ Nov artikel")
-        self.btn_edit = QPushButton("✏️ Uredi")
-        self.btn_delete = QPushButton("🗑 Izbriši")
-        self.btn_refresh = QPushButton("🔄 Osveži")
+        self.btn_new = QPushButton("Nov artikel")
+        self.btn_edit = QPushButton("Uredi")
+        self.btn_delete = QPushButton("Izbriši")
+        self.btn_refresh = QPushButton("Osveži")
 
+        self.btn_edit.setProperty("variant", "secondary")
+        self.btn_delete.setProperty("variant", "danger")
+        self.btn_refresh.setProperty("variant", "secondary")
         top_layout.addWidget(self.search)
         top_layout.addWidget(self.btn_new)
         top_layout.addWidget(self.btn_edit)
@@ -72,7 +75,8 @@ class ArticlePage(QWidget):
         splitter = QSplitter()
         splitter.addWidget(self.table)
         splitter.addWidget(self.details)
-        splitter.setSizes([700, 350])
+        splitter.setSizes([800, 360])
+        splitter.setChildrenCollapsible(False)
 
         layout.addWidget(splitter)
 

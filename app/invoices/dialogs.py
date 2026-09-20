@@ -47,6 +47,7 @@ class PaymentDialog(QDialog):
     def __init__(self, remaining, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Zabeleži plačilo")
+        self.setMinimumWidth(430)
         layout = QVBoxLayout(self)
         form = QFormLayout()
         self.payment_date = QDateEdit(QDate.currentDate())

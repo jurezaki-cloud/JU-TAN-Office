@@ -2,7 +2,7 @@ from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDateEdit, QDialog, QDialogButtonBox,
     QFormLayout, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton,
-    QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout,
+    QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QFrame,
 )
 
 from app.core.validation import required_text
@@ -19,8 +19,15 @@ class OfferDialog(QDialog):
         self.setWindowTitle("Uredi ponudbo" if offer else "Nova ponudba")
         self.resize(1050, 720)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 20)
+        layout.setSpacing(14)
 
+        heading = QLabel("UREJEVALNIK PONUDBE")
+        heading.setStyleSheet("color:#0F766E;font-size:8pt;font-weight:800;letter-spacing:1px;")
+        layout.addWidget(heading)
         form = QFormLayout()
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(10)
         self.number = QLabel(number)
         self.customer = QComboBox()
         for row in customers:
@@ -41,9 +48,11 @@ class OfferDialog(QDialog):
         layout.addLayout(form)
 
         actions = QHBoxLayout()
-        self.btn_add = QPushButton("➕ Dodaj postavko")
-        self.btn_edit = QPushButton("✏️ Uredi postavko")
-        self.btn_remove = QPushButton("🗑 Odstrani postavko")
+        self.btn_add = QPushButton("Dodaj postavko")
+        self.btn_edit = QPushButton("Uredi postavko")
+        self.btn_remove = QPushButton("Odstrani postavko")
+        self.btn_edit.setProperty("variant", "secondary")
+        self.btn_remove.setProperty("variant", "danger")
         actions.addWidget(self.btn_add)
         actions.addWidget(self.btn_edit)
         actions.addWidget(self.btn_remove)
@@ -61,18 +70,21 @@ class OfferDialog(QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         layout.addWidget(self.table)
 
-        totals = QHBoxLayout()
+        totals_panel = QFrame()
+        totals_panel.setStyleSheet("QFrame { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; } QLabel { border:none; background:transparent; }")
+        totals = QHBoxLayout(totals_panel)
+        totals.setContentsMargins(16, 12, 16, 12)
         totals.addStretch()
         self.lbl_subtotal = QLabel()
         self.lbl_discount = QLabel()
         self.lbl_vat = QLabel()
         self.lbl_total = QLabel()
-        self.lbl_total.setStyleSheet("font-size:18px;font-weight:bold;")
+        self.lbl_total.setStyleSheet("color:#0F766E;font-size:18px;font-weight:800;")
         for label in (
             self.lbl_subtotal, self.lbl_discount, self.lbl_vat, self.lbl_total
         ):
             totals.addWidget(label)
-        layout.addLayout(totals)
+        layout.addWidget(totals_panel)
 
         self.notes = QTextEdit()
         self.notes.setPlaceholderText("Opombe na ponudbi …")
