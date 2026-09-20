@@ -80,6 +80,10 @@ def apply_schema_upgrade() -> None:
 
     previous = VERSION_MARK.read_text(encoding="utf-8").strip() if VERSION_MARK.exists() else ""
     if previous == APP_VERSION:
+        # Schema compatibility migrations must still run even when the app
+        # version did not change. Branch restores can change the expected DB
+        # shape while retaining the same public version number.
+        db.initialize()
         ensure_schema_version()
         return
     backup = None
