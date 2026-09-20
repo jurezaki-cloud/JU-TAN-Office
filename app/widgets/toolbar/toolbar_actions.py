@@ -38,7 +38,6 @@ class ToolbarActions(QWidget):
         # Native Windows popup menus can ignore parts of the application QSS
         # and appear as an opaque black rectangle. Force the menu to use the
         # same application stylesheet/palette as the JU-TAN shell.
-        self._new_menu.setNativeMenuBar(False)
         app = QApplication.instance()
         if app is not None:
             self._new_menu.setStyleSheet(app.styleSheet())
