@@ -37,11 +37,11 @@ jobs:
       - name: Check Python syntax
         run: python -m compileall -q app app.py
 
-      - name: Run non-GUI tests
-        run: |
-          xvfb-run -a python -m pytest -q \
-            --ignore=tests/test_settings_users_card.py
+      - name: Run core and non-GUI tests
+        run: python -m pytest -q
 
-      - name: Run Settings GUI tests
+      - name: Diagnose Settings GUI tests
         continue-on-error: true
+        env:
+          JU_TAN_FORCE_GUI_TESTS: "1"
         run: xvfb-run -a python -m pytest -vv tests/test_settings_users_card.py
