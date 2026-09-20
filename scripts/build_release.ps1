@@ -2,6 +2,8 @@ $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
 python -m pip install -r requirements.txt
+python scripts/sync_version.py --check
+if ($LASTEXITCODE -ne 0) { throw "Version source drift — refuse release build" }
 python -m PyInstaller --noconfirm --clean packaging/ju-tan-office.spec
 
 $portable = "dist/JU-TAN-Office-Portable"

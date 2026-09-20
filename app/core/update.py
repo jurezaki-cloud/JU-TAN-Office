@@ -1,4 +1,10 @@
-"""Nadgradnja: primerjava verzij, backup, rollback."""
+"""Nadgradnja: primerjava verzij, backup, rollback.
+
+Phase 0 online-update foundation lives in:
+``update_manifest``, ``update_signing``, ``update_policy``, ``update_trust``.
+This module keeps local upgrade scaffolding and must not download or execute
+installers.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +47,12 @@ def read_latest(path: Path) -> dict | None:
 
 
 def check_for_update(source: Path | None = None) -> dict | None:
-    """Preveri lokalni latest.json (ob installerju/updates)."""
+    """Preveri lokalni latest.json (ob installerju/updates).
+
+    Returns a payload only when ``version`` is newer than ``APP_VERSION``.
+    Does not download, verify installers, or authorize execution. The bundled
+    offline/dev ``updates/latest.json`` is not an install authorization token.
+    """
     path = source or Path(__file__).resolve().parent.parent.parent / "updates" / "latest.json"
     try:
         from app.core.deploy_paths import install_root
