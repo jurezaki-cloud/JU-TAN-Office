@@ -62,7 +62,8 @@ class Offers(QWidget):
         splitter = QSplitter()
         splitter.addWidget(self.table)
         splitter.addWidget(self.details)
-        splitter.setSizes([820, 340])\n        splitter.setChildrenCollapsible(False)
+        splitter.setSizes([820, 340])
+        splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter)
 
         self.btn_new.clicked.connect(self.new_offer)
