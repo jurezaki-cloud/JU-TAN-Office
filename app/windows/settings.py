@@ -75,7 +75,9 @@ class Settings(QWidget):
         self.btn_backup = QPushButton("Ustvari kopijo")
         self.btn_restore = QPushButton("Obnovi iz kopije")
         self.btn_refresh = QPushButton("Osveži seznam")
-        self.btn_restore.setProperty("variant", "secondary")\n        self.btn_refresh.setProperty("variant", "secondary")\n        for button in (self.btn_backup, self.btn_restore, self.btn_refresh):
+        self.btn_restore.setProperty("variant", "secondary")
+        self.btn_refresh.setProperty("variant", "secondary")
+        for button in (self.btn_backup, self.btn_restore, self.btn_refresh):
             buttons.addWidget(button)
         buttons.addStretch(); backup_layout.addLayout(buttons)
         self.backups = QListWidget(); backup_layout.addWidget(self.backups)
