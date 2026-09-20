@@ -1,4 +1,4 @@
-"""Čarovnik prvega zagona — podatki podjetja, brez spremembe CRUD API."""
+"""Čarovnik prvega zagona — podatki podjetja + obvezna skrbniška prijava."""
 
 from __future__ import annotations
 
@@ -11,14 +11,17 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
 )
 
 from app.core.constants import DATA_DIR
+from app.core.passwords import hash_password
 from app.core.setup_state import mark_setup_complete
 from app.core.ui.enterprise_dialog import EnterpriseDialog
 from app.core.ui.form_grid import FormGrid
 from app.database.company_repository import company_repository
+from app.modules.settings.settings_controller import SettingsController
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
@@ -42,12 +45,14 @@ class FirstRunWizard(EnterpriseDialog):
         self.address = QLineEdit()
         self.tax = QLineEdit()
         self.admin = QLineEdit()
-        self.admin.setText("Administrator")
+        self.admin.setText("")
+        self.admin.setPlaceholderText("Uporabniško ime")
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.Password)
-        self.password.setPlaceholderText("Min. 10 znakov (priporočeno)")
+        self.password.setPlaceholderText("Min. 10 znakov (obvezno)")
         self.password2 = QLineEdit()
         self.password2.setEchoMode(QLineEdit.Password)
+        self.password2.setPlaceholderText("Potrditev gesla")
         self.vat = QDoubleSpinBox()
         self.vat.setRange(0, 100)
         self.vat.setDecimals(2)
@@ -62,15 +67,18 @@ class FirstRunWizard(EnterpriseDialog):
         browse = QPushButton("Izberi logotip")
         browse.setObjectName("SecondaryButton")
         browse.clicked.connect(self._pick_logo)
-        grid.add("Podjetje", self.company, "Administrator", self.admin)
+        grid.add("Podjetje", self.company, "Uporabniško ime", self.admin)
         grid.add("Naslov", self.address, "Davčna št.", self.tax)
         grid.add("DDV %", self.vat, "Zavezanec za DDV", self.vat_liable)
         grid.add("Valuta", self.currency)
-        grid.add("Geslo", self.password, "Ponovi geslo", self.password2)
-        grid.add_full("Logotip", self.logo_path)
+        grid.add("Geslo", self.password, "Potrditev gesla", self.password2)
+        grid.add_full("Logotip podjetja", self.logo_path)
         card.body.addLayout(grid.layout)
         card.body.addWidget(browse, 0, Qt.AlignLeft)
-        hint = QLabel("Obvezno je ime podjetja. Podatke lahko kasneje spremenite v Nastavitvah.")
+        hint = QLabel(
+            "Obvezno: ime podjetja, uporabniško ime in geslo skrbnika. "
+            "Podatke podjetja lahko kasneje spremenite v Nastavitvah."
+        )
         hint.setObjectName("DashboardMuted")
         hint.setWordWrap(True)
         self.body.addWidget(card)
@@ -85,7 +93,9 @@ class FirstRunWizard(EnterpriseDialog):
         if suffix not in {".png", ".jpg", ".jpeg", ".bmp"}:
             return
         from app.core.security import ensure_inside
-        target = ensure_inside(DATA_DIR / f"logo{suffix}", DATA_DIR)
+
+        # Never overwrite application brand assets (logo.png / logo_light.png).
+        target = ensure_inside(DATA_DIR / f"company_logo{suffix}", DATA_DIR)
         target.write_bytes(source.read_bytes())
         self._logo = str(target)
         self.logo_path.setText(str(target))
@@ -93,36 +103,59 @@ class FirstRunWizard(EnterpriseDialog):
     def _finish(self) -> None:
         name = self.company.text().strip()
         if not name:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Prvi zagon", "Vnesite ime podjetja.")
             return
+        username = self.admin.text().strip()
+        if not username:
+            QMessageBox.warning(self, "Prvi zagon", "Vnesite uporabniško ime.")
+            self.admin.setFocus()
+            return
+        pwd = self.password.text()
+        if not pwd:
+            QMessageBox.warning(self, "Prvi zagon", "Vnesite geslo.")
+            self.password.setFocus()
+            return
+        if pwd != self.password2.text():
+            QMessageBox.warning(self, "Prvi zagon", "Gesli se ne ujemata.")
+            self.password2.setFocus()
+            return
+        try:
+            hash_password(pwd)  # validate policy early
+        except ValueError as exc:
+            QMessageBox.warning(self, "Prvi zagon", str(exc))
+            self.password.setFocus()
+            return
+
         tax = self.tax.text().strip()
         if tax:
             from app.core.security import require_vat
+
             try:
                 tax = require_vat(tax)
             except ValueError as exc:
-                from PySide6.QtWidgets import QMessageBox
                 QMessageBox.warning(self, "Prvi zagon", str(exc))
                 return
-        pwd = self.password.text()
-        if pwd or self.password2.text():
-            if pwd != self.password2.text():
-                from PySide6.QtWidgets import QMessageBox
-                QMessageBox.warning(self, "Prvi zagon", "Gesli se ne ujemata.")
+
+        from app.core.user_service import create_first_administrator, users_exist
+
+        try:
+            if users_exist():
+                QMessageBox.warning(self, "Prvi zagon", "Prvi uporabnik že obstaja.")
                 return
-            from app.core.passwords import hash_password
-            try:
-                hashed = hash_password(pwd)
-            except ValueError as exc:
-                from PySide6.QtWidgets import QMessageBox
-                QMessageBox.warning(self, "Prvi zagon", str(exc))
-                return
-            from app.modules.settings.settings_controller import SettingsController
-            extras = SettingsController().load_extras()
-            extras["password_hash"] = hashed
-            extras["administrator"] = self.admin.text().strip() or "Administrator"
-            SettingsController().save_extras(extras)
+            create_first_administrator(username, pwd)
+        except (ValueError, PermissionError) as exc:
+            QMessageBox.warning(self, "Prvi zagon", str(exc))
+            return
+
+        extras = SettingsController().load_extras()
+        # SQLite users are the auth source of truth — do not keep competing hash.
+        extras["password_hash"] = ""
+        extras["administrator"] = username
+        extras["role"] = "Administrator"
+        extras["account_enabled"] = True
+        extras["legacy_auth_migrated"] = True
+        SettingsController().save_extras(extras)
+
         vat = float(self.vat.value())
         from app.utils.vat import vat_liable_int
 
@@ -151,11 +184,12 @@ class FirstRunWizard(EnterpriseDialog):
             vat_liable_int(self.vat_liable.currentText()),
         )
         mark_setup_complete(
-            administrator=self.admin.text().strip() or "Administrator",
+            administrator=username,
             currency=self.currency.currentText(),
         )
         self.accept()
 
     def reject(self) -> None:
         from PySide6.QtWidgets import QDialog
+
         QDialog.reject(self)

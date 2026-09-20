@@ -420,6 +420,12 @@ class Database:
         except Exception:
             logger.debug("Order schema upgrade skipped.", exc_info=True)
 
+        try:
+            from app.database.user_repository import user_repository
+            user_repository.ensure_schema()
+        except Exception:
+            logger.debug("Users schema upgrade skipped.", exc_info=True)
+
         logger.info("SQLite baza inicializirana.")
 
 

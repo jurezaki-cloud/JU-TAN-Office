@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QApplication
@@ -16,6 +17,15 @@ from app.widgets.toolbar.toolbar_actions import ToolbarActions
 from app.widgets.common import EmptyState, PageHeader
 from app.core.ui.brand_icons import NAV_ICONS, brand_icon
 from app.core.ui.app_identity import application_icon, apply_application_identity
+
+
+def _write_png(path: Path) -> Path:
+    """Write a tiny valid RGBA PNG (libpng-safe) for resolver/pixmap tests."""
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGBA", (16, 16), (255, 255, 255, 255)).save(path)
+    return path
 
 
 def test_app_icon_asset_exists():
@@ -170,22 +180,14 @@ def test_resolve_brand_logo_theme_aware(qt_app, tmp_path, monkeypatch):
     light = data / "logo_light.png"
     dark = data / "logo_dark.png"
     fallback = data / "logo.png"
-
-    # Minimal valid 1x1 PNG
-    png_bytes = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00"
-        b"\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
-    light.write_bytes(png_bytes)
-    fallback.write_bytes(png_bytes)
+    _write_png(light)
+    _write_png(fallback)
 
     monkeypatch.setattr(constants, "DATA_DIR", data)
     monkeypatch.setattr(constants, "BASE_DIR", tmp_path)
     monkeypatch.setattr(constants, "RESOURCE_DIR", tmp_path / "resources")
     (tmp_path / "resources").mkdir()
 
-    # Patch the module-level imports used by the resolver
     import app.widgets.navigation.sidebar_header as sh
 
     monkeypatch.setattr(sh, "DATA_DIR", data)
@@ -193,10 +195,9 @@ def test_resolve_brand_logo_theme_aware(qt_app, tmp_path, monkeypatch):
     monkeypatch.setattr(sh, "RESOURCE_DIR", tmp_path / "resources")
 
     assert resolve_brand_logo(ThemeMode.LIGHT) == light
-    # No dark variant → fall back to logo.png
     assert resolve_brand_logo(ThemeMode.DARK) == fallback
 
-    dark.write_bytes(png_bytes)
+    _write_png(dark)
     assert resolve_brand_logo(ThemeMode.DARK) == dark
 
     theme_manager.apply(qt_app, ThemeMode.LIGHT)
@@ -205,28 +206,124 @@ def test_resolve_brand_logo_theme_aware(qt_app, tmp_path, monkeypatch):
     assert resolve_brand_logo() == dark
 
 
+def test_sidebar_logo_uses_dark_surface_contrast(qt_app, tmp_path, monkeypatch):
+    """Sidebar is always dark — must resolve light-ink logo even in LIGHT theme."""
+    from app.widgets.navigation.sidebar_header import (
+        SidebarHeader,
+        resolve_brand_logo,
+        resolve_brand_logo_for_surface,
+        refresh_brand_logos,
+    )
+    import app.widgets.navigation.sidebar_header as sh
+
+    data = tmp_path / "data"
+    data.mkdir()
+    light = data / "logo_light.png"
+    fallback = data / "logo.png"
+    _write_png(light)
+    _write_png(fallback)
+    monkeypatch.setattr(sh, "DATA_DIR", data)
+    monkeypatch.setattr(sh, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(sh, "RESOURCE_DIR", tmp_path / "resources")
+    (tmp_path / "resources").mkdir(exist_ok=True)
+
+    theme_manager.apply(qt_app, ThemeMode.LIGHT)
+    assert resolve_brand_logo(ThemeMode.LIGHT) == light
+    assert resolve_brand_logo_for_surface(dark_surface=True) == fallback
+
+    from app.core.session import session
+
+    session.login("Admin", "Administrator")
+    header = SidebarHeader()
+    header.show()
+    qt_app.processEvents()
+    assert header._logo_path == fallback
+    assert not header.logo.pixmap().isNull()
+    assert header.brand.isHidden()
+
+    theme_manager.apply(qt_app, ThemeMode.DARK)
+    refresh_brand_logos()
+    assert header._logo_path == resolve_brand_logo_for_surface(dark_surface=True)
+    header.close()
+    header.deleteLater()
+    qt_app.processEvents()
+    theme_manager.apply(qt_app, ThemeMode.LIGHT)
+
+
 def test_sidebar_logo_refreshes_on_theme_change(qt_app, monkeypatch):
     from app.core.session import session
     from app.widgets.navigation.sidebar_header import (
         SidebarHeader,
-        resolve_brand_logo,
+        resolve_brand_logo_for_surface,
         refresh_brand_logos,
     )
 
     session.login("Admin", "Administrator")
     theme_manager.apply(qt_app, ThemeMode.LIGHT)
     header = SidebarHeader()
-    light_path = resolve_brand_logo(ThemeMode.LIGHT)
-    assert light_path is not None
-    assert header._logo_path == light_path
+    surface_path = resolve_brand_logo_for_surface(dark_surface=True)
+    assert surface_path is not None
+    assert header._logo_path == surface_path
 
     theme_manager.apply(qt_app, ThemeMode.DARK)
-    # Simulate apply_appearance side-effect
     refresh_brand_logos()
-    dark_path = resolve_brand_logo(ThemeMode.DARK)
-    assert dark_path is not None
-    assert header._logo_path == dark_path
+    assert header._logo_path == resolve_brand_logo_for_surface(dark_surface=True)
     header.close()
+    header.deleteLater()
+    qt_app.processEvents()
+    theme_manager.apply(qt_app, ThemeMode.LIGHT)
+
+
+def test_login_logo_resolves_via_central_resolver(qt_app, tmp_path, monkeypatch):
+    """Login uses the same resolve_brand_logo() as the rest of branding."""
+    import app.widgets.navigation.sidebar_header as sh
+    from app.widgets.navigation.sidebar_header import resolve_brand_logo
+
+    data = tmp_path / "data"
+    data.mkdir()
+    light = _write_png(data / "logo_light.png")
+    _write_png(data / "logo.png")
+    monkeypatch.setattr(sh, "DATA_DIR", data)
+    monkeypatch.setattr(sh, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(sh, "RESOURCE_DIR", tmp_path / "resources")
+    (tmp_path / "resources").mkdir(exist_ok=True)
+
+    theme_manager.apply(qt_app, ThemeMode.LIGHT)
+    assert resolve_brand_logo(ThemeMode.LIGHT) == light
+    theme_manager.apply(qt_app, ThemeMode.DARK)
+    assert resolve_brand_logo(ThemeMode.DARK) == data / "logo.png"
+    theme_manager.apply(qt_app, ThemeMode.LIGHT)
+
+
+def test_brand_logo_falls_back_when_override_missing(qt_app, tmp_path, monkeypatch):
+    import app.widgets.navigation.sidebar_header as sh
+    from app.widgets.navigation.sidebar_header import resolve_brand_logo
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    resources = tmp_path / "resources"
+    resources.mkdir()
+    packaged = _write_png(resources / "logo.png")
+    monkeypatch.setattr(sh, "DATA_DIR", empty)
+    monkeypatch.setattr(sh, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(sh, "RESOURCE_DIR", resources)
+    assert resolve_brand_logo(ThemeMode.DARK) == packaged
+
+
+def test_frozen_style_resource_path_resolves(tmp_path, monkeypatch):
+    """Simulate packaged resources/ next to resolver search roots."""
+    import app.widgets.navigation.sidebar_header as sh
+    from app.widgets.navigation.sidebar_header import resolve_brand_logo
+
+    resources = tmp_path / "resources"
+    resources.mkdir()
+    light = _write_png(resources / "logo_light.png")
+    dark = _write_png(resources / "logo.png")
+    monkeypatch.setattr(sh, "DATA_DIR", tmp_path / "missing_data")
+    monkeypatch.setattr(sh, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(sh, "RESOURCE_DIR", resources)
+    assert resolve_brand_logo(ThemeMode.LIGHT) == light
+    assert resolve_brand_logo(ThemeMode.DARK) == dark
 
 
 def test_settings_page_does_not_reapply_theme_on_construct(qt_app):

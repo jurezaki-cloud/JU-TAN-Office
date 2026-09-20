@@ -400,7 +400,38 @@ def run():
         splash.show()
         app.processEvents()
     extras = settings.load_extras()
-    from app.core.auth_gate import startup_requires_authentication
+    from app.core.auth_gate import (
+        ensure_auth_migrated,
+        needs_credential_onboarding,
+        password_is_configured,
+        startup_requires_authentication,
+    )
+
+    extras = ensure_auth_migrated(extras)
+
+    # Legacy installs: setup_complete but no usable password — force onboarding
+    # without touching business data. Idempotent once credentials exist.
+    if needs_credential_onboarding(extras):
+        splash.hide()
+        from app.core.ui.app_identity import apply_native_titlebar_theme
+        from app.theme.colors import ThemeMode
+        from app.windows.credential_onboarding_dialog import CredentialOnboardingDialog
+
+        onboard = CredentialOnboardingDialog()
+        apply_native_titlebar_theme(
+            onboard,
+            ThemeMode.DARK if mode_name == "dark" else ThemeMode.LIGHT,
+        )
+        if onboard.exec() != QDialog.DialogCode.Accepted:
+            sys.exit(0)
+        extras = settings.load_extras()
+        splash.show()
+        app.processEvents()
+
+    # After setup/onboarding, credentials must exist. Never auto-login Administrator.
+    if not password_is_configured(extras):
+        logger.error("Prijava ni nastavljena — zagon prekinjen.")
+        sys.exit(0)
 
     if startup_requires_authentication(extras):
         splash.hide()
@@ -417,15 +448,7 @@ def run():
             sys.exit(0)
         splash.show()
         app.processEvents()
-    else:
-        # First-run / no password: open MainWindow after identity login.
-        # remember_user is username convenience only — not an auth bypass.
-        from app.core.session import session
-        session.remember_user = bool(extras.get("remember_user", True))
-        session.login(
-            extras.get("administrator") or "Administrator",
-            extras.get("role") or "Administrator",
-        )
+    extras = settings.load_extras()
     window = MainWindow()
     span.mark("window")
     window.show()
@@ -461,7 +484,6 @@ def run():
     # re-enables quit when the user explicitly closes the application.
     app.setQuitOnLastWindowClosed(False)
     timeout_sec = max(5, int(extras.get("session_timeout_min") or 30)) * 60
-    from app.core.auth_gate import password_is_configured
 
     install_idle_guard(
         app,

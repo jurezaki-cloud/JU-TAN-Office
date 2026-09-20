@@ -1,4 +1,8 @@
-"""RBAC, seje in trajni audit."""
+"""RBAC, seje in trajni audit.
+
+Roles provide permission presets. Per-user overrides live in SQLite
+``user_permissions`` and are applied via :func:`set_identity` / session login.
+"""
 
 from __future__ import annotations
 
@@ -20,8 +24,14 @@ ROLES = (
     "Read Only",
 )
 
+ACTIONS = frozenset(
+    {"read", "write", "delete", "export", "settings", "backup", "print", "users", "fresh"}
+)
+
 PERMISSIONS = {
-    "Administrator": frozenset({"read", "write", "delete", "export", "settings", "backup", "print", "users"}),
+    "Administrator": frozenset(
+        {"read", "write", "delete", "export", "settings", "backup", "print", "users", "fresh"}
+    ),
     "Manager": frozenset({"read", "write", "delete", "export", "settings", "print"}),
     "Sales": frozenset({"read", "write", "export", "print"}),
     "Warehouse": frozenset({"read", "write", "export", "print"}),
@@ -42,10 +52,49 @@ ROLE_PAGES = {
     "Read Only": frozenset({0, 1, 2, 3, 4, 6, 9, 13, 14, 15, 17}),
 }
 
+
+def page_permission_key(index: int) -> str:
+    return f"page:{int(index)}"
+
+
+def role_default_permission_keys(role: str) -> list[str]:
+    actions = PERMISSIONS.get(role, PERMISSIONS["Read Only"])
+    pages = ROLE_PAGES.get(role, ROLE_PAGES["Read Only"])
+    return actions_and_pages_to_permission_keys(actions, pages)
+
+
+def actions_and_pages_to_permission_keys(actions, pages) -> list[str]:
+    keys: list[str] = []
+    for action in sorted(actions):
+        if action in ACTIONS:
+            keys.append(str(action))
+    for index in sorted(int(p) for p in pages):
+        keys.append(page_permission_key(index))
+    return keys
+
+
+def permission_keys_to_actions_pages(keys) -> tuple[frozenset[str], frozenset[int]]:
+    actions: set[str] = set()
+    pages: set[int] = set()
+    for raw in keys or []:
+        key = str(raw)
+        if key.startswith("page:"):
+            try:
+                pages.add(int(key.split(":", 1)[1]))
+            except ValueError:
+                continue
+        elif key in ACTIONS:
+            actions.add(key)
+    return frozenset(actions), frozenset(pages)
+
+
 _state = {
     "role": "Administrator",
     "user": SESSION_USER,
+    "user_id": None,
     "authenticated": True,
+    "actions": None,  # None → derive from role
+    "pages": None,  # None → derive from role
 }
 
 
@@ -57,7 +106,21 @@ def current_user() -> str:
     return str(_state.get("user") or SESSION_USER)
 
 
-def set_identity(*, user: str | None = None, role: str | None = None, authenticated: bool | None = None) -> None:
+def current_user_id() -> int | None:
+    value = _state.get("user_id")
+    return int(value) if value is not None else None
+
+
+def set_identity(
+    *,
+    user: str | None = None,
+    role: str | None = None,
+    authenticated: bool | None = None,
+    user_id: int | None = None,
+    actions: frozenset[str] | None = None,
+    pages: frozenset[int] | None = None,
+    clear_overrides: bool = False,
+) -> None:
     if user is not None:
         _state["user"] = user
     if role is not None:
@@ -66,13 +129,38 @@ def set_identity(*, user: str | None = None, role: str | None = None, authentica
         _state["role"] = role
     if authenticated is not None:
         _state["authenticated"] = bool(authenticated)
+    if user_id is not None or clear_overrides:
+        _state["user_id"] = user_id
+    if actions is not None or clear_overrides:
+        _state["actions"] = frozenset(actions) if actions is not None else None
+    if pages is not None or clear_overrides:
+        _state["pages"] = frozenset(int(p) for p in pages) if pages is not None else None
+
+
+def clear_identity() -> None:
+    """Clear authenticated identity and permission overrides (logout / fresh)."""
+    _state["authenticated"] = False
+    _state["user_id"] = None
+    _state["actions"] = None
+    _state["pages"] = None
+
+
+def _effective_actions() -> frozenset[str]:
+    if _state.get("actions") is not None:
+        return frozenset(_state["actions"])
+    return PERMISSIONS.get(current_role(), PERMISSIONS["Read Only"])
+
+
+def _effective_pages() -> frozenset[int]:
+    if _state.get("pages") is not None:
+        return frozenset(int(p) for p in _state["pages"])
+    return ROLE_PAGES.get(current_role(), ROLE_PAGES["Read Only"])
 
 
 def can(action: str) -> bool:
     if not _state.get("authenticated", True):
         return False
-    granted = PERMISSIONS.get(current_role(), PERMISSIONS["Read Only"])
-    return action in granted
+    return action in _effective_actions()
 
 
 def require(action: str) -> None:
@@ -97,8 +185,7 @@ def allow(action: str, parent=None) -> bool:
 def can_open_page(index: int) -> bool:
     if not can("read"):
         return False
-    allowed = ROLE_PAGES.get(current_role(), ROLE_PAGES["Read Only"])
-    return int(index) in allowed
+    return int(index) in _effective_pages()
 
 
 def gated(action: str, event: str | None = None):
@@ -120,9 +207,12 @@ def gated(action: str, event: str | None = None):
     return decorator
 
 
-def _persist_audit(action: str, detail: str, user: str) -> None:
+def _persist_audit(action: str, detail: str, user: str, user_id: int | None) -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    line = json.dumps({"ts": stamp, "user": user, "action": action, "detail": detail}, ensure_ascii=False)
+    payload = {"ts": stamp, "user": user, "action": action, "detail": detail}
+    if user_id is not None:
+        payload["user_id"] = user_id
+    line = json.dumps(payload, ensure_ascii=False)
     try:
         AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
         with AUDIT_FILE.open("a", encoding="utf-8") as handle:
@@ -144,9 +234,15 @@ def _persist_audit(action: str, detail: str, user: str) -> None:
             )
             """
         )
+        # Prefer "username (id=N)" attribution when stable id is known.
+        username = user
+        if user_id is not None:
+            username = f"{user}"
+            detail_with_id = f"[uid={user_id}] {detail}" if detail else f"[uid={user_id}]"
+            detail = detail_with_id
         conn.execute(
             "INSERT INTO audit_log(created_at, username, action, detail) VALUES (?,?,?,?)",
-            (stamp, user, action, detail),
+            (stamp, username, action, detail),
         )
         conn.commit()
         conn.close()
@@ -156,5 +252,6 @@ def _persist_audit(action: str, detail: str, user: str) -> None:
 
 def audit(action: str, detail: str = "") -> None:
     user = current_user()
+    user_id = current_user_id()
     logger.info("AUDIT %s %s %s", user, action, detail)
-    _persist_audit(action, detail, user)
+    _persist_audit(action, detail, user, user_id)

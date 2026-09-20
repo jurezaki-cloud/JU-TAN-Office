@@ -236,6 +236,22 @@ QPushButton#DangerButton:pressed {
     border-color: {{DANGER}};
 }
 
+QLabel#DangerZoneTitle {
+    color: {{DANGER}};
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+QLabel#DangerZoneText {
+    color: {{TEXT}};
+}
+
+QFrame#DangerZoneCard,
+QWidget#DangerZoneCard {
+    border: 1px solid {{DANGER}};
+}
+
 QPushButton#IconButton {
     background: {{SURFACE}};
     color: {{TEXT}};

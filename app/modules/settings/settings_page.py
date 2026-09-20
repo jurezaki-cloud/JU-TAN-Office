@@ -21,10 +21,12 @@ from app.widgets.settings.about_card import AboutCard
 from app.widgets.settings.appearance_card import AppearanceCard
 from app.widgets.settings.backup_card import BackupCard
 from app.widgets.settings.company_card import CompanyCard
+from app.widgets.settings.fresh_zone_card import FreshZoneCard
 from app.widgets.settings.numbering_card import NumberingCard
-from app.widgets.settings.security_card import SecurityCard
 from app.widgets.settings.pdf_card import PdfCard
+from app.widgets.settings.security_card import SecurityCard
 from app.widgets.settings.travel_settings_card import TravelSettingsCard
+from app.widgets.settings.users_card import UsersCard
 
 
 class SettingsPage(QWidget):
@@ -64,6 +66,8 @@ class SettingsPage(QWidget):
         self.pdf_card = PdfCard()
         self.backup_card = BackupCard()
         self.security_card = SecurityCard()
+        self.users_card = UsersCard()
+        self.fresh_zone_card = FreshZoneCard()
         self.about_card = AboutCard()
         self.travel_card = TravelSettingsCard()
 
@@ -82,6 +86,7 @@ class SettingsPage(QWidget):
         self.backup_card.folder_requested.connect(self._open_backup_folder)
         self.security_card.password_clicked.connect(self._change_password)
         self.security_card.logout_clicked.connect(self._logout)
+        self.fresh_zone_card.fresh_completed.connect(self._on_fresh_completed)
 
         self._breakpoint = None
         self._place_widgets(1400)
@@ -107,15 +112,18 @@ class SettingsPage(QWidget):
                 item.widget().setParent(self._canvas)
 
         if mode == "wide":
-            # Logical groups: company → documents/PDF → numbering → look → travel → security → backup → about
+            # Logical groups: company → PDF/numbering → look/travel → security →
+            # users → backup → about → fresh (RBAC-gated cards hide themselves)
             self._grid.addWidget(self.company_card, 0, 0, 1, 2)
             self._grid.addWidget(self.pdf_card, 1, 0)
             self._grid.addWidget(self.numbering_card, 1, 1)
             self._grid.addWidget(self.appearance_card, 2, 0)
             self._grid.addWidget(self.travel_card, 2, 1)
             self._grid.addWidget(self.security_card, 3, 0, 1, 2)
-            self._grid.addWidget(self.backup_card, 4, 0, 1, 2)
-            self._grid.addWidget(self.about_card, 5, 0, 1, 2)
+            self._grid.addWidget(self.users_card, 4, 0, 1, 2)
+            self._grid.addWidget(self.backup_card, 5, 0, 1, 2)
+            self._grid.addWidget(self.about_card, 6, 0, 1, 2)
+            self._grid.addWidget(self.fresh_zone_card, 7, 0, 1, 2)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 1)
         else:
@@ -125,8 +133,10 @@ class SettingsPage(QWidget):
             self._grid.addWidget(self.appearance_card, 3, 0)
             self._grid.addWidget(self.travel_card, 4, 0)
             self._grid.addWidget(self.security_card, 5, 0)
-            self._grid.addWidget(self.backup_card, 6, 0)
-            self._grid.addWidget(self.about_card, 7, 0)
+            self._grid.addWidget(self.users_card, 6, 0)
+            self._grid.addWidget(self.backup_card, 7, 0)
+            self._grid.addWidget(self.about_card, 8, 0)
+            self._grid.addWidget(self.fresh_zone_card, 9, 0)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 0)
 
@@ -140,6 +150,9 @@ class SettingsPage(QWidget):
         self.pdf_card.set_excel(extras.get("excel", {}))
         self.travel_card.set_values(extras.get("travel_orders", {}))
         self.security_card.set_values(extras)
+        # Re-evaluate RBAC-gated cards from current effective permissions (no restart).
+        self.users_card.refresh()
+        self.fresh_zone_card.refresh()
         self.about_card.set_values(self.controller.about())
 
     def extras(self) -> dict:
@@ -299,50 +312,49 @@ class SettingsPage(QWidget):
             QMessageBox.warning(self, "Geslo", str(exc))
 
     def _logout(self):
-        """Terminate the authenticated session and return to a locked/login state.
+        """Terminate the authenticated session and return to the login screen.
 
-        With a configured password: show UnlockDialog (cancel exits the app).
-        Without a password: end the process — there is no unlock gate to return to,
-        and a toast-only path left MainWindow open so Odjava appeared to do nothing.
+        Clears session, disables MainWindow, and requires username + password
+        again. Cancel/close on the login dialog exits the application safely.
         """
         from app.core.auth_gate import logout_requires_reauth
+        from app.windows.unlock_dialog import UnlockDialog
+        from PySide6.QtWidgets import QDialog
 
         session.logout()
         extras = self.controller.load_extras()
         main = self.window()
-        if logout_requires_reauth(extras):
-            from app.windows.unlock_dialog import UnlockDialog
-            from PySide6.QtWidgets import QDialog
-
+        if main is not None:
+            main.setEnabled(False)
+        try:
+            if not logout_requires_reauth(extras):
+                # Credentials missing (should not happen after mandatory auth) —
+                # exit rather than leaving an authenticated MainWindow open.
+                QApplication.quit()
+                return
+            dlg = UnlockDialog(main)
+            if dlg.exec() != QDialog.Accepted:
+                QApplication.quit()
+                return
+        finally:
             if main is not None:
-                main.setEnabled(False)
-            try:
-                dlg = UnlockDialog(main)
-                if dlg.exec() != QDialog.Accepted:
-                    QApplication.quit()
-                    return
-            finally:
-                if main is not None:
-                    main.setEnabled(True)
-            sidebar = getattr(main, "sidebar", None)
-            if sidebar is not None and hasattr(sidebar, "apply_role"):
-                sidebar.apply_role()
-            toolbar = getattr(main, "toolbar", None)
-            stack = getattr(main, "stack", None)
-            if toolbar is not None and stack is not None and hasattr(toolbar, "set_context"):
-                toolbar.set_context(stack.currentIndex())
-            bar = main.statusBar() if main is not None and hasattr(main, "statusBar") else None
-            if bar is not None and hasattr(bar, "refresh"):
-                bar.refresh()
-            return
-        QMessageBox.information(
-            self,
-            "Odjava",
-            "Seja je končana.\n\n"
-            "Geslo ni nastavljeno, zato ni prijavnega zaslona. "
-            "Aplikacija se bo zaprla. Nastavite geslo pod Varnost, "
-            "če želite odjavo z zahtevano ponovno prijavo.",
-        )
+                main.setEnabled(True)
+        sidebar = getattr(main, "sidebar", None)
+        if sidebar is not None and hasattr(sidebar, "apply_role"):
+            sidebar.apply_role()
+        toolbar = getattr(main, "toolbar", None)
+        stack = getattr(main, "stack", None)
+        if toolbar is not None and stack is not None and hasattr(toolbar, "set_context"):
+            toolbar.set_context(stack.currentIndex())
+        bar = main.statusBar() if main is not None and hasattr(main, "statusBar") else None
+        if bar is not None and hasattr(bar, "refresh"):
+            bar.refresh()
+        # New session may have different users/fresh rights — update without restart.
+        if hasattr(self, "refresh"):
+            self.refresh()
+
+    def _on_fresh_completed(self, _backup_path) -> None:
+        """Fresh reset finished; UI promised process exit after confirmation."""
         QApplication.quit()
 
     def _open_backup_folder(self):

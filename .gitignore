@@ -37,3 +37,13 @@ scripts/_full_pytest.txt
 
 # Local-only capture helper (developer absolute paths)
 demo-session/_capture_customers_shot.py
+
+# Local diagnostic / QA scripts
+scripts/_diag_*.py
+scripts/_inspect_*.py
+scripts/_measure_*.py
+scripts/_probe_*.py
+scripts/_qa_*.py
+scripts/_ui_polish_audit.py
+scripts/_verify_*.py
+scripts/repro_*.py

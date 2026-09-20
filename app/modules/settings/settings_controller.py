@@ -84,6 +84,7 @@ def default_settings() -> dict:
         "session_timeout_min": 30,
         "remember_user": True,
         "password_hash": "",
+        "account_enabled": True,
         "secrets_blob": "",
         "config_version": 1,
     }
@@ -127,6 +128,13 @@ class SettingsController:
 
     def save_extras(self, extras: dict) -> None:
         require("settings")
+        self._write_extras(extras, audit_event=True)
+
+    def save_extras_unrestricted(self, extras: dict) -> None:
+        """Bootstrap/setup writes — no RBAC gate (first-run, schema bump)."""
+        self._write_extras(extras, audit_event=False)
+
+    def _write_extras(self, extras: dict, *, audit_event: bool) -> None:
         current = {}
         if SETTINGS_PATH.exists():
             try:
@@ -153,7 +161,8 @@ class SettingsController:
             existing.update(secret_plain)
             merged["secrets_blob"] = seal(existing)
         write_json_atomic(SETTINGS_PATH, stamp(merged))
-        audit("settings", "save")
+        if audit_event:
+            audit("settings", "save")
 
     def change_password(self, old: str, new: str) -> None:
         require("users")

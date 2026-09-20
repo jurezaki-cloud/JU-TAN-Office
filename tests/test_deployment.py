@@ -18,7 +18,7 @@ def test_versioning_major_minor_build():
 
 
 def test_schema_version_constant():
-    assert SCHEMA_VERSION == 1
+    assert SCHEMA_VERSION == 2
 
 
 def test_first_run_then_complete():

@@ -13,7 +13,7 @@ def ensure_schema_version() -> int:
     current = int(extras.get("database_version") or 0)
     if current < SCHEMA_VERSION:
         extras["database_version"] = SCHEMA_VERSION
-        controller.save_extras(extras)
+        controller.save_extras_unrestricted(extras)
         logger.info("Shema baze: %s", SCHEMA_VERSION)
     return int(extras.get("database_version") or SCHEMA_VERSION)
 
@@ -38,4 +38,4 @@ def mark_setup_complete(*, administrator: str = "Administrator", currency: str =
     extras["administrator"] = administrator
     extras["currency"] = currency
     extras["database_version"] = SCHEMA_VERSION
-    controller.save_extras(extras)
+    controller.save_extras_unrestricted(extras)

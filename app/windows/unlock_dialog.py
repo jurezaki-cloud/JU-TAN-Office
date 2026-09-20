@@ -1,12 +1,16 @@
-﻿"""Odklepanje seje z geslom — premium login entrance."""
+﻿"""Odklepanje seje — username + password authentication."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QDialog, QLabel, QLineEdit, QMessageBox, QVBoxLayout, QWidget
 
-from app.core.passwords import verify_password
+from app.core.auth_gate import (
+    AUTH_ERROR_MESSAGE,
+    authenticate_credentials,
+    authenticated_role,
+)
 from app.core.session import session
 from app.core.ui.app_identity import apply_window_icon
 from app.core.ui.enterprise_dialog import EnterpriseDialog
@@ -29,8 +33,8 @@ class UnlockDialog(EnterpriseDialog):
         apply_window_icon(self)
         self.setObjectName("UnlockDialog")
         extras = SettingsController().load_extras()
-        self._hash = extras.get("password_hash") or ""
-        self._user = extras.get("administrator") or "Administrator"
+        self._user = (extras.get("administrator") or "Administrator").strip()
+        self._remember = bool(extras.get("remember_user", True))
         self._authenticating = False
 
         brand = QWidget()
@@ -42,42 +46,62 @@ class UnlockDialog(EnterpriseDialog):
         self.logo = QLabel()
         self.logo.setAlignment(Qt.AlignCenter)
         self.logo.setObjectName("LoginLogo")
-        # Transparent PNG — no opaque fill behind the brand mark.
         self.logo.setAttribute(Qt.WA_TranslucentBackground, True)
         self._load_brand_logo()
         brand_layout.addWidget(self.logo)
 
-        subtitle = QLabel("Vnesite geslo za dostop do aplikacije.")
+        title = QLabel("JU-TAN OFFICE")
+        title.setObjectName("LoginBrand")
+        title.setAlignment(Qt.AlignCenter)
+        brand_layout.addWidget(title)
+
+        subtitle = QLabel("Prijavite se z uporabniškim imenom in geslom.")
         subtitle.setObjectName("DashboardMuted")
         subtitle.setAlignment(Qt.AlignCenter)
         subtitle.setWordWrap(True)
         brand_layout.addWidget(subtitle)
 
         self.user = QLineEdit()
-        self.user.setPlaceholderText("Uporabnik")
-        self.user.setText(self._user if extras.get("remember_user", True) else "")
+        self.user.setPlaceholderText("Uporabniško ime")
+        self.user.setText(self._user if self._remember else "")
         self.user.setMinimumHeight(40)
+
         self.password = QLineEdit()
         self.password.setPlaceholderText("Geslo")
         self.password.setEchoMode(QLineEdit.Password)
         self.password.setMinimumHeight(40)
+        self.password.clear()
+
+        self.remember = QCheckBox("Zapomni uporabniško ime")
+        self.remember.setChecked(self._remember)
+
+        self.show_password = QCheckBox("Prikaži geslo")
+        self.show_password.toggled.connect(
+            lambda checked: self.password.setEchoMode(
+                QLineEdit.Normal if checked else QLineEdit.Password
+            )
+        )
 
         self.body.addWidget(brand)
         self.body.addWidget(self.user)
         self.body.addWidget(self.password)
+        self.body.addWidget(self.show_password)
+        self.body.addWidget(self.remember)
 
-        # One path: mouse Prijava, ENTER (default button), returnPressed, accept().
         self.bind_save(self._authenticate)
         self.password.returnPressed.connect(self._authenticate)
-        self.user.returnPressed.connect(self._authenticate)
+        self.user.returnPressed.connect(self._focus_password)
         self.btn_cancel.setAutoDefault(False)
         self.btn_cancel.setDefault(False)
         self.btn_save.setAutoDefault(True)
         self.btn_save.setDefault(True)
         self.btn_save.setText("Prijava")
 
+    def _focus_password(self) -> None:
+        self.password.setFocus()
+        self.password.selectAll()
+
     def _load_brand_logo(self) -> None:
-        """Theme-aware login logo via central resolver; keep aspect ratio."""
         path = resolve_brand_logo()
         if path is not None:
             pix = QPixmap(str(path))
@@ -95,29 +119,43 @@ class UnlockDialog(EnterpriseDialog):
         self.logo.setObjectName("LoginBrand")
 
     def accept(self) -> None:
-        """Never close as Accepted without going through password validation."""
         self._authenticate()
 
     def _authenticate(self) -> None:
         if self._authenticating:
             return
         self._authenticating = True
-        try:
-            if not verify_password(self.password.text(), self._hash):
-                QMessageBox.warning(self, "Prijava", "Geslo ni pravilno.")
-                self.password.setFocus()
-                self.password.selectAll()
-                return
-            role = SettingsController().load_extras().get("role") or "Administrator"
-            session.login(self.user.text().strip() or self._user, role)
-            session.touch()
-            QDialog.done(self, QDialog.DialogCode.Accepted)
-        finally:
-            # Coalesce returnPressed + default-button click from the same ENTER.
-            QTimer.singleShot(0, self._release_authenticate)
+        extras = SettingsController().load_extras()
+        username = self.user.text().strip()
+        password = self.password.text()
+        ok, err = authenticate_credentials(username, password, extras)
+        if not ok:
+            self._authenticating = False
+            QMessageBox.warning(self, "Prijava", err or AUTH_ERROR_MESSAGE)
+            self.password.clear()
+            self.password.setFocus()
+            return
 
-    def _release_authenticate(self) -> None:
-        self._authenticating = False
+        extras["remember_user"] = self.remember.isChecked()
+        if self.remember.isChecked() and username:
+            extras["administrator"] = username
+            extras["remembered_username"] = username
+        SettingsController().save_extras(extras)
+        session.remember_user = self.remember.isChecked()
+
+        from app.core.auth_gate import resolve_authenticated_user
+        from app.core.user_service import apply_session_for_user
+
+        user = resolve_authenticated_user(username, password, extras)
+        if user is not None:
+            apply_session_for_user(user)
+        else:
+            role = authenticated_role(extras, username=username)
+            session.login(username or (extras.get("administrator") or "Administrator"), role)
+        session.touch()
+        self.password.clear()
+        QDialog.done(self, QDialog.DialogCode.Accepted)
 
     def reject(self) -> None:
+        self.password.clear()
         QDialog.reject(self)

@@ -31,7 +31,7 @@ class SecurityCard(QWidget):
         self.new.setEchoMode(QLineEdit.Password)
         grid.add("Vloga", self.role, "Timeout", self.timeout)
         grid.add("Staro geslo", self.old, "Novo geslo", self.new)
-        self.remember = QCheckBox("Zapomni uporabnika")
+        self.remember = QCheckBox("Zapomni uporabniško ime")
         self.remember.setChecked(True)
         card.body.addLayout(grid.layout)
         card.body.addWidget(self.remember)

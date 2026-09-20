@@ -11,6 +11,8 @@ a = Analysis(
         (str(ROOT / "app" / "theme" / "theme.qss"), "app/theme"),
         (str(ROOT / "config" / "app.example.json"), "config"),
         (str(ROOT / "resources" / "app.ico"), "resources"),
+        (str(ROOT / "resources" / "logo.png"), "resources"),
+        (str(ROOT / "resources" / "logo_light.png"), "resources"),
         (str(ROOT / "packaging" / "Version.txt"), "."),
         (str(ROOT / "packaging" / "LICENSE.txt"), "."),
         (str(ROOT / "updates" / "latest.json"), "updates"),
