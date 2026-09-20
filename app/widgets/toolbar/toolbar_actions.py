@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QWidget
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QMenu, QPushButton, QWidget
 
 from app.core.permissions import can, can_open_page
 from app.core.ui.brand_icons import brand_icon
@@ -35,6 +35,14 @@ class ToolbarActions(QWidget):
 
         self._new_menu = QMenu(self.btn_new)
         self._new_menu.setObjectName("NewMenu")
+        # Native Windows popup menus can ignore parts of the application QSS
+        # and appear as an opaque black rectangle. Force the menu to use the
+        # same application stylesheet/palette as the JU-TAN shell.
+        self._new_menu.setNativeMenuBar(False)
+        app = QApplication.instance()
+        if app is not None:
+            self._new_menu.setStyleSheet(app.styleSheet())
+            self._new_menu.setPalette(app.palette())
         self.btn_new.setMenu(self._new_menu)
         self._rebuild_new_menu()
 
