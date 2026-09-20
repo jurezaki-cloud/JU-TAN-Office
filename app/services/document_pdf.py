@@ -89,7 +89,8 @@ def header(company, document_type, number, status, font, style):
     table = Table([[brand, right]], colWidths=[91*mm, 79*mm], rowHeights=[31*mm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), NAVY), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (0, 0), 9*mm), ("RIGHTPADDING", (1, 0), (1, 0), 9*mm),\n        ("TOPPADDING", (0, 0), (-1, -1), 5*mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 5*mm),
+        ("LEFTPADDING", (0, 0), (0, 0), 9*mm), ("RIGHTPADDING", (1, 0), (1, 0), 9*mm),
+        ("TOPPADDING", (0, 0), (-1, -1), 5*mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 5*mm),
     ]))
     return table
 
