@@ -14,6 +14,7 @@ venv/
 .env
 .env.*
 !.env.example
+!.env.license.example
 
 # Runtime data (never commit customer data or application logs)
 data/*.db
@@ -22,6 +23,7 @@ logs/*.log
 backups/
 exports/
 reports/
+license_server/data/
 build/
 dist/
 *.spec.bak

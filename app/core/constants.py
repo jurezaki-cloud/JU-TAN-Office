@@ -30,6 +30,8 @@ REPORT_DIR = APP_DATA_DIR / "reports"
 BACKUP_DIR = APP_DATA_DIR / "backups"
 RESOURCE_DIR = BASE_DIR / "resources"
 BRAND_ASSET_DIR = APP_DATA_DIR / "brand"
+LICENSE_DIR = APP_DATA_DIR / "license"
+LICENSE_FILE = LICENSE_DIR / "activation.json"
 
 # ----------------------------
 # Baza
@@ -55,6 +57,7 @@ for folder in (
     REPORT_DIR,
     BACKUP_DIR,
     BRAND_ASSET_DIR,
+    LICENSE_DIR,
     LOG_DIR,
 ):
     folder.mkdir(parents=True, exist_ok=True)

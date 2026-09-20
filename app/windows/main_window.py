@@ -25,6 +25,17 @@ from app.modules.customers import CustomerPage
 from app.modules.articles import ArticlePage
 
 
+def _license_client():
+    from app.licensing.client import LicenseClient
+    from app.licensing.config import LICENSE_PUBLIC_KEY, LICENSE_SERVER_URL
+    from app.licensing.verifier import LicenseVerifier
+
+    return LicenseClient(
+        LICENSE_SERVER_URL,
+        LicenseVerifier(LICENSE_PUBLIC_KEY),
+    )
+
+
 class EmptyPage(QWidget):
 
     def __init__(self, title):
@@ -135,6 +146,24 @@ def run():
 
     app = QApplication(sys.argv)
     apply_theme(app)
+
+    from app.licensing.config import LICENSE_PUBLIC_KEY, LICENSE_REQUIRED
+    if LICENSE_REQUIRED:
+        from PySide6.QtWidgets import QMessageBox
+        from app.licensing.dialog import ensure_licensed
+
+        if not LICENSE_PUBLIC_KEY:
+            QMessageBox.critical(
+                None,
+                "Licenčna konfiguracija",
+                "Program nima nastavljenega javnega licenčnega ključa. "
+                "Obrnite se na podporo JU-TAN.",
+            )
+            return 2
+        state = ensure_licensed(_license_client())
+        if not state.permits_use:
+            QMessageBox.critical(None, "Licenca", state.message)
+            return 3
 
     window = MainWindow()
     window.show()
