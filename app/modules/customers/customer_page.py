@@ -47,7 +47,10 @@ class CustomerPage(QWidget):
         self.search = QLineEdit()
         self.search.setPlaceholderText("Išči stranko...")
 
-        self.btn_edit.setProperty("variant", "secondary")\n        self.btn_delete.setProperty("variant", "danger")\n        self.btn_refresh.setProperty("variant", "secondary")\n        top_layout.addWidget(self.btn_new)
+        self.btn_edit.setProperty("variant", "secondary")
+        self.btn_delete.setProperty("variant", "danger")
+        self.btn_refresh.setProperty("variant", "secondary")
+        top_layout.addWidget(self.btn_new)
         top_layout.addWidget(self.btn_edit)
         top_layout.addWidget(self.btn_delete)
         top_layout.addWidget(self.btn_refresh)
@@ -78,7 +81,8 @@ class CustomerPage(QWidget):
 
         splitter.addWidget(self.table)
         splitter.addWidget(self.details)
-        splitter.setSizes([800, 360])\n        splitter.setChildrenCollapsible(False)
+        splitter.setSizes([800, 360])
+        splitter.setChildrenCollapsible(False)
 
         layout.addWidget(splitter)
 
