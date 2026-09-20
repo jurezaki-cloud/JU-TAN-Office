@@ -41,6 +41,9 @@ def ensure_fonts() -> tuple[str, str]:
         (windir / "segoeui.ttf", windir / "segoeuib.ttf"),
         (windir / "arial.ttf", windir / "arialbd.ttf"),
         (Path("assets/fonts/DejaVuSans.ttf"), Path("assets/fonts/DejaVuSans-Bold.ttf")),
+        # Standard Linux locations used by CI and supported desktop packages.
+        (Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")),
     ]
     for regular, bold in candidates:
         if regular.exists() and bold.exists():
