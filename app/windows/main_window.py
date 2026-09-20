@@ -155,6 +155,8 @@ class MainWindow(QMainWindow):
                 self.offers.refresh()
         elif index == 4:
             self.articles.refresh()
+        elif index == 5:
+            self.company.refresh()
         elif index == 6:
             self.payments.refresh()
         elif index == 7:
