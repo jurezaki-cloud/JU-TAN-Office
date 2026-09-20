@@ -333,6 +333,36 @@ class Database:
         )
         """)
 
+        # Compatibility migration: Phase-8/main used invoices.number while the
+        # full Office repositories use invoices.invoice_number. Preserve existing
+        # business data and add/backfill the canonical column before indexes or UI
+        # queries run. This is intentionally idempotent.
+        invoice_cols = {
+            row[1] for row in cursor.execute("PRAGMA table_info(invoices)").fetchall()
+        }
+        if "invoice_number" not in invoice_cols:
+            cursor.execute("ALTER TABLE invoices ADD COLUMN invoice_number TEXT")
+            if "number" in invoice_cols:
+                cursor.execute(
+                    "UPDATE invoices SET invoice_number=number "
+                    "WHERE invoice_number IS NULL OR invoice_number=''"
+                )
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_invoice_number_unique "
+            "ON invoices(invoice_number) WHERE invoice_number IS NOT NULL AND invoice_number <> ''"
+        )
+
+        payment_cols = {
+            row[1] for row in cursor.execute("PRAGMA table_info(payments)").fetchall()
+        }
+        if payment_cols and "paid_date" not in payment_cols:
+            cursor.execute("ALTER TABLE payments ADD COLUMN paid_date TEXT")
+            if "payment_date" in payment_cols:
+                cursor.execute(
+                    "UPDATE payments SET paid_date=payment_date "
+                    "WHERE paid_date IS NULL OR paid_date=''"
+                )
+
         for sql in (
             "CREATE INDEX IF NOT EXISTS idx_customers_company ON customers(company)",
             "CREATE INDEX IF NOT EXISTS idx_customers_city ON customers(city)",
