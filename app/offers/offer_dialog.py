@@ -24,7 +24,7 @@ class OfferDialog(QDialog):
 
         heading = QLabel("UREJEVALNIK PONUDBE")
         heading.setStyleSheet("color:#0F766E;font-size:8pt;font-weight:800;letter-spacing:1px;")
-        layout.addWidget(heading)\n
+        layout.addWidget(heading)
         form = QFormLayout()
         form.setHorizontalSpacing(18)
         form.setVerticalSpacing(10)
