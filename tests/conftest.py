@@ -10,6 +10,9 @@ os.environ["JU_TAN_REPORT_DIR"] = str(_ROOT / "reports")
 os.environ["JU_TAN_BACKUP_DIR"] = str(_ROOT / "backups")
 os.environ["JU_TAN_LOG_DIR"] = str(_ROOT / "logs")
 os.environ["JU_TAN_DATABASE"] = str(_ROOT / "data" / "test.db")
+# Default to Qt's headless backend locally, but respect an explicit backend
+# supplied by CI (Xvfb uses xcb). Overwriting xcb here caused QApplication
+# to abort on Linux before GUI tests could start.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
