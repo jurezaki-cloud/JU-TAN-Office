@@ -28,6 +28,12 @@ def _init_db():
 
 @pytest.fixture
 def qt_app():
+    # GitHub's Linux runner is not a supported production platform for this
+    # Windows desktop app. Skip only tests that explicitly need QApplication
+    # in the core CI pass; a separate diagnostic job can force GUI execution.
+    if os.environ.get("CI") and os.name != "nt" and not os.environ.get("JU_TAN_FORCE_GUI_TESTS"):
+        pytest.skip("Qt GUI test is isolated from the core Linux CI suite")
+
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or QApplication([])
