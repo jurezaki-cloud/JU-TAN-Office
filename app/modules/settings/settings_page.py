@@ -20,7 +20,6 @@ from app.modules.settings.settings_controller import SettingsController
 from app.widgets.settings.about_card import AboutCard
 from app.widgets.settings.appearance_card import AppearanceCard
 from app.widgets.settings.backup_card import BackupCard
-from app.widgets.settings.company_card import CompanyCard
 from app.widgets.settings.fresh_zone_card import FreshZoneCard
 from app.widgets.settings.numbering_card import NumberingCard
 from app.widgets.settings.pdf_card import PdfCard
@@ -60,7 +59,6 @@ class SettingsPage(QWidget):
         self._grid.setHorizontalSpacing(12)
         self._grid.setVerticalSpacing(12)
 
-        self.company_card = CompanyCard()
         self.numbering_card = NumberingCard()
         self.appearance_card = AppearanceCard()
         self.pdf_card = PdfCard()
@@ -74,9 +72,6 @@ class SettingsPage(QWidget):
         scroll.setWidget(self._canvas)
         outer.addWidget(scroll)
 
-        self.company_card.save_clicked.connect(self._save)
-        self.company_card.reset_clicked.connect(self._reset)
-        self.company_card.logo_changed.connect(self.logo_changed.emit)
         self.appearance_card.theme_changed.connect(self._on_theme)
         self.appearance_card.changed.connect(self._apply_appearance)
         self.backup_card.backup_requested.connect(self._backup)
@@ -112,38 +107,35 @@ class SettingsPage(QWidget):
                 item.widget().setParent(self._canvas)
 
         if mode == "wide":
-            # Logical groups: company → PDF/numbering → look/travel → security →
-            # users → backup → about → fresh (RBAC-gated cards hide themselves)
-            self._grid.addWidget(self.company_card, 0, 0, 1, 2)
-            self._grid.addWidget(self.pdf_card, 1, 0)
-            self._grid.addWidget(self.numbering_card, 1, 1)
-            self._grid.addWidget(self.appearance_card, 2, 0)
-            self._grid.addWidget(self.travel_card, 2, 1)
-            self._grid.addWidget(self.security_card, 3, 0, 1, 2)
-            self._grid.addWidget(self.users_card, 4, 0, 1, 2)
-            self._grid.addWidget(self.backup_card, 5, 0, 1, 2)
-            self._grid.addWidget(self.about_card, 6, 0, 1, 2)
-            self._grid.addWidget(self.fresh_zone_card, 7, 0, 1, 2)
+            # Company identity has its own dedicated module. Settings contains
+            # application behaviour only, avoiding two editable sources.
+            self._grid.addWidget(self.pdf_card, 0, 0)
+            self._grid.addWidget(self.numbering_card, 0, 1)
+            self._grid.addWidget(self.appearance_card, 1, 0)
+            self._grid.addWidget(self.travel_card, 1, 1)
+            self._grid.addWidget(self.security_card, 2, 0, 1, 2)
+            self._grid.addWidget(self.users_card, 3, 0, 1, 2)
+            self._grid.addWidget(self.backup_card, 4, 0, 1, 2)
+            self._grid.addWidget(self.about_card, 5, 0, 1, 2)
+            self._grid.addWidget(self.fresh_zone_card, 6, 0, 1, 2)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 1)
         else:
-            self._grid.addWidget(self.company_card, 0, 0)
-            self._grid.addWidget(self.pdf_card, 1, 0)
-            self._grid.addWidget(self.numbering_card, 2, 0)
-            self._grid.addWidget(self.appearance_card, 3, 0)
-            self._grid.addWidget(self.travel_card, 4, 0)
-            self._grid.addWidget(self.security_card, 5, 0)
-            self._grid.addWidget(self.users_card, 6, 0)
-            self._grid.addWidget(self.backup_card, 7, 0)
-            self._grid.addWidget(self.about_card, 8, 0)
-            self._grid.addWidget(self.fresh_zone_card, 9, 0)
+            self._grid.addWidget(self.pdf_card, 0, 0)
+            self._grid.addWidget(self.numbering_card, 1, 0)
+            self._grid.addWidget(self.appearance_card, 2, 0)
+            self._grid.addWidget(self.travel_card, 3, 0)
+            self._grid.addWidget(self.security_card, 4, 0)
+            self._grid.addWidget(self.users_card, 5, 0)
+            self._grid.addWidget(self.backup_card, 6, 0)
+            self._grid.addWidget(self.about_card, 7, 0)
+            self._grid.addWidget(self.fresh_zone_card, 8, 0)
             self._grid.setColumnStretch(0, 1)
             self._grid.setColumnStretch(1, 0)
 
     def refresh(self):
         bundle = self.controller.load_bundle()
         extras = bundle["extras"]
-        self.company_card.set_values(bundle["company"], extras.get("swift", ""))
         self.numbering_card.set_values(extras.get("numbering", {}))
         self.appearance_card.set_values(extras.get("appearance", {}))
         self.pdf_card.set_values(extras.get("pdf", {}))
@@ -157,7 +149,6 @@ class SettingsPage(QWidget):
 
     def extras(self) -> dict:
         return {
-            "swift": self.company_card.values().get("swift", ""),
             "numbering": self.numbering_card.values(),
             "appearance": self.appearance_card.values(),
             "pdf": self.pdf_card.values(),
@@ -182,7 +173,7 @@ class SettingsPage(QWidget):
             extras["role"] = current_role()
             self.security_card.role.setCurrentText(current_role())
         appearance_before = dict(getattr(self, "_applied_appearance", {}) or {})
-        self.controller.save_bundle(self.company_card.values(), extras)
+        self.controller.save_extras(extras)
         if can("users"):
             set_identity(role=requested_role)
         timeout_sec = max(5, int(self.security_card.timeout.value())) * 60
@@ -287,7 +278,6 @@ class SettingsPage(QWidget):
         try:
             extras = self.controller.import_settings(Path(path))
             bundle = self.controller.load_bundle()
-            self.company_card.set_values(bundle["company"], extras.get("swift", ""))
             self.numbering_card.set_values(extras.get("numbering", {}))
             self.appearance_card.set_values(extras.get("appearance", {}))
             self.pdf_card.set_values(extras.get("pdf", {}))
