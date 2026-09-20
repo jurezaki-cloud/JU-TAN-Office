@@ -75,8 +75,12 @@ class InvoiceRepository:
         conn = self._connect()
         cursor = conn.cursor()
 
+        # Never rely on physical SQLite column order. Older Phase-8 databases
+        # have a different invoices layout; return the canonical Office tuple.
         cursor.execute("""
-            SELECT *
+            SELECT
+                id, invoice_number, customer_id, issue_date, due_date, status,
+                subtotal, discount, vat, total, notes, vat_liable, created_at
             FROM invoices
             WHERE id=?
         """, (invoice_id,))
@@ -203,34 +207,35 @@ class InvoiceRepository:
         conn = self._connect()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            INSERT INTO invoices(
-                invoice_number,
-                customer_id,
-                issue_date,
-                due_date,
-                status,
-                subtotal,
-                discount,
-                vat,
-                total,
-                notes,
-                vat_liable
-            )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)
-        """, (
-            invoice_number,
-            customer_id,
-            issue_date,
-            due_date,
-            status,
-            subtotal,
-            discount,
-            vat,
-            total,
-            notes,
-            vat_liable_int(vat_liable),
-        ))
+        columns = {
+            row[1] for row in cursor.execute("PRAGMA table_info(invoices)").fetchall()
+        }
+        # Phase-8 databases still contain a NOT NULL legacy `number` column.
+        # Dual-write it when present so upgrades can create invoices safely.
+        if "number" in columns:
+            cursor.execute("""
+                INSERT INTO invoices(
+                    number, invoice_number, customer_id, issue_date, due_date,
+                    status, subtotal, discount, vat, total, notes, vat_liable
+                )
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                invoice_number, invoice_number, customer_id, issue_date, due_date,
+                status, subtotal, discount, vat, total, notes,
+                vat_liable_int(vat_liable),
+            ))
+        else:
+            cursor.execute("""
+                INSERT INTO invoices(
+                    invoice_number, customer_id, issue_date, due_date, status,
+                    subtotal, discount, vat, total, notes, vat_liable
+                )
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                invoice_number, customer_id, issue_date, due_date, status,
+                subtotal, discount, vat, total, notes,
+                vat_liable_int(vat_liable),
+            ))
 
         conn.commit()
 
