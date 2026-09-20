@@ -136,6 +136,10 @@ def run():
     app = QApplication(sys.argv)
     apply_theme(app)
 
+    from app.services.license_gate import ensure_licensed
+    if not ensure_licensed():
+        return 1
+
     window = MainWindow()
     window.show()
 
