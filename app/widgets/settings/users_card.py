@@ -95,7 +95,13 @@ class UsersCard(QWidget):
         self.btn_reset.clicked.connect(self._reset_password)
         self.btn_remove.clicked.connect(self._remove)
         self._users: list[dict] = []
-        self.refresh()
+        # Visual shell only — user list loads via SettingsPage.refresh().
+        allowed = can("users")
+        self.setVisible(allowed)
+        self.btn_new.setEnabled(allowed)
+        self.btn_edit.setEnabled(allowed)
+        self.btn_reset.setEnabled(allowed)
+        self.btn_remove.setEnabled(allowed)
 
     def refresh(self) -> None:
         allowed = can("users")

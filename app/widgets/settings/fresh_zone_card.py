@@ -50,7 +50,10 @@ class FreshZoneCard(QWidget):
         self.btn_fresh.clicked.connect(self._open_wizard)
         card.body.addWidget(self.btn_fresh)
         layout.addWidget(card)
-        self.refresh()
+        # Visual shell only — RBAC refresh runs via SettingsPage.refresh().
+        allowed = can("fresh")
+        self.setVisible(allowed)
+        self.btn_fresh.setEnabled(allowed)
 
     def refresh(self) -> None:
         allowed = can("fresh")

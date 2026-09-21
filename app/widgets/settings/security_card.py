@@ -9,6 +9,7 @@ from app.widgets.cards.enterprise_card import EnterpriseCard
 class SecurityCard(QWidget):
     password_clicked = Signal()
     logout_clicked = Signal()
+    changed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -41,9 +42,15 @@ class SecurityCard(QWidget):
         self.btn_logout.setObjectName("SecondaryButton")
         self.btn_password.clicked.connect(self.password_clicked.emit)
         self.btn_logout.clicked.connect(self.logout_clicked.emit)
+        self.role.currentTextChanged.connect(self._emit_changed)
+        self.timeout.valueChanged.connect(self._emit_changed)
+        self.remember.toggled.connect(self._emit_changed)
         card.body.addWidget(self.btn_password)
         card.body.addWidget(self.btn_logout)
         layout.addWidget(card)
+
+    def _emit_changed(self, *_args) -> None:
+        self.changed.emit()
 
     def values(self) -> dict:
         return {
@@ -55,10 +62,18 @@ class SecurityCard(QWidget):
     def set_values(self, extras: dict) -> None:
         from app.core.permissions import can
 
-        role = extras.get("role") or "Administrator"
-        index = self.role.findText(role)
-        if index >= 0:
-            self.role.setCurrentIndex(index)
-        self.role.setEnabled(can("users"))
-        self.timeout.setValue(int(extras.get("session_timeout_min") or 30))
-        self.remember.setChecked(bool(extras.get("remember_user", True)))
+        self.role.blockSignals(True)
+        self.timeout.blockSignals(True)
+        self.remember.blockSignals(True)
+        try:
+            role = extras.get("role") or "Administrator"
+            index = self.role.findText(role)
+            if index >= 0:
+                self.role.setCurrentIndex(index)
+            self.role.setEnabled(can("users"))
+            self.timeout.setValue(int(extras.get("session_timeout_min") or 30))
+            self.remember.setChecked(bool(extras.get("remember_user", True)))
+        finally:
+            self.role.blockSignals(False)
+            self.timeout.blockSignals(False)
+            self.remember.blockSignals(False)

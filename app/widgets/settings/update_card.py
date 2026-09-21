@@ -123,7 +123,7 @@ class UpdateCard(QWidget):
         card.body.addLayout(actions)
 
         root.addWidget(card)
-        self.refresh()
+        # Visual shell only — version/status refresh via SettingsPage.refresh().
 
     def _set_status(self, text: str, kind: str) -> None:
         self.lbl_status.setText(text)

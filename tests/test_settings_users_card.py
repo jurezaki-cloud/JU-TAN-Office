@@ -71,6 +71,9 @@ def test_settings_page_inserts_users_and_fresh_cards_for_admin(qt_app):
     page.resize(1200, 900)
     page.show()
     qt_app.processEvents()
+    if not page._data_loaded:
+        page.refresh()
+    qt_app.processEvents()
 
     assert isinstance(page.users_card, UsersCard)
     assert isinstance(page.fresh_zone_card, FreshZoneCard)
@@ -103,6 +106,9 @@ def test_users_and_fresh_cards_hidden_without_permission(qt_app):
     page = SettingsPage()
     page.resize(1200, 900)
     page.show()
+    qt_app.processEvents()
+    if not page._data_loaded:
+        page.refresh()
     qt_app.processEvents()
 
     # Cards remain in the layout tree but RBAC hides them.

@@ -127,14 +127,26 @@ class StatusBadgeDelegate(QStyledItemDelegate):
             rect = option.rect.adjusted(6, 10, -6, -10)
 
         fill = QColor(color)
-        fill.setAlpha(28)
         border = QColor(color)
-        border.setAlpha(110)
+        # Warning badges: softer amber fill/border for a premium minimal look.
+        warning = QColor(semantic_color("WARNING"))
+        is_warning = (
+            color.red() == warning.red()
+            and color.green() == warning.green()
+            and color.blue() == warning.blue()
+        )
+        if is_warning:
+            fill.setAlpha(14)
+            border.setAlpha(72)
+        else:
+            fill.setAlpha(28)
+            border.setAlpha(110)
 
         painter.setPen(border)
         painter.setBrush(fill)
         painter.drawRoundedRect(rect, 999, 999)
 
+        # Warning text keeps full semantic WARNING for accessibility contrast.
         painter.setPen(color)
         # QSS uses pixel fonts (pointSize == -1). Never call setPointSize with
         # that sentinel — paint with an explicit pixel size instead.

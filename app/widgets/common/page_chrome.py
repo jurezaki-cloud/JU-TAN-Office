@@ -1,4 +1,10 @@
-"""Reusable page chrome — header, toolbar strip, empty state."""
+"""Reusable page chrome — header, toolbar strip, empty state.
+
+Enterprise title hierarchy (Phase 4.2):
+- Shell ``ToolbarTitle`` owns the module name (authoritative H1).
+- ``PageHeader`` is optional content chrome: lead description + primary action.
+  Titles are hidden by default so they never duplicate the shell.
+"""
 
 from __future__ import annotations
 
@@ -14,12 +20,12 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.ui.brand_icons import brand_icon
-from app.theme.tokens import SPACE_2, SPACE_3, SPACE_4
+from app.theme.tokens import SPACE_2, SPACE_3, SPACE_4, SPACE_5
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
 class PageHeader(QWidget):
-    """Title + optional description + optional primary action."""
+    """Optional page lead: description + primary action (no duplicate H1)."""
 
     action_clicked = Signal()
 
@@ -29,6 +35,7 @@ class PageHeader(QWidget):
         description: str = "",
         *,
         action_text: str | None = None,
+        show_title: bool = False,
         parent=None,
     ):
         super().__init__(parent)
@@ -42,8 +49,10 @@ class PageHeader(QWidget):
         text.setSpacing(2)
         self.title = QLabel(title)
         self.title.setObjectName("PageHeaderTitle")
+        self.title.setVisible(bool(title) and show_title)
         self.description = QLabel(description)
         self.description.setObjectName("PageHeaderDescription")
+        self.description.setWordWrap(True)
         self.description.setVisible(bool(description))
         text.addWidget(self.title)
         text.addWidget(self.description)
@@ -59,8 +68,11 @@ class PageHeader(QWidget):
             self.action.clicked.connect(self.action_clicked.emit)
             layout.addWidget(self.action, 0, Qt.AlignTop)
 
+        self._show_title = show_title
+
     def set_texts(self, title: str, description: str = "") -> None:
         self.title.setText(title)
+        self.title.setVisible(bool(title) and self._show_title)
         self.description.setText(description)
         self.description.setVisible(bool(description))
 
@@ -98,7 +110,7 @@ class DocumentListToolbar(QFrame):
 
 
 class EmptyState(EnterpriseCard):
-    """Intentional empty module state with optional CTA."""
+    """Module empty state — DashboardEmptyState typography + optional CTA."""
 
     action_clicked = Signal()
 
@@ -115,11 +127,12 @@ class EmptyState(EnterpriseCard):
         self.setMinimumHeight(220)
 
         self.title = QLabel(title)
-        self.title.setObjectName("EmptyStateTitle")
+        self.title.setObjectName("DashboardEmptyState")
         self.title.setAlignment(Qt.AlignCenter)
+        self.title.setWordWrap(True)
 
         self.subtitle = QLabel(subtitle)
-        self.subtitle.setObjectName("EmptyStateSubtitle")
+        self.subtitle.setObjectName("DashboardEmptyState")
         self.subtitle.setAlignment(Qt.AlignCenter)
         self.subtitle.setWordWrap(True)
 
@@ -131,9 +144,12 @@ class EmptyState(EnterpriseCard):
         self.action.clicked.connect(self.action_clicked.emit)
         self.action.setVisible(show_action)
 
+        self.body.setContentsMargins(SPACE_4, SPACE_5, SPACE_4, SPACE_5)
+        self.body.setSpacing(SPACE_2)
         self.body.addStretch()
         self.body.addWidget(self.title)
         self.body.addWidget(self.subtitle)
+        self.body.addSpacing(SPACE_3)
         self.body.addWidget(self.action, 0, Qt.AlignHCenter)
         self.body.addStretch()
 

@@ -23,6 +23,9 @@ def test_settings_page_inserts_license_card(qt_app):
     page.resize(1200, 900)
     page.show()
     qt_app.processEvents()
+    if not page._data_loaded:
+        page.refresh()
+    qt_app.processEvents()
 
     assert isinstance(page.license_card, LicenseCard)
     laid_out = _grid_widgets(page)

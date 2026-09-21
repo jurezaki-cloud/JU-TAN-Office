@@ -102,10 +102,17 @@ class NumberingCard(QWidget):
     def set_values(self, numbering: dict) -> None:
         for key, row in self.rows.items():
             values = numbering.get(key, {})
-            row["prefix"].setText(str(values.get("prefix", "")))
-            row["start"].setValue(int(values.get("start", 1)))
-            row["length"].setValue(int(values.get("length", 6)))
-            row["yearly_reset"].setChecked(bool(values.get("yearly_reset", True)))
+            widgets = (row["prefix"], row["start"], row["length"], row["yearly_reset"])
+            for widget in widgets:
+                widget.blockSignals(True)
+            try:
+                row["prefix"].setText(str(values.get("prefix", "")))
+                row["start"].setValue(int(values.get("start", 1)))
+                row["length"].setValue(int(values.get("length", 6)))
+                row["yearly_reset"].setChecked(bool(values.get("yearly_reset", True)))
+            finally:
+                for widget in widgets:
+                    widget.blockSignals(False)
         self._refresh_preview()
 
     def _on_changed(self, *_args):

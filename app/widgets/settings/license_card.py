@@ -218,7 +218,7 @@ class LicenseCard(QWidget):
 
         root.addWidget(card)
         self._breakpoint = None
-        self.refresh()
+        # Visual shell only — license state loads via SettingsPage.refresh().
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

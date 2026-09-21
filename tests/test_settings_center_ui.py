@@ -27,6 +27,13 @@ def _finish_scroll(page: SettingsPage, qt_app) -> None:
     qt_app.processEvents()
 
 
+def _ensure_settings_data(page: SettingsPage, qt_app) -> None:
+    """Flush deferred shell→data load after show()."""
+    if not page._data_loaded:
+        page.refresh()
+    qt_app.processEvents()
+
+
 def _section_offset_from_top(page: SettingsPage, key: str) -> int:
     target = page._anchor_for(key)
     assert target is not None
@@ -41,6 +48,7 @@ def test_settings_center_shell_and_nav(qt_app):
     page.resize(1280, 900)
     page.show()
     qt_app.processEvents()
+    _ensure_settings_data(page, qt_app)
 
     assert page.objectName() == "SettingsPage"
     assert isinstance(page.nav, SettingsNav)
@@ -70,6 +78,7 @@ def test_settings_nav_scrolls_every_category_to_section(qt_app):
     page.resize(1280, 820)
     page.show()
     qt_app.processEvents()
+    _ensure_settings_data(page, qt_app)
 
     expected = {
         "overview": page.section_overview,
@@ -113,6 +122,7 @@ def test_settings_nav_follows_manual_scroll(qt_app):
     page.resize(1280, 820)
     page.show()
     qt_app.processEvents()
+    _ensure_settings_data(page, qt_app)
 
     target = page.section_security
     y = target.mapTo(page._canvas, target.rect().topLeft()).y()

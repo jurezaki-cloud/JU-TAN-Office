@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QWidget
 from app.core.permissions import can, can_open_page
 from app.core.ui.brand_icons import brand_icon
 from app.theme.colors import semantic_color
+from app.theme.tokens import CONTROL_HEIGHT, SPACE_2
 from app.widgets.navigation.navigation import PAGE_INDEX
 
 
@@ -24,12 +25,12 @@ class ToolbarActions(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(SPACE_2)
 
         # Text "+ Novo" only — no plus icon (avoids "+ + Novo").
         self.btn_new = QPushButton("+ Novo")
         self.btn_new.setObjectName("PrimaryButton")
-        self.btn_new.setFixedHeight(34)
+        self.btn_new.setFixedHeight(CONTROL_HEIGHT)
         self.btn_new.setCursor(Qt.PointingHandCursor)
         self.btn_new.setToolTip("Ustvari nov dokument")
 
@@ -72,7 +73,7 @@ class ToolbarActions(QWidget):
 
         self.btn_lock = QPushButton()
         self.btn_lock.setObjectName("ToolbarIconButton")
-        self.btn_lock.setFixedSize(34, 34)
+        self.btn_lock.setFixedSize(CONTROL_HEIGHT, CONTROL_HEIGHT)
         self.btn_lock.setCursor(Qt.PointingHandCursor)
         self.btn_lock.setToolTip("Zakleni")
         self.btn_lock.setIcon(brand_icon("lock", color=muted, size=16))
@@ -80,7 +81,7 @@ class ToolbarActions(QWidget):
 
         self.btn_settings = QPushButton()
         self.btn_settings.setObjectName("ToolbarIconButton")
-        self.btn_settings.setFixedSize(34, 34)
+        self.btn_settings.setFixedSize(CONTROL_HEIGHT, CONTROL_HEIGHT)
         self.btn_settings.setCursor(Qt.PointingHandCursor)
         self.btn_settings.setToolTip("Nastavitve")
         self.btn_settings.setIcon(brand_icon("settings", color=muted, size=16))

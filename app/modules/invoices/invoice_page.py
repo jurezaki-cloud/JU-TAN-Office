@@ -1,7 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QLabel,
     QMessageBox,
 )
 from app.core.ui.notify import toast, toast_info
@@ -11,8 +10,7 @@ from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
 from app.modules.invoices.models.invoice_table_model import InvoiceTableModel
 from app.modules.invoices.invoice_dialog import InvoiceDialog
 from app.widgets.cards.enterprise_card import EnterpriseCard
-from app.widgets.common import DocumentListToolbar, PageHeader, ResponsiveStackedWidget
-from app.widgets.customers.empty_state import EmptyStateCard
+from app.widgets.common import DocumentListToolbar, EmptyState, ResponsiveStackedWidget
 from app.widgets.invoices.invoice_actions import InvoiceActions
 from app.widgets.invoices.invoice_table import InvoiceTable
 from app.widgets.invoices.search_field import InvoiceSearch
@@ -27,15 +25,6 @@ class InvoicePage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
-        title = QLabel("Računi")
-        title.setObjectName("PageTitle")
-        title.hide()
-        layout.addWidget(title)
-        self.header = PageHeader(
-            "Računi",
-            "Pregled, iskanje in upravljanje izdanih računov.",
-        )
-        layout.addWidget(self.header)
         toolbar = DocumentListToolbar()
         self.search_field = InvoiceSearch()
         self.search = self.search_field.input
@@ -61,7 +50,7 @@ class InvoicePage(QWidget):
         table_card.body.setContentsMargins(0, 0, 0, 0)
         table_card.body.setSpacing(0)
         table_card.body.addWidget(self.table)
-        self.empty_state = EmptyStateCard(
+        self.empty_state = EmptyState(
             "Ni računov",
             "Ustvarite prvi račun ali spremenite iskalni filter.",
             action_text="Nov račun",

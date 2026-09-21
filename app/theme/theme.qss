@@ -88,7 +88,8 @@ QLabel#ToolbarTitle {
     color: {{TEXT}};
     border: 1px solid {{BORDER}};
     border-radius: 8px;
-    padding: 6px 12px;
+    padding: 4px 12px 4px 8px;
+    font-size: 13px;
 }
 
 #ToolbarSearch:focus {
@@ -96,18 +97,22 @@ QLabel#ToolbarTitle {
     border-color: {{PRIMARY}};
 }
 
+#ToolbarSearch:hover {
+    border-color: {{PRIMARY}};
+}
+
 #ModernToolbar QPushButton#PrimaryButton,
 #ModernToolbar QPushButton#SecondaryButton,
 #ModernToolbar QPushButton#ToolbarIconButton {
-    min-height: 34px;
-    max-height: 34px;
+    min-height: 36px;
+    max-height: 36px;
     padding: 4px 14px;
     border-radius: 8px;
 }
 
 #ModernToolbar QPushButton#PrimaryButton {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 14px;
+    padding-right: 14px;
     font-weight: 700;
 }
 
@@ -116,8 +121,8 @@ QLabel#ToolbarTitle {
     color: {{TEXT}};
     border: 1px solid {{BORDER}};
     font-weight: 500;
-    min-width: 34px;
-    max-width: 34px;
+    min-width: 36px;
+    max-width: 36px;
     padding: 0;
 }
 
@@ -137,8 +142,8 @@ QToolButton#ToolbarUserButton {
     border-radius: 8px;
     padding: 4px 10px;
     font-weight: 600;
-    min-height: 34px;
-    max-height: 34px;
+    min-height: 36px;
+    max-height: 36px;
 }
 
 QToolButton#ToolbarUserButton:hover,
@@ -422,11 +427,13 @@ QFrame#DocumentEditorCard:hover {
 }
 
 QFrame#KpiCard[tone="primary"] {
-    border-left: 3px solid {{PRIMARY}};
+    border-left: 4px solid {{PRIMARY}};
+    background: {{SURFACE_ELEVATED}};
 }
 
 QFrame#KpiCard[tone="warning"] {
-    border-left: 3px solid {{WARNING}};
+    /* Soft amber accent — white card, no dominant orange rail */
+    border-left: 2px solid {{WARNING_SOFT}};
 }
 
 QFrame#KpiCard[tone="danger"] {
@@ -434,7 +441,22 @@ QFrame#KpiCard[tone="danger"] {
 }
 
 QFrame#KpiCard[tone="neutral"] {
-    border-left: 3px solid {{INFO}};
+    border-left: 3px solid {{BORDER}};
+}
+
+/* Hero business KPI — larger type, stronger primary emphasis */
+QFrame#KpiCard[prominence="dominant"] QLabel#KpiTitle {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: {{PRIMARY}};
+}
+
+QFrame#KpiCard[prominence="dominant"] QLabel#KpiValue {
+    font-size: 32px;
+    font-weight: 800;
+    color: {{TEXT}};
+    letter-spacing: -0.5px;
 }
 
 QFrame#DashboardWelcomeCard {
@@ -470,6 +492,14 @@ QLabel#KpiHint,
 QLabel#DashboardMuted {
     font-size: 11px;
     color: {{TEXT_MUTED}};
+}
+
+QLabel#DashboardEmptyState {
+    font-size: 12px;
+    font-weight: 500;
+    color: {{TEXT_MUTED}};
+    padding: 24px 16px;
+    line-height: 1.45;
 }
 
 QLabel#DashboardEyebrow {
@@ -542,8 +572,11 @@ QLabel#DashboardHealthSummary[kind="ok"] {
 }
 
 QLabel#DashboardHealthSummary[kind="warn"] {
-    color: {{WARNING}};
-    border: 1px solid {{WARNING}};
+    /* Neutral white card + small amber accent; text stays readable */
+    color: {{TEXT}};
+    border: 1px solid {{BORDER}};
+    background: {{SURFACE}};
+    border-left: 2px solid {{WARNING_SOFT}};
 }
 
 QLabel#DashboardHealthSummary[kind="bad"] {
@@ -885,12 +918,31 @@ NavigationButton:checked,
     font-weight: 600;
 }
 
+/* Disabled: muted text, no hover plate, no accent rail. */
 NavigationButton:disabled,
 #Sidebar NavigationButton:disabled {
     color: {{SIDEBAR_MUTED}};
     background: transparent;
+    border-left: 3px solid transparent;
 }
 
+NavigationButton:disabled:hover,
+#Sidebar NavigationButton:disabled:hover,
+NavigationButton:disabled:pressed,
+#Sidebar NavigationButton:disabled:pressed {
+    background: transparent;
+    color: {{SIDEBAR_MUTED}};
+}
+
+NavigationButton:disabled:checked,
+#Sidebar NavigationButton:disabled:checked {
+    background: transparent;
+    border-left: 3px solid {{SIDEBAR_MUTED}};
+    color: {{SIDEBAR_MUTED}};
+    font-weight: 600;
+}
+
+/* Focus: Fluent-style soft plate + muted rail (never a full frame outline). */
 NavigationButton:focus,
 #Sidebar NavigationButton:focus {
     outline: none;
@@ -900,13 +952,23 @@ NavigationButton:focus,
 
 NavigationButton:focus:!checked,
 #Sidebar NavigationButton:focus:!checked {
-    /* Background only — changing border-left draws a temporary frame outline. */
     background: {{SIDEBAR_HOVER}};
-    border-left: 3px solid transparent;
+    border-left: 3px solid {{SIDEBAR_MUTED}};
 }
 
 NavigationButton:checked:focus,
 #Sidebar NavigationButton:checked:focus {
+    background: {{SIDEBAR_ACTIVE}};
+    border-left: 3px solid {{PRIMARY}};
+}
+
+#Sidebar[collapsed="true"] NavigationButton:focus:!checked {
+    background: {{SIDEBAR_HOVER}};
+    border-left: 3px solid {{SIDEBAR_MUTED}};
+}
+
+#Sidebar[collapsed="true"] NavigationButton:checked:focus {
+    background: transparent;
     border-left: 3px solid {{PRIMARY}};
 }
 
@@ -1026,18 +1088,15 @@ QFrame#EmptyStateCard {
     border-radius: {{CARD_RADIUS}};
 }
 
-QLabel#EmptyStateTitle {
-    font-size: 20px;
-    font-weight: 700;
-    color: {{TEXT}};
-    letter-spacing: -0.2px;
-}
-
+/* Legacy aliases — prefer DashboardEmptyState on EmptyState chrome. */
+QLabel#EmptyStateTitle,
 QLabel#EmptyStateSubtitle {
-    font-size: 13px;
-    color: {{SECONDARY}};
+    font-size: 12px;
+    font-weight: 500;
+    color: {{TEXT_MUTED}};
+    padding: 4px 16px;
+    line-height: 1.45;
     max-width: 420px;
-    padding: 0 24px 8px 24px;
 }
 
 QLabel#CustomerStatusLabel {

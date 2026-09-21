@@ -2,7 +2,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QLabel,
     QSplitter,
     QMessageBox,
 )
@@ -14,8 +13,7 @@ from app.modules.offers.models.offer_table_model import OfferTableModel
 from app.modules.offers.offer_dialog import OfferDialog
 from app.modules.offers.offer_details import OfferDetails
 from app.widgets.cards.enterprise_card import EnterpriseCard
-from app.widgets.common import DocumentListToolbar, PageHeader, ResponsiveStackedWidget
-from app.widgets.customers.empty_state import EmptyStateCard
+from app.widgets.common import DocumentListToolbar, EmptyState, ResponsiveStackedWidget
 from app.widgets.invoices.status_badge import StatusBadgeDelegate
 from app.widgets.offers.offer_actions import OfferActions
 from app.widgets.offers.offer_table import OfferTable
@@ -31,15 +29,6 @@ class OfferPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
-        title = QLabel("Ponudbe")
-        title.setObjectName("PageTitle")
-        title.hide()
-        layout.addWidget(title)
-        self.header = PageHeader(
-            "Ponudbe",
-            "Priprava, spremljanje in pretvorba ponudb v račune.",
-        )
-        layout.addWidget(self.header)
         toolbar = DocumentListToolbar()
         self.actions = OfferActions()
         self.btn_new = self.actions.btn_new
@@ -71,7 +60,7 @@ class OfferPage(QWidget):
         splitter.setStretchFactor(1, 2)
         splitter.setSizes([720, 360])
         splitter.setChildrenCollapsible(False)
-        self.empty_state = EmptyStateCard(
+        self.empty_state = EmptyState(
             "Ni ponudb",
             "Ustvarite prvo ponudbo, da začnete evidenco.",
             action_text="Nova ponudba",

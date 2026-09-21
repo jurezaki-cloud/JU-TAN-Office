@@ -1,8 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
     QSplitter,
     QMessageBox,
     QStackedWidget,
@@ -14,9 +12,9 @@ from app.modules.customers.customer_dialog import CustomerDialog
 from app.modules.customers.customer_details import CustomerDetails
 from app.database.customer_repository import customer_repository
 from app.widgets.cards.enterprise_card import EnterpriseCard
+from app.widgets.common import EmptyState
 from app.widgets.customers.customer_actions import CustomerActions
 from app.widgets.customers.customer_table import CustomerTable
-from app.widgets.customers.empty_state import EmptyStateCard
 from app.widgets.customers.search_field import CustomerSearch
 from app.widgets.customers.status_bar import CustomerStatusBar
 from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
@@ -32,11 +30,6 @@ class CustomerPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
-
-        title = QLabel("Stranke")
-        title.setObjectName("PageTitle")
-        title.hide()
-        layout.addWidget(title)
 
         from app.widgets.common.page_chrome import PageToolbar
 
@@ -72,9 +65,10 @@ class CustomerPage(QWidget):
         splitter.setSizes([720, 360])
         splitter.setChildrenCollapsible(False)
 
-        self.empty_state = EmptyStateCard(
+        self.empty_state = EmptyState(
             "Ni strank",
             "Dodajte prvo stranko, da začnete evidenco.",
+            action_text="Nova stranka",
         )
 
         self.content_stack = QStackedWidget()

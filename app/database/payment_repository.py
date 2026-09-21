@@ -90,6 +90,44 @@ class PaymentRepository:
         conn.close()
         return float(total or 0)
 
+    def sums_by_invoice_ids(self, invoice_ids) -> dict:
+        """Return ``{invoice_id: paid_sum}`` in one GROUP BY query (dashboard N+1 fix).
+
+        Invoices with no payment rows map to ``0.0``. Empty input yields ``{}``.
+        """
+        self.ensure_schema()
+        ids = []
+        seen = set()
+        for raw in invoice_ids or ():
+            if raw is None:
+                continue
+            try:
+                invoice_id = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if invoice_id in seen:
+                continue
+            seen.add(invoice_id)
+            ids.append(invoice_id)
+        if not ids:
+            return {}
+
+        placeholders = ",".join("?" * len(ids))
+        conn = db.connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT invoice_id, COALESCE(SUM(amount), 0)
+            FROM payments
+            WHERE invoice_id IN ({placeholders})
+            GROUP BY invoice_id
+            """,
+            ids,
+        )
+        paid = {row[0]: float(row[1] or 0) for row in cursor.fetchall()}
+        conn.close()
+        return {invoice_id: paid.get(invoice_id, 0.0) for invoice_id in ids}
+
     def list_for_invoice(self, invoice_id):
         self.ensure_schema()
         conn = db.connect()
@@ -114,6 +152,24 @@ class PaymentRepository:
         if rem < 0:
             rem = money(0)
         return as_float(rem)
+
+    def remaining_map(self, totals_by_id) -> dict:
+        """Batch ``remaining()`` for many invoices using one payment SUM query.
+
+        *totals_by_id* maps ``invoice_id -> invoice_total``. Money math matches
+        :meth:`remaining` exactly (no accounting-rule changes).
+        """
+        if not totals_by_id:
+            return {}
+        paid_by_id = self.sums_by_invoice_ids(list(totals_by_id.keys()))
+        result = {}
+        for invoice_id, invoice_total in totals_by_id.items():
+            paid = to_decimal(paid_by_id.get(invoice_id, 0))
+            rem = to_decimal(invoice_total) - paid
+            if rem < 0:
+                rem = money(0)
+            result[invoice_id] = as_float(rem)
+        return result
 
     def sync_invoice_status(self, invoice_id, invoice_total) -> str:
         """Update invoice status from payment ledger. Returns new status."""

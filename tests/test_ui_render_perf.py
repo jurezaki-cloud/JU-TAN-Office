@@ -25,6 +25,39 @@ def test_toolbar_has_no_graphics_shadow(qt_app):
     assert bar.graphicsEffect() is None
 
 
+def test_toolbar_search_wired(qt_app):
+    """ToolbarSearch is mounted and exposed for Ctrl+F / page filter forwarding."""
+    bar = ModernToolbar()
+    bar.show()
+    bar.resize(1100, 52)
+    qt_app.processEvents()
+    assert bar.search is not None
+    assert bar.search.objectName() == "ToolbarSearch"
+    assert bar.search.isVisible()
+    bar.search.setText("probe")
+    assert bar.search.text() == "probe"
+    bar.set_context(1)
+    assert bar.search.text() == ""
+    bar.close()
+
+
+def test_dashboard_kpi_hierarchy(qt_app):
+    """Primary Promet KPI is dominant; warning/danger tones preserved."""
+    dash = Dashboard()
+    assert dash._kpi_revenue.property("tone") == "primary"
+    assert dash._kpi_revenue.property("prominence") == "dominant"
+    assert dash._kpi_unpaid.property("tone") == "warning"
+    assert dash._kpi_overdue.property("tone") == "danger"
+    assert dash._kpi_invoices.property("tone") == "neutral"
+    assert dash._kpi_revenue.minimumHeight() > dash._kpi_unpaid.minimumHeight()
+    dash._place_widgets(1400)
+    assert dash._breakpoint == "wide"
+    # Hero revenue occupies two columns in the wide KPI row.
+    pos = dash._grid.getItemPosition(dash._grid.indexOf(dash._kpi_revenue))
+    assert pos[2] == 1  # row span
+    assert pos[3] == 2  # column span
+
+
 def test_dashboard_defers_data_until_show(qt_app):
     dash = Dashboard()
     assert dash._data_loaded is False

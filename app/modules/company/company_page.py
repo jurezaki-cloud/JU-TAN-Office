@@ -46,7 +46,7 @@ class CompanyPage(QWidget):
 
         header = PageHeader(
             "Podjetje",
-            "Osnovni podatki, davčni status in kontakt za dokumente.",
+            "Podatki se uporabljajo na dokumentih in v PDF izvozu.",
         )
         body.addWidget(header)
 

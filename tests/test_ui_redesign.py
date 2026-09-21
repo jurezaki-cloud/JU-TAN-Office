@@ -106,8 +106,11 @@ def test_novo_menu_respects_rbac(qt_app, monkeypatch):
 def test_page_components_create(qt_app):
     header = PageHeader("Računi", "Test", action_text="+ Nov račun")
     assert header.title.text() == "Računi"
+    assert header.title.isHidden()  # shell ToolbarTitle owns the H1
+    assert not header.description.isHidden()
     empty = EmptyState("Ni še računov", "Ustvarite prvi račun.", action_text="+ Nov račun")
     assert empty.title.text() == "Ni še računov"
+    assert empty.title.objectName() == "DashboardEmptyState"
     header.close()
     empty.close()
 

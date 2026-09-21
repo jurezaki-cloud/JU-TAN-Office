@@ -24,6 +24,30 @@ from app.modules.invoices.invoice_item_dialog import (
 from app.widgets.document_editor import DocumentWorkspace
 from app.widgets.invoices.status_badge import invoice_badge
 
+# Only drafts remain editable. Issued / paid / cancelled (and payment-derived
+# non-draft statuses) open in a locked read-only view.
+_EDITABLE_INVOICE_STATUSES = frozenset({"", "Osnutek"})
+_LOCK_MESSAGES = {
+    "Izdan": "Izdan račun je zaklenjen in je samo za ogled.",
+    "Plačan": "Plačan račun je zaklenjen in je samo za ogled.",
+    "Plačano": "Plačan račun je zaklenjen in je samo za ogled.",
+    "Delno plačan": "Delno plačan račun je zaklenjen in je samo za ogled.",
+    "Delno plačano": "Delno plačan račun je zaklenjen in je samo za ogled.",
+    "Storniran": "Storniran račun je zaklenjen in je samo za ogled.",
+    "Stornirano": "Storniran račun je zaklenjen in je samo za ogled.",
+}
+_DEFAULT_LOCK_MESSAGE = "Račun je zaklenjen in je samo za ogled."
+
+
+def invoice_is_editable(status: str | None) -> bool:
+    """Return True only for draft invoices."""
+    return (status or "").strip() in _EDITABLE_INVOICE_STATUSES
+
+
+def invoice_lock_message(status: str | None) -> str:
+    key = (status or "").strip()
+    return _LOCK_MESSAGES.get(key, _DEFAULT_LOCK_MESSAGE)
+
 
 class InvoiceDialog(EnterpriseDialog):
 
@@ -39,6 +63,7 @@ class InvoiceDialog(EnterpriseDialog):
                 state_key="dialog.invoice",
             )
             self.invoice_id = invoice_id
+            self.read_only = False
             self.setObjectName("InvoiceDialog")
             self.bind_save(self.save)
             from app.utils.vat import company_vat_liable, parse_vat_liable
@@ -56,6 +81,14 @@ class InvoiceDialog(EnterpriseDialog):
             self.customer_panel = self.workspace.customer_panel
             self.items_panel = self.workspace.items_panel
             self.totals_panel = self.workspace.totals_panel
+
+            self.lock_notice = QLabel("")
+            self.lock_notice.setObjectName("InvoiceLockNotice")
+            self.lock_notice.setWordWrap(True)
+            self.lock_notice.hide()
+            workspace_layout = self.workspace.layout()
+            if workspace_layout is not None:
+                workspace_layout.insertWidget(1, self.lock_notice)
 
             self.lbl_number = self.doc_header.lbl_number
             self.customer = self.customer_panel.customer
@@ -145,13 +178,24 @@ class InvoiceDialog(EnterpriseDialog):
             self.lbl_vat_notice.show()
 
     def _apply_financial_lock(self):
-        """Issued financial history is viewable, but paid/cancelled invoices are immutable."""
+        """Draft invoices stay editable; issued / paid / cancelled open read-only."""
         invoice = invoice_repository.get_by_id(self.invoice_id)
         if invoice is None:
             return
         status = (invoice[5] or "").strip()
-        if status not in ("Plačan", "Storniran"):
+        if invoice_is_editable(status):
+            self.read_only = False
+            self.lock_notice.hide()
+            self.lock_notice.clear()
             return
+
+        self.read_only = True
+        message = invoice_lock_message(status)
+        self.lock_notice.setText(message)
+        self.lock_notice.show()
+        self.setWindowTitle("Pregled računa")
+        self.set_heading("Pregled računa")
+
         for widget in (
             self.customer, self.issue_date, self.due_date, self.notes,
             self.items_table, self.btn_add_item, self.btn_remove_item,
@@ -233,6 +277,9 @@ class InvoiceDialog(EnterpriseDialog):
 
     def add_item(self):
 
+        if self.read_only:
+            return
+
         dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
 
         if dialog.exec():
@@ -246,6 +293,9 @@ class InvoiceDialog(EnterpriseDialog):
     # =====================================================
 
     def remove_item(self):
+
+        if self.read_only:
+            return
 
         indexes = self.items_table.selectionModel().selectedRows()
 
@@ -282,6 +332,9 @@ class InvoiceDialog(EnterpriseDialog):
         import time
 
         if getattr(self, "_saving", False):
+            return
+        if self.read_only:
+            toast(self, self.lock_notice.text() or _DEFAULT_LOCK_MESSAGE)
             return
         if not allow("write", self):
             return

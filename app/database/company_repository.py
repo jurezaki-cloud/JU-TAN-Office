@@ -164,6 +164,27 @@ class CompanyRepository:
         conn.commit()
         conn.close()
 
+    def update_document_prefixes(self, invoice_prefix: str, offer_prefix: str) -> None:
+        """Mirror settings.json invoice/offer prefixes into company (operational copy)."""
+        self.ensure_schema()
+        inv = (invoice_prefix or "").strip() or "RAC"
+        off = (offer_prefix or "").strip() or "PON"
+        current = self.get_company()
+        if current and (current[16] or "") == inv and (current[17] or "") == off:
+            return
+        conn = db.connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE company
+            SET invoice_prefix=?, offer_prefix=?
+            WHERE id = 1
+            """,
+            (inv, off),
+        )
+        conn.commit()
+        conn.close()
+
     def save(
         self,
         name,

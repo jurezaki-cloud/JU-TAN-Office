@@ -2,7 +2,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QLabel,
     QSplitter,
     QMessageBox,
 )
@@ -13,8 +12,7 @@ from app.modules.orders.models.order_table_model import OrderTableModel
 from app.modules.orders.order_dialog import OrderDialog
 from app.modules.orders.order_details import OrderDetails
 from app.widgets.cards.enterprise_card import EnterpriseCard
-from app.widgets.common import DocumentListToolbar, PageHeader, ResponsiveStackedWidget
-from app.widgets.customers.empty_state import EmptyStateCard
+from app.widgets.common import DocumentListToolbar, EmptyState, ResponsiveStackedWidget
 from app.widgets.invoices.status_badge import StatusBadgeDelegate
 from app.widgets.orders.order_actions import OrderActions
 from app.widgets.orders.order_table import OrderTable
@@ -30,15 +28,6 @@ class OrderPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
-        title = QLabel("Naročila")
-        title.setObjectName("PageTitle")
-        title.hide()
-        layout.addWidget(title)
-        self.header = PageHeader(
-            "Naročila",
-            "Spremljanje naročil, dobav in statusov.",
-        )
-        layout.addWidget(self.header)
         toolbar = DocumentListToolbar()
         self.actions = OrderActions()
         self.btn_new = self.actions.btn_new
@@ -69,7 +58,7 @@ class OrderPage(QWidget):
         splitter.setStretchFactor(1, 2)
         splitter.setSizes([720, 360])
         splitter.setChildrenCollapsible(False)
-        self.empty_state = EmptyStateCard(
+        self.empty_state = EmptyState(
             "Ni naročil",
             "Ustvarite prvo naročilo, da začnete evidenco.",
             action_text="Novo naročilo",

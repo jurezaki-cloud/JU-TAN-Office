@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QMessageBox,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -16,7 +17,9 @@ from PySide6.QtWidgets import (
 from app.core.constants import BACKUP_DIR
 from app.core.permissions import can, set_identity
 from app.core.session import session
+from app.core.ui.brand_icons import brand_icon
 from app.core.ui.notify import toast
+from app.core.ui.sizes import FOOTER_HEIGHT, OUTER_MARGIN
 from app.modules.settings.settings_controller import SettingsController
 from app.theme.tokens import SPACE_3, SPACE_4
 from app.widgets.common.page_chrome import PageHeader
@@ -38,6 +41,8 @@ from app.widgets.settings.users_card import UsersCard
 
 
 class SettingsPage(QWidget):
+    """Settings Center — shell paints first; data loads after first show."""
+
     save_settings = Signal()
     reset_settings = Signal()
     theme_changed = Signal(str)
@@ -45,11 +50,18 @@ class SettingsPage(QWidget):
     restore_requested = Signal()
     logo_changed = Signal(str)
 
+    # LazyPage.refresh skips until first deferred load completes.
+    defers_initial_refresh = True
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.setObjectName("SettingsPage")
         self.controller = SettingsController()
+        self._data_loaded = False
+        self._dirty = False
+        self._baseline: dict | None = None
+        self._applied_appearance: dict = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -63,7 +75,7 @@ class SettingsPage(QWidget):
 
         self.header = PageHeader(
             "Nastavitve",
-            "Settings Center — konfiguracija aplikacije, dostopa in sistema.",
+            "Upravljajte dokumente, dostop, varnostne kopije in sistem.",
         )
         chrome_layout.addWidget(self.header)
 
@@ -176,7 +188,27 @@ class SettingsPage(QWidget):
         scroll.verticalScrollBar().valueChanged.connect(self._on_scroll_changed)
         body.addWidget(scroll, 1)
         chrome_layout.addLayout(body, 1)
-        outer.addWidget(chrome)
+        outer.addWidget(chrome, 1)
+
+        footer = QWidget()
+        footer.setObjectName("DialogFooter")
+        footer.setFixedHeight(FOOTER_HEIGHT)
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(OUTER_MARGIN, 0, OUTER_MARGIN, 0)
+        footer_layout.setSpacing(SPACE_3)
+        footer_layout.addStretch(1)
+        self.btn_cancel = QPushButton("Prekliči")
+        self.btn_cancel.setObjectName("SecondaryButton")
+        self.btn_cancel.setCursor(Qt.PointingHandCursor)
+        self.btn_cancel.setMinimumHeight(36)
+        self.btn_save = QPushButton("Shrani")
+        self.btn_save.setObjectName("PrimaryButton")
+        self.btn_save.setCursor(Qt.PointingHandCursor)
+        self.btn_save.setMinimumHeight(36)
+        self.btn_save.setIcon(brand_icon("save", color="#FFFFFF", size=14))
+        footer_layout.addWidget(self.btn_cancel)
+        footer_layout.addWidget(self.btn_save)
+        outer.addWidget(footer)
 
         self.appearance_card.theme_changed.connect(self._on_theme)
         self.appearance_card.changed.connect(self._apply_appearance)
@@ -188,15 +220,30 @@ class SettingsPage(QWidget):
         self.security_card.password_clicked.connect(self._change_password)
         self.security_card.logout_clicked.connect(self._logout)
         self.fresh_zone_card.fresh_completed.connect(self._on_fresh_completed)
+        self.numbering_card.changed.connect(self._mark_dirty)
+        self.security_card.changed.connect(self._mark_dirty)
+        self.travel_card.changed.connect(self._mark_dirty)
+        self.pdf_card.changed.connect(self._mark_dirty)
+        self.btn_save.clicked.connect(self._save)
+        self.btn_cancel.clicked.connect(self._reset)
 
         self._breakpoint = None
         self._place_widgets(1400)
-        self.refresh()
+        self._sync_nav_visibility()
+        self._set_dirty(False)
         from app.core.ui.window_state import remember_layout
 
         remember_layout(self, "page.settings")
         # Theme is applied at process startup (before MainWindow). Do NOT re-apply
         # here — that made opening Nastavitve the first moment DARK appeared.
+        # Heavy card data loads after first paint via showEvent → defer(refresh).
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._data_loaded:
+            from app.core.async_load import defer
+
+            defer(self.refresh)
 
     def hideEvent(self, event):
         if self._scroll_anim is not None:
@@ -409,6 +456,10 @@ class SettingsPage(QWidget):
             appearance=extras.get("appearance", {}),
         )
         self._sync_nav_visibility()
+        self._applied_appearance = dict(self.appearance_card.values())
+        self._baseline = self._confirmable_extras()
+        self._data_loaded = True
+        self._set_dirty(False)
 
     def _sync_nav_visibility(self) -> None:
         users_ok = can("users")
@@ -428,14 +479,57 @@ class SettingsPage(QWidget):
             **self.security_card.values(),
         }
 
+    def _confirmable_extras(self) -> dict:
+        """Settings that require explicit Save (appearance auto-saves separately)."""
+        data = self.extras()
+        data.pop("appearance", None)
+        return data
+
+    def _mark_dirty(self, *_args) -> None:
+        if not self._data_loaded:
+            return
+        dirty = self._confirmable_extras() != (self._baseline or {})
+        self._set_dirty(dirty)
+
+    def _set_dirty(self, dirty: bool) -> None:
+        self._dirty = bool(dirty)
+        self.btn_save.setEnabled(self._dirty)
+        self.btn_cancel.setEnabled(self._dirty)
+
+    def is_dirty(self) -> bool:
+        return bool(self._dirty)
+
+    def confirm_leave(self) -> bool:
+        """Return False to abort navigation when unsaved confirmable changes exist."""
+        if not self._dirty:
+            return True
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("Neshranjene nastavitve")
+        box.setText("Imate neshranjene spremembe nastavitev.")
+        box.setInformativeText("Želite shraniti spremembe pred odhodom?")
+        save_btn = box.addButton("Shrani", QMessageBox.AcceptRole)
+        discard_btn = box.addButton("Zavrzi", QMessageBox.DestructiveRole)
+        cancel_btn = box.addButton("Prekliči", QMessageBox.RejectRole)
+        box.setDefaultButton(save_btn)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is save_btn:
+            self._save()
+            return not self._dirty
+        if clicked is discard_btn:
+            self._reset()
+            return True
+        if clicked is cancel_btn:
+            return False
+        return False
+
     def _save(self):
         from app.core.permissions import can, current_role
 
         extras = self.extras()
         requested_role = self.security_card.role.currentText()
         if requested_role != current_role() and not can("users"):
-            from PySide6.QtWidgets import QMessageBox
-
             QMessageBox.warning(
                 self,
                 "Vloga",
@@ -470,6 +564,8 @@ class SettingsPage(QWidget):
         # setStyleSheet on every company save was a freeze amplifier.
         if self.appearance_card.values() != appearance_before:
             self._apply_appearance()
+        self._baseline = self._confirmable_extras()
+        self._set_dirty(False)
         self.save_settings.emit()
         toast(self, "Nastavitve so shranjene.")
 
@@ -561,12 +657,14 @@ class SettingsPage(QWidget):
             return
         try:
             extras = self.controller.import_settings(Path(path))
-            bundle = self.controller.load_bundle()
             self.numbering_card.set_values(extras.get("numbering", {}))
             self.appearance_card.set_values(extras.get("appearance", {}))
             self.pdf_card.set_values(extras.get("pdf", {}))
             self.travel_card.set_values(extras.get("travel_orders", {}))
+            self.security_card.set_values(extras)
             self._apply_appearance()
+            self._baseline = self._confirmable_extras()
+            self._set_dirty(False)
             toast(self, "Nastavitve so uvožene.")
         except Exception as exc:
             from app.core.errors import handle_error

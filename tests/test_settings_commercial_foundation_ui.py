@@ -26,6 +26,9 @@ def test_commercial_foundation_cards_in_settings(qt_app):
     page.resize(1280, 900)
     page.show()
     qt_app.processEvents()
+    if not page._data_loaded:
+        page.refresh()
+    qt_app.processEvents()
 
     laid_out = _grid_widgets(page)
     assert isinstance(page.license_card, LicenseCard)

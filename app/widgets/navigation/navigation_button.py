@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QPushButton, QSizePolicy
 
@@ -41,6 +41,11 @@ class NavigationButton(QPushButton):
         self.clicked.connect(self._emit_index)
         self.toggled.connect(self._on_toggled)
 
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.EnabledChange, QEvent.StyleChange):
+            self.refresh_active_icon()
+
     def set_collapsed(self, collapsed: bool) -> None:
         self._collapsed = bool(collapsed)
         if self._collapsed:
@@ -49,6 +54,7 @@ class NavigationButton(QPushButton):
         else:
             self.setText(self._full_text)
             self.setToolTip(self._full_text)
+        self.refresh_active_icon()
 
     def set_icon_name(self, name: str) -> None:
         self._icon_name = name
@@ -72,7 +78,7 @@ class NavigationButton(QPushButton):
         self.setIconSize(QSize(ICON_SIZE_MD, ICON_SIZE_MD))
 
     def refresh_active_icon(self) -> None:
-        """Accent icon when selected; muted otherwise.
+        """Accent when selected; muted when idle or disabled.
 
         Collapsed selected uses sidebar text color so the left rail alone
         carries selection weight (matches expanded visual balance).
@@ -81,7 +87,9 @@ class NavigationButton(QPushButton):
             return
         from app.core.ui.brand_icons import brand_icon
 
-        if self.isChecked() and not self._collapsed:
+        if not self.isEnabled():
+            color = semantic_color("SIDEBAR_MUTED", "#94A3B8")
+        elif self.isChecked() and not self._collapsed:
             color = semantic_color("PRIMARY", "#059669")
         else:
             color = semantic_color("SIDEBAR_TEXT", "#F8FAFC")

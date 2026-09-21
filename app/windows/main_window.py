@@ -126,6 +126,8 @@ class MainWindow(QMainWindow):
         self.toolbar.new_customer_clicked.connect(lambda: self.customers.new_customer())
         self.toolbar.settings_clicked.connect(lambda: self.change_page(8))
         self.toolbar.lock_clicked.connect(self._manual_lock)
+        self.toolbar.search_changed.connect(self._on_toolbar_search)
+        self.toolbar.search_activated.connect(self._on_toolbar_search_activated)
         self.toolbar.set_context(0)
         apply_native_titlebar_theme(self, theme_manager.mode)
 
@@ -153,7 +155,17 @@ class MainWindow(QMainWindow):
         # Build lazy page shell before the stack switch so navigation does not
         # flash an empty placeholder. Data refresh runs on the next tick.
         page = self.stack.widget(index)
-        if isinstance(page, LazyPage) and not page.is_loaded:
+        current = self.stack.currentWidget()
+        if current is not None and current is not page:
+            leave_target = current
+            if isinstance(current, LazyPage) and current.is_loaded:
+                leave_target = current.ensure()
+            guard = getattr(leave_target, "confirm_leave", None)
+            if callable(guard) and not guard():
+                return
+
+        first_lazy_load = isinstance(page, LazyPage) and not page.is_loaded
+        if first_lazy_load:
             page.ensure()
 
         # Switch the stack first so navigation paints immediately, then refresh.
@@ -165,14 +177,14 @@ class MainWindow(QMainWindow):
         finally:
             self.setUpdatesEnabled(True)
 
-        defer(lambda idx=index: self._finish_page_change(idx))
+        defer(lambda idx=index, first=first_lazy_load: self._finish_page_change(idx, first))
 
-    def _finish_page_change(self, index: int) -> None:
+    def _finish_page_change(self, index: int, first_lazy_load: bool = False) -> None:
         # Drop stale deferred callbacks from rapid navigation so we do not
         # refresh modules the user already left (settings/license/DB work).
         if self.stack.currentIndex() != index:
             return
-        self._refresh_page(index)
+        self._refresh_page(index, skip_deferred_initial=first_lazy_load)
         bar = self.statusBar()
         if hasattr(bar, "refresh"):
             bar.refresh()
@@ -180,7 +192,7 @@ class MainWindow(QMainWindow):
 
         save_ui_session({"page": index})
 
-    def _refresh_page(self, index: int) -> None:
+    def _refresh_page(self, index: int, *, skip_deferred_initial: bool = False) -> None:
         if index == 0:
             self.dashboard.refresh()
         elif index == 1:
@@ -199,6 +211,9 @@ class MainWindow(QMainWindow):
         elif index == 7:
             self.analytics.refresh()
         elif index == 8:
+            # Settings shell paints first; showEvent owns the initial data load.
+            if skip_deferred_initial:
+                return
             self.settings.refresh()
         elif index == 9:
             self.orders.refresh()
@@ -219,11 +234,44 @@ class MainWindow(QMainWindow):
         elif index == 17:
             self.travel_orders.refresh()
 
-    def _toolbar_search(self, text: str):
-        page = self.stack.currentWidget()
+    def _on_toolbar_search(self, text: str) -> None:
+        """Forward shell search text to the active module filter field."""
+        from PySide6.QtWidgets import QLineEdit
+
+        page = self._current_page(ensure=False)
+        if page is None:
+            return
         search = getattr(page, "search", None)
-        if search is not None and hasattr(search, "setText"):
+        if isinstance(search, QLineEdit) and search.text() != text:
             search.setText(text)
+
+    def _on_toolbar_search_activated(self, text: str) -> None:
+        """Enter: focus page search if present, otherwise open command palette."""
+        from PySide6.QtWidgets import QLineEdit
+
+        from app.core.ui.command_palette import CommandPalette
+
+        page = self._current_page(ensure=True)
+        search = getattr(page, "search", None) if page is not None else None
+        if isinstance(search, QLineEdit):
+            if search.text() != text:
+                search.setText(text)
+            search.setFocus()
+            search.selectAll()
+            return
+        dialog = CommandPalette(self)
+        if dialog.exec():
+            index = dialog.chosen_index()
+            if index is not None:
+                self.change_page(index)
+
+    def _current_page(self, *, ensure: bool = True):
+        page = self.stack.currentWidget()
+        if isinstance(page, LazyPage):
+            if not page.is_loaded and not ensure:
+                return None
+            return page.ensure()
+        return page
 
     def _manual_lock(self) -> None:
         from app.core.idle_guard import get_idle_guard

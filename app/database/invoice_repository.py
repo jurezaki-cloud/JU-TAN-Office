@@ -91,6 +91,42 @@ class InvoiceRepository:
 
         return row
 
+    def get_due_dates_map(self, invoice_ids=None) -> dict:
+        """Return ``{invoice_id: due_date}`` in a single query (dashboard N+1 fix).
+
+        When *invoice_ids* is ``None``, every invoice is included. An empty
+        iterable yields ``{}`` without hitting the database.
+        """
+        conn = self._connect()
+        cursor = conn.cursor()
+        if invoice_ids is None:
+            cursor.execute("SELECT id, due_date FROM invoices")
+        else:
+            ids = []
+            seen = set()
+            for raw in invoice_ids:
+                if raw is None:
+                    continue
+                try:
+                    invoice_id = int(raw)
+                except (TypeError, ValueError):
+                    continue
+                if invoice_id in seen:
+                    continue
+                seen.add(invoice_id)
+                ids.append(invoice_id)
+            if not ids:
+                conn.close()
+                return {}
+            placeholders = ",".join("?" * len(ids))
+            cursor.execute(
+                f"SELECT id, due_date FROM invoices WHERE id IN ({placeholders})",
+                ids,
+            )
+        rows = cursor.fetchall()
+        conn.close()
+        return {row[0]: row[1] for row in rows}
+
     def search(self, text):
 
         conn = self._connect()

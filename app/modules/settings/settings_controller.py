@@ -93,19 +93,55 @@ def default_settings() -> dict:
 class SettingsController:
 
     def load_bundle(self) -> dict:
+        """Load company + extras.
+
+        Source of truth for invoice/offer *prefixes* is settings.json
+        (``extras["numbering"]``). Company columns are an operational mirror
+        used by invoice/offer numbering — never overlay them back onto the
+        Settings UI (that made saved prefixes look unsaved after reopen).
+        """
         extras = self.load_extras()
         company = company_repository.get_company()
         numbering = extras["numbering"]
         if company:
-            if company[16]:
-                numbering["invoice"]["prefix"] = company[16]
+            numbering, seeded = self._resolve_document_prefixes(numbering, company)
+            extras["numbering"] = numbering
+            if seeded:
+                # Persist one-time legacy seed so reopen matches company.
+                self._write_extras(extras, audit_event=False)
+            # Live counters stay mirrored from company (not prefixes).
             if company[18] is not None:
                 numbering["invoice"]["start"] = int(company[18] or 1)
-            if company[17]:
-                numbering["offer"]["prefix"] = company[17]
             if company[19] is not None:
                 numbering["offer"]["start"] = int(company[19] or 1)
+            self._sync_document_prefixes_to_company(numbering)
+            company = company_repository.get_company()
         return {"company": company, "extras": extras}
+
+    @staticmethod
+    def _resolve_document_prefixes(numbering: dict, company) -> tuple[dict, bool]:
+        """settings.json wins; seed from company only when settings still defaults."""
+        seeded = False
+        inv_default = DOC_DEFAULTS["invoice"]["prefix"]
+        off_default = DOC_DEFAULTS["offer"]["prefix"]
+        company_inv = (company[16] or "").strip()
+        company_off = (company[17] or "").strip()
+        settings_inv = str((numbering.get("invoice") or {}).get("prefix") or inv_default)
+        settings_off = str((numbering.get("offer") or {}).get("prefix") or off_default)
+
+        if company_inv and settings_inv == inv_default and company_inv != inv_default:
+            numbering.setdefault("invoice", {})["prefix"] = company_inv
+            seeded = True
+        if company_off and settings_off == off_default and company_off != off_default:
+            numbering.setdefault("offer", {})["prefix"] = company_off
+            seeded = True
+        return numbering, seeded
+
+    @staticmethod
+    def _sync_document_prefixes_to_company(numbering: dict) -> None:
+        inv = (numbering.get("invoice") or {}).get("prefix") or DOC_DEFAULTS["invoice"]["prefix"]
+        off = (numbering.get("offer") or {}).get("prefix") or DOC_DEFAULTS["offer"]["prefix"]
+        company_repository.update_document_prefixes(str(inv), str(off))
 
     def load_extras(self) -> dict:
         data = default_settings()
@@ -161,6 +197,9 @@ class SettingsController:
             existing.update(secret_plain)
             merged["secrets_blob"] = seal(existing)
         write_json_atomic(SETTINGS_PATH, stamp(merged))
+        # Keep company operational prefixes in sync when numbering is saved.
+        if isinstance(merged.get("numbering"), dict):
+            self._sync_document_prefixes_to_company(merged["numbering"])
         if audit_event:
             audit("settings", "save")
 

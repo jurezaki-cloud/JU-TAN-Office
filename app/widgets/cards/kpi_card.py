@@ -1,9 +1,11 @@
 from PySide6.QtWidgets import QLabel, QSizePolicy
 
+from app.theme.tokens import SPACE_2, SPACE_4, SPACE_5
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
 class KpiCard(EnterpriseCard):
+    """Metric tile. Use tone='primary' + dominant=True for the hero business KPI."""
 
     def __init__(
         self,
@@ -13,13 +15,17 @@ class KpiCard(EnterpriseCard):
         parent=None,
         *,
         tone: str | None = None,
+        dominant: bool = False,
     ):
         super().__init__("KpiCard", parent)
 
-        self.setMinimumHeight(118)
+        self._dominant = dominant
+        self.setMinimumHeight(136 if dominant else 118)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         if tone:
             self.setProperty("tone", tone)
+        if dominant:
+            self.setProperty("prominence", "dominant")
 
         self.caption = QLabel(title)
         self.caption.setObjectName("KpiTitle")
@@ -30,8 +36,12 @@ class KpiCard(EnterpriseCard):
         self.hint = QLabel(hint)
         self.hint.setObjectName("KpiHint")
 
-        self.body.setSpacing(6)
-        self.body.setContentsMargins(20, 18, 20, 18)
+        if dominant:
+            self.body.setSpacing(SPACE_2)
+            self.body.setContentsMargins(SPACE_5, SPACE_4, SPACE_5, SPACE_4)
+        else:
+            self.body.setSpacing(6)
+            self.body.setContentsMargins(SPACE_5, 18, SPACE_5, 18)
         self.body.addWidget(self.caption)
         self.body.addWidget(self.value)
         self.body.addWidget(self.hint)

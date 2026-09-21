@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QScrollArea,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -52,20 +53,21 @@ class Dashboard(QWidget):
         self._grid = QGridLayout(self._canvas)
         self._grid.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_4)
         self._grid.setHorizontalSpacing(SPACE_3)
-        self._grid.setVerticalSpacing(SPACE_3)
+        self._grid.setVerticalSpacing(SPACE_4)
 
         self._welcome = WelcomeHeader()
-        self._kpi_invoices = KpiCard(
-            "Število računov", "0", "Vsi dokumenti", tone="neutral"
-        )
+        # Primary business KPI first — visually dominant; values/calc unchanged.
         self._kpi_revenue = KpiCard(
-            "Promet", "0,00 €", "Skupni promet", tone="primary"
+            "Promet", "0,00 €", "Skupni promet", tone="primary", dominant=True
         )
         self._kpi_unpaid = KpiCard(
             "Neplačano", "0,00 €", "Odprti računi", tone="warning"
         )
         self._kpi_overdue = KpiCard(
             "Zapadlo", "0,00 €", "Po roku plačila", tone="danger"
+        )
+        self._kpi_invoices = KpiCard(
+            "Število računov", "0", "Vsi dokumenti", tone="neutral"
         )
         self._chart_card = self._build_chart_card()
         self._quick_card = QuickActionsCard()
@@ -135,7 +137,19 @@ class Dashboard(QWidget):
         self.invoice_table.horizontalHeader().setStretchLastSection(True)
         self.invoice_table.setMinimumHeight(200)
         self.invoice_table.setItemDelegateForColumn(3, StatusBadgeDelegate(self.invoice_table))
-        card.body.addWidget(self.invoice_table)
+
+        self._invoices_empty = QLabel(
+            "Ni računov\nUstvarite prvi račun za pregled dokumentov."
+        )
+        self._invoices_empty.setObjectName("DashboardEmptyState")
+        self._invoices_empty.setAlignment(Qt.AlignCenter)
+        self._invoices_empty.setWordWrap(True)
+        self._invoices_empty.setMinimumHeight(200)
+
+        self._invoices_stack = QStackedWidget()
+        self._invoices_stack.addWidget(self.invoice_table)
+        self._invoices_stack.addWidget(self._invoices_empty)
+        card.body.addWidget(self._invoices_stack)
         return card
 
     def _build_activity_card(self) -> EnterpriseCard:
@@ -154,7 +168,19 @@ class Dashboard(QWidget):
         self.activity_list.setObjectName("DashboardActivity")
         self.activity_list.setMinimumHeight(200)
         self.activity_list.setFocusPolicy(Qt.NoFocus)
-        card.body.addWidget(self.activity_list)
+
+        self._activity_empty = QLabel(
+            "Ni zadnjih aktivnosti\nRačuni, ponudbe in stranke se prikažejo tukaj."
+        )
+        self._activity_empty.setObjectName("DashboardEmptyState")
+        self._activity_empty.setAlignment(Qt.AlignCenter)
+        self._activity_empty.setWordWrap(True)
+        self._activity_empty.setMinimumHeight(200)
+
+        self._activity_stack = QStackedWidget()
+        self._activity_stack.addWidget(self.activity_list)
+        self._activity_stack.addWidget(self._activity_empty)
+        card.body.addWidget(self._activity_stack)
         return card
 
     def showEvent(self, event):
@@ -169,7 +195,8 @@ class Dashboard(QWidget):
         self._place_widgets(self.width())
 
     def _place_widgets(self, width: int) -> None:
-        if width >= 1180:
+        # Breakpoints measured on the dashboard page (inside the shell chrome).
+        if width >= 1100:
             mode = "wide"
         elif width >= 760:
             mode = "medium"
@@ -188,40 +215,47 @@ class Dashboard(QWidget):
                     item.widget().setParent(self._canvas)
 
             kpis = (
-                self._kpi_invoices,
                 self._kpi_revenue,
                 self._kpi_unpaid,
                 self._kpi_overdue,
+                self._kpi_invoices,
             )
 
             if mode == "wide":
-                self._grid.addWidget(self._welcome, 0, 0, 1, 4)
-                for column, card in enumerate(kpis):
-                    self._grid.addWidget(card, 1, column)
-                self._grid.addWidget(self._chart_card, 2, 0, 1, 2)
-                self._grid.addWidget(self._quick_card, 2, 2)
-                self._grid.addWidget(self._health_card, 2, 3)
-                self._grid.addWidget(self._invoices_card, 3, 0, 1, 2)
-                self._grid.addWidget(self._activity_card, 3, 2, 1, 2)
-                for column in range(4):
-                    self._grid.setColumnStretch(column, 1)
+                self._grid.addWidget(self._welcome, 0, 0, 1, 5)
+                # Hero Promet spans two columns; supporting KPIs share the rest.
+                self._grid.addWidget(self._kpi_revenue, 1, 0, 1, 2)
+                self._grid.addWidget(self._kpi_unpaid, 1, 2)
+                self._grid.addWidget(self._kpi_overdue, 1, 3)
+                self._grid.addWidget(self._kpi_invoices, 1, 4)
+                self._grid.addWidget(self._chart_card, 2, 0, 1, 3)
+                self._grid.addWidget(self._quick_card, 2, 3)
+                self._grid.addWidget(self._health_card, 2, 4)
+                self._grid.addWidget(self._invoices_card, 3, 0, 1, 3)
+                self._grid.addWidget(self._activity_card, 3, 3, 1, 2)
+                self._grid.setColumnStretch(0, 2)
+                self._grid.setColumnStretch(1, 2)
+                self._grid.setColumnStretch(2, 1)
+                self._grid.setColumnStretch(3, 1)
+                self._grid.setColumnStretch(4, 1)
                 self._grid.setRowStretch(2, 1)
                 self._grid.setRowStretch(3, 1)
             elif mode == "medium":
                 self._grid.addWidget(self._welcome, 0, 0, 1, 2)
-                self._grid.addWidget(self._kpi_invoices, 1, 0)
-                self._grid.addWidget(self._kpi_revenue, 1, 1)
+                self._grid.addWidget(self._kpi_revenue, 1, 0, 1, 2)
                 self._grid.addWidget(self._kpi_unpaid, 2, 0)
                 self._grid.addWidget(self._kpi_overdue, 2, 1)
-                self._grid.addWidget(self._chart_card, 3, 0, 1, 2)
-                self._grid.addWidget(self._quick_card, 4, 0)
-                self._grid.addWidget(self._health_card, 4, 1)
-                self._grid.addWidget(self._invoices_card, 5, 0)
-                self._grid.addWidget(self._activity_card, 5, 1)
+                self._grid.addWidget(self._kpi_invoices, 3, 0, 1, 2)
+                self._grid.addWidget(self._chart_card, 4, 0, 1, 2)
+                self._grid.addWidget(self._quick_card, 5, 0)
+                self._grid.addWidget(self._health_card, 5, 1)
+                self._grid.addWidget(self._invoices_card, 6, 0)
+                self._grid.addWidget(self._activity_card, 6, 1)
                 self._grid.setColumnStretch(0, 1)
                 self._grid.setColumnStretch(1, 1)
                 self._grid.setColumnStretch(2, 0)
                 self._grid.setColumnStretch(3, 0)
+                self._grid.setColumnStretch(4, 0)
             else:
                 self._grid.addWidget(self._welcome, 0, 0)
                 row = 1
@@ -237,6 +271,7 @@ class Dashboard(QWidget):
                 self._grid.setColumnStretch(1, 0)
                 self._grid.setColumnStretch(2, 0)
                 self._grid.setColumnStretch(3, 0)
+                self._grid.setColumnStretch(4, 0)
         finally:
             self._canvas.setUpdatesEnabled(True)
 
@@ -253,14 +288,18 @@ class Dashboard(QWidget):
             offers = offer_repository.get_all()
             customers = customer_repository.get_all()
             revenue = float(invoice_repository.get_total_revenue() or 0)
+
+            invoice_ids = [row[0] for row in invoices]
+            due_dates = invoice_repository.get_due_dates_map(invoice_ids)
+            totals_by_id = {row[0]: float(row[4] or 0) for row in invoices}
+            remainings = payment_repository.remaining_map(totals_by_id)
+
             unpaid = 0.0
             overdue = 0.0
             for row in invoices:
-                full = invoice_repository.get_by_id(row[0])
-                due = full[4] if full else None
+                due = due_dates.get(row[0])
                 badge = invoice_badge(row[5], due)
-                total = float(row[4] or 0)
-                outstanding = payment_repository.remaining(row[0], total)
+                outstanding = remainings.get(row[0], float(row[4] or 0))
                 if badge in ("Neplačano", "Delno plačano", "Zapadlo"):
                     unpaid += outstanding
                 if badge == "Zapadlo":
@@ -276,7 +315,7 @@ class Dashboard(QWidget):
             self._kpi_overdue.set_value(self._money(overdue))
 
             self.chart.set_points(self._chart_points())
-            self._fill_invoices(invoices[:8])
+            self._fill_invoices(invoices[:8], due_dates)
             self._fill_activity(invoices, offers, customers)
         finally:
             self.setUpdatesEnabled(True)
@@ -301,26 +340,23 @@ class Dashboard(QWidget):
 
         return points
 
-    def _fill_invoices(self, rows) -> None:
-        from app.database.invoice_repository import invoice_repository
-
-        self.invoice_table.setRowCount(len(rows))
+    def _fill_invoices(self, rows, due_dates=None) -> None:
         if not rows:
-            self.invoice_table.setRowCount(1)
-            empty = QTableWidgetItem("Ni računov")
-            empty.setFlags(Qt.NoItemFlags)
-            self.invoice_table.setItem(0, 0, empty)
-            self.invoice_table.setSpan(0, 0, 1, 4)
+            self.invoice_table.setRowCount(0)
+            self.invoice_table.clearSpans()
+            self._invoices_stack.setCurrentWidget(self._invoices_empty)
             return
 
+        self._invoices_stack.setCurrentWidget(self.invoice_table)
         self.invoice_table.clearSpans()
+        self.invoice_table.setRowCount(len(rows))
+        due_dates = due_dates or {}
         for row, invoice in enumerate(rows):
             number = str(invoice[1] if len(invoice) > 1 else "")
             issued = str(invoice[2] if len(invoice) > 2 else "")
             total = invoice[4] if len(invoice) > 4 else 0
             raw_status = str(invoice[5] if len(invoice) > 5 else "")
-            full = invoice_repository.get_by_id(invoice[0]) if invoice else None
-            due = full[4] if full else None
+            due = due_dates.get(invoice[0]) if invoice else None
             status = invoice_badge(raw_status, due)
 
             values = [number, issued, self._money(total), status]
@@ -351,10 +387,10 @@ class Dashboard(QWidget):
             events.append(f"Stranka {name}")
 
         if not events:
-            item = QListWidgetItem("Ni zadnjih aktivnosti")
-            self.activity_list.addItem(item)
+            self._activity_stack.setCurrentWidget(self._activity_empty)
             return
 
+        self._activity_stack.setCurrentWidget(self.activity_list)
         for text in events[:8]:
             self.activity_list.addItem(QListWidgetItem(text))
 

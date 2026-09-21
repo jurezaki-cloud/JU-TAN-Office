@@ -22,6 +22,8 @@ class LightColors:
     SUCCESS_HOVER = "#15803D"
     WARNING = "#D97706"
     WARNING_HOVER = "#B45309"
+    # Soft amber for rails / subtle indicators — keep WARNING for semantic text.
+    WARNING_SOFT = "rgba(217, 119, 6, 0.45)"
     DANGER = "#DC2626"
     DANGER_HOVER = "#B91C1C"
     INFO = "#2563EB"
@@ -57,6 +59,8 @@ class DarkColors:
     SUCCESS_HOVER = "#16A34A"
     WARNING = "#FBBF24"
     WARNING_HOVER = "#F59E0B"
+    # Soft amber for rails / subtle indicators — keep WARNING for semantic text.
+    WARNING_SOFT = "rgba(251, 191, 36, 0.40)"
     DANGER = "#F87171"
     DANGER_HOVER = "#EF4444"
     INFO = "#60A5FA"
