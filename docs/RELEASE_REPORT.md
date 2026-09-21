@@ -56,5 +56,5 @@ Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb p
 
 ## Znane omejitve
 
-- Authenticode je pripravljen; brez `JU_TAN_PFX` ostane unsigned (OK za razvoj/RC). Produkcijski gate: `-RequireSigned` (glej `docs/SIGNING.md`).
+- Razvojni/RC buildi ne zahtevajo certifikata. Produkcijski podpis: certifikat `CN=JU-TAN Studio` v `Cert:\CurrentUser\My` (ali `JU_TAN_PFX` kot fallback); gate `-RequireSigned` (glej `docs/SIGNING.md`).
 - Posodobitveni kanal (`updates/latest.json`) je pripravljen; zunanji feed je konfiguracija okolja

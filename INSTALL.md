@@ -8,9 +8,7 @@
 # Razvoj / RC (certifikat ni potreben):
 .\scripts\build_release.ps1
 
-# Produkcijski podpisani release (zahteva JU_TAN_PFX + signtool):
-# $env:JU_TAN_PFX = "C:\certs\ju-tan.pfx"
-# $env:JU_TAN_PFX_PASSWORD = "***"
+# Produkcijski podpisani release (Cert:\CurrentUser\My CN=JU-TAN Studio, ali JU_TAN_PFX):
 # .\scripts\build_release.ps1 -RequireSigned
 ```
 
@@ -33,7 +31,7 @@ Ob odstranitvi se **ne** zbrišejo baza, backupi in dokumenti.
 | .NET Runtime | **ni potreben** |
 | SQL Server | **ni potreben** |
 | VC++ Runtime | običajno v paketu PyInstaller |
-| Podpisan Setup | opcijsko (`JU_TAN_PFX`); obvezno le z `-RequireSigned` |
+| Podpisan Setup | opcijsko (certifikat `CN=JU-TAN Studio` ali `JU_TAN_PFX`); obvezno le z `-RequireSigned` |
 
 ## Prvi zagon
 

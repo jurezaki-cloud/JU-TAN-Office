@@ -35,14 +35,16 @@ WAL + `crash.flag` + osnutki v `drafts/`. Integrity check ob zagonu.
 # RC / notranji build (brez certifikata):
 .\scripts\build_release.ps1
 
-# Podpisan produkcijski release:
-$env:JU_TAN_PFX = "C:\certs\ju-tan.pfx"
-$env:JU_TAN_PFX_PASSWORD = "***"
+# Podpisan produkcijski release (Cert:\CurrentUser\My, CN=JU-TAN Studio):
 .\scripts\build_release.ps1 -RequireSigned
 .\scripts\verify_release_signatures.ps1 -RequireSigned
+
+# Alternativa (CI / migracija): PFX
+# $env:JU_TAN_PFX = "C:\certs\ju-tan.pfx"
+# $env:JU_TAN_PFX_PASSWORD = "***"
 ```
 
-Vrstni red: build → podpis EXE → installer → podpis Setup → `dist/SHA256SUMS.txt`. Glej `docs/SIGNING.md`. Oznaka git: `v1.0.0`.
+Vrstni red: build → podpis EXE → installer → podpis Setup → `signtool verify` → `dist/SHA256SUMS.txt`. Glej `docs/SIGNING.md`. Oznaka git: `v1.0.0`.
 
 ## Zasebnost
 

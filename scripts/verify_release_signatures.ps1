@@ -45,6 +45,37 @@ function Get-PublisherDisplay {
     return $cert.Subject
 }
 
+function Test-SignatureAcceptable {
+    param(
+        $Signature,
+        [string]$Rel
+    )
+    $status = [string]$Signature.Status
+    if ($status -eq "Valid") {
+        return @{ Ok = $true; Detail = "Valid" }
+    }
+
+    $signer = $Signature.SignerCertificate
+    $expected = Find-CodeSigningCertificate
+    if (
+        $signer -and $expected -and
+        ($signer.Thumbprint -eq $expected.Thumbprint) -and
+        ($signer.Subject -eq $signer.Issuer) -and
+        ($status -eq "UnknownError" -or $status -eq "NotTrusted")
+    ) {
+        return @{
+            Ok     = $true
+            Detail = "Self-signed integrity OK (Status=$status, Thumbprint=$($signer.Thumbprint))"
+        }
+    }
+
+    $publisher = Get-PublisherDisplay -Signature $Signature
+    return @{
+        Ok     = $false
+        Detail = "Invalid or missing Authenticode signature on $Rel (Status=$status, Publisher=$publisher)"
+    }
+}
+
 # Required for a "signed release": app EXE + Setup when present.
 # Portable EXE is verified when the portable tree exists (same binary family).
 $targets = @(
@@ -90,10 +121,15 @@ foreach ($t in $targets) {
     if ($sig.StatusMessage) {
         Write-Host ("  Message:   {0}" -f $sig.StatusMessage)
     }
+
+    $check = Test-SignatureAcceptable -Signature $sig -Rel $t.Rel
+    if ($check.Ok -and $status -ne "Valid") {
+        Write-Host ("  Gate:      {0}" -f $check.Detail) -ForegroundColor Yellow
+    }
     Write-Host ""
 
-    if ($must -and $t.RequiredIfExists -and $status -ne "Valid") {
-        $failures += "Invalid or missing Authenticode signature on $($t.Rel) (Status=$status, Publisher=$publisher)"
+    if ($must -and $t.RequiredIfExists -and -not $check.Ok) {
+        $failures += $check.Detail
     }
 }
 

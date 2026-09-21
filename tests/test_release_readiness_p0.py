@@ -131,6 +131,7 @@ def test_signing_readiness_doc_present():
     assert path.is_file()
     text = path.read_text(encoding="utf-8")
     assert "JU_TAN_PFX" in text
+    assert "CN=JU-TAN Studio" in text
     assert "signtool" in text.lower()
     assert "RequireSigned" in text or "JU_TAN_REQUIRE_SIGNED" in text
     assert "SHA256SUMS" in text
@@ -140,18 +141,21 @@ def test_signing_readiness_doc_present():
     build = (ROOT / "scripts" / "build_release.ps1").read_text(encoding="utf-8")
     assert "AuthenticodeSigning.ps1" in build
     assert "Invoke-AuthenticodeSign" in build
-    assert "Write-Checksums" in build
+    assert "Sign-Installer" in build
+    assert "Create-Checksum" in build
     assert "verify_release_signatures.ps1" in build
     # Build order: sign app EXE before portable / installer; checksums after setup signing
     assert build.index("Invoke-AuthenticodeSign -Path $appExe") < build.index(
         "Compress-Archive -Path $portable"
     )
-    setup_sign_at = build.index("Invoke-AuthenticodeSign -Path $setup")
-    assert "Write-Checksums" in build[setup_sign_at:]
+    setup_sign_at = build.index("Sign-Installer -Path $setup")
+    assert "Create-Checksum" in build[setup_sign_at:]
     assert "verify_release_signatures.ps1" in build[setup_sign_at:]
 
     lib = (ROOT / "scripts" / "AuthenticodeSigning.ps1").read_text(encoding="utf-8")
     assert "Find-SignTool" in lib
+    assert "Find-CodeSigningCertificate" in lib
+    assert "Verify-Signature" in lib
     assert "JU_TAN_TIMESTAMP_URL" in lib
     assert "Get-JuTanTimestampUrl" in lib
 

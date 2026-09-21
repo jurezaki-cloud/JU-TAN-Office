@@ -15,7 +15,7 @@ Build: Production / 64-bit / RELEASE
 
 ## Podpisovanje
 
-Razvojni/RC buildi ne zahtevajo certifikata. Produkcijski podpis: nastavite `JU_TAN_PFX` in zaženite `.\scripts\build_release.ps1 -RequireSigned`, nato `.\scripts\verify_release_signatures.ps1 -RequireSigned`. Glej `docs/SIGNING.md`.
+Razvojni/RC buildi ne zahtevajo certifikata. Produkcijski podpis: certifikat `CN=JU-TAN Studio` v `Cert:\CurrentUser\My` (ali `JU_TAN_PFX` kot fallback), nato `.\scripts\build_release.ps1 -RequireSigned` in `.\scripts\verify_release_signatures.ps1 -RequireSigned`. Glej `docs/SIGNING.md`.
 
 ## Vsebina 1.0
 

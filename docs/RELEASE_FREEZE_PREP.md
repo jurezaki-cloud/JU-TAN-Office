@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-21  
 **Branch:** `main` @ `0b0160c` (tracking `origin/main`)  
-**Version:** `APP_VERSION=1.0.0` / `APP_CHANNEL=GOLD` / `SCHEMA_VERSION=2`  
+**Version:** `APP_VERSION=1.0.0` / `APP_CHANNEL=GOLD` / `SCHEMA_VERSION=3`  
 **Scope of this step:** classify working tree for freeze — **no build, no tag, no functional code changes**.
 
 ---

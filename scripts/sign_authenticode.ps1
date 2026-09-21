@@ -23,7 +23,8 @@ Usage:
   .\scripts\sign_authenticode.ps1 -Path dist\JU-TAN-Office\JU-TAN-Office.exe
   .\scripts\sign_authenticode.ps1 -Path a.exe,b.exe -Required
 
-Environment: JU_TAN_PFX, JU_TAN_PFX_PASSWORD, JU_TAN_TIMESTAMP_URL, JU_TAN_SIGNTOOL, JU_TAN_REQUIRE_SIGNED
+Environment: certificate store CN=JU-TAN Studio, or JU_TAN_PFX / JU_TAN_PFX_PASSWORD,
+JU_TAN_TIMESTAMP_URL, JU_TAN_SIGNTOOL, JU_TAN_REQUIRE_SIGNED
 See docs/SIGNING.md
 "@
     exit 0

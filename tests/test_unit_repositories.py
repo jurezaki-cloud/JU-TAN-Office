@@ -13,16 +13,18 @@ import pytest
 
 
 def test_customer_repository_crud():
+    # Unique company name: session DB is shared and other tests seed contact="Test".
+    company = "RepoCRUD Unit d.o.o."
     customer_repository.add(
-        "Test d.o.o.", "Ana", "Ulica 1", "1000", "Ljubljana",
+        company, "Ana", "Ulica 1", "1000", "Ljubljana",
         "SI", "12345678", "a@test.si", "040000000",
     )
     rows = customer_repository.get_all()
-    assert any(row[1] == "Test d.o.o." for row in rows)
-    found = customer_repository.search("Test")
+    assert any(row[1] == company for row in rows)
+    found = [row for row in customer_repository.search(company) if row[1] == company]
     assert found
     row = customer_repository.get_by_id(found[0][0])
-    assert row[1] == "Test d.o.o."
+    assert row[1] == company
     customer_repository.delete(found[0][0])
     assert customer_repository.get_by_id(found[0][0]) is None
 

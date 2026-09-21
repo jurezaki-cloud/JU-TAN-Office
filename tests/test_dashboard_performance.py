@@ -16,7 +16,7 @@ PAST = (date.today() - timedelta(days=10)).isoformat()
 
 def _seed_customer(name: str) -> int:
     customer_repository.add(
-        name, "Test", "", "1000", "Ljubljana", "SI", "", "dash-perf@t.si", "",
+        name, "Dash", "", "1000", "Ljubljana", "SI", "", "dash-perf@t.si", "",
     )
     return customer_repository.search(name)[0][0]
 

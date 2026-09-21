@@ -53,7 +53,9 @@ Assert-True (Test-Path "scripts/verify_release_signatures.ps1") "Missing verify_
 Assert-True (Test-Path "docs/SIGNING.md") "Missing docs/SIGNING.md"
 $build = Get-Content "scripts/build_release.ps1" -Raw
 Assert-True ($build -match 'Invoke-AuthenticodeSign') "build_release.ps1 missing Invoke-AuthenticodeSign"
-Assert-True ($build -match 'Write-Checksums') "build_release.ps1 missing Write-Checksums"
+Assert-True ($build -match 'Sign-Installer') "build_release.ps1 missing Sign-Installer"
+Assert-True ($build -match 'Create-Checksum') "build_release.ps1 missing Create-Checksum"
+Assert-True ($build -match 'Find-CodeSigningCertificate') "build_release.ps1 missing Find-CodeSigningCertificate"
 Assert-True ($build -match 'verify_release_signatures\.ps1') "build_release.ps1 missing verify_release_signatures.ps1"
 
 # --- Update channel readiness
