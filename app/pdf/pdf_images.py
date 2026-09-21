@@ -1,14 +1,42 @@
+from __future__ import annotations
+
+import sys
 from pathlib import Path
 
 from reportlab.lib.units import mm
 from reportlab.platypus import Image, Spacer
 
 
+def _existing_image_path(path: str) -> Path | None:
+    """Resolve user assets and PyInstaller-bundled resources reliably."""
+    if not path:
+        return None
+
+    raw = Path(path)
+    candidates = [raw]
+    if not raw.is_absolute():
+        # Source checkout / normal Python execution.
+        candidates.append(Path(__file__).resolve().parents[2] / raw)
+        # PyInstaller one-folder/one-file extraction root.
+        bundle_root = getattr(sys, "_MEIPASS", None)
+        if bundle_root:
+            candidates.append(Path(bundle_root) / raw)
+
+    for candidate in candidates:
+        try:
+            if candidate.exists() and candidate.is_file():
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
 def pdf_image(path: str, max_width_mm: float = 42, max_height_mm: float = 22):
-    if not path or not Path(path).exists():
+    resolved = _existing_image_path(path)
+    if resolved is None:
         return None
     try:
-        image = Image(path)
+        image = Image(str(resolved))
     except Exception:
         return None
     max_w = max_width_mm * mm
