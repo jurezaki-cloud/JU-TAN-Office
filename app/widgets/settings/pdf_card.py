@@ -307,8 +307,19 @@ class PdfCard(QWidget):
             )
             self.logo_preview.setText("")
         else:
-            self.logo_preview.setPixmap(QPixmap())
-            self.logo_preview.setText("Logotip ni izbran")
+            # Preview the same bundled fallback that the PDF engine will use.
+            # This avoids Settings saying "ni izbran" while the document uses a
+            # brand fallback, and makes stale archived paths immediately visible.
+            fallback = Path(__file__).resolve().parents[3] / "resources" / "logo.png"
+            pixmap = QPixmap(str(fallback)) if fallback.exists() else QPixmap()
+            if not pixmap.isNull():
+                self.logo_preview.setPixmap(
+                    pixmap.scaled(96, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                )
+                self.logo_preview.setText("")
+            else:
+                self.logo_preview.setPixmap(QPixmap())
+                self.logo_preview.setText("Logotip ni izbran")
 
     def _pick_folder(self):
         path = QFileDialog.getExistingDirectory(self, "Privzeta mapa za PDF")
