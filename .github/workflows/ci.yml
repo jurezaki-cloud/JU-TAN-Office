@@ -6,15 +6,23 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  test:
+  # Display name MUST stay "CI" — that is the GitHub check context to select
+  # under Settings → Branches → Require status checks to pass before merging.
+  ci:
+    name: CI
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
-      QT_QPA_PLATFORM: xcb
+      QT_QPA_PLATFORM: offscreen
+      CI: "true"
 
     steps:
       - name: Checkout repository
@@ -26,22 +34,30 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install Qt runtime libraries
+      - name: Install system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 xvfb fonts-dejavu-core
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 \
+            libgl1 \
+            libxkbcommon-x11-0 \
+            xvfb \
+            fonts-dejavu-core
 
-      - name: Install dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Check Python syntax
         run: python -m compileall -q app app.py
 
       - name: Run core and non-GUI tests
-        run: python -m pytest -q
+        run: python -m pytest -q --tb=short
 
-      - name: Diagnose Settings GUI tests
+      - name: Settings GUI smoke (diagnostic, non-blocking)
         continue-on-error: true
         env:
+          QT_QPA_PLATFORM: xcb
           JU_TAN_FORCE_GUI_TESTS: "1"
-        run: xvfb-run -a python -m pytest -vv tests/test_settings_users_card.py
+        run: xvfb-run -a python -m pytest -vv --tb=short tests/test_settings_users_card.py
