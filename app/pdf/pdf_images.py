@@ -37,12 +37,15 @@ def pdf_image(path: str, max_width_mm: float = 42, max_height_mm: float = 22):
         return None
     try:
         image = Image(str(resolved))
+        width = float(image.imageWidth or 0)
+        height = float(image.imageHeight or 0)
     except Exception:
+        return None
+    # Reject corrupt/degenerate assets instead of rendering a tiny fragment.
+    if width <= 1 or height <= 1:
         return None
     max_w = max_width_mm * mm
     max_h = max_height_mm * mm
-    width = float(image.imageWidth or 1)
-    height = float(image.imageHeight or 1)
     scale = min(max_w / width, max_h / height, 1.0)
     image.drawWidth = width * scale
     image.drawHeight = height * scale
