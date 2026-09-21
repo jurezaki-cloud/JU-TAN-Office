@@ -49,7 +49,6 @@ class Dashboard(QWidget):
         self._canvas = QWidget()
         self._canvas.setObjectName("DashboardCanvas")
         self._canvas.setAttribute(Qt.WA_StyledBackground, True)
-        self._canvas.setAttribute(Qt.WA_OpaquePaintEvent, True)
         self._grid = QGridLayout(self._canvas)
         self._grid.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_4)
         self._grid.setHorizontalSpacing(SPACE_3)
