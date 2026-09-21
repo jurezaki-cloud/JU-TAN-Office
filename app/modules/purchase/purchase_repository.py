@@ -128,26 +128,28 @@ class PurchaseRepository:
         return rows
 
     def get_next_number(self) -> str:
+        """Next PO number under a write lock (serialized peeks)."""
         self.ensure_schema()
-        conn = self._connect()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT number FROM purchase_orders
-            WHERE number LIKE 'PO-%'
-            ORDER BY id DESC
-            LIMIT 1
-            """
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if row is None:
-            return "PO-0001"
-        try:
-            number = int(str(row[0]).split("-")[-1]) + 1
-        except (TypeError, ValueError):
-            number = 1
-        return f"PO-{number:04d}"
+        from app.database.database import db
+
+        with db.transaction(immediate=True) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT number FROM purchase_orders
+                WHERE number LIKE 'PO-%'
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return "PO-0001"
+            try:
+                number = int(str(row[0]).split("-")[-1]) + 1
+            except (TypeError, ValueError):
+                number = 1
+            return f"PO-{number:04d}"
 
     def create(
         self,

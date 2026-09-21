@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from app.database.database import db
 from app.database.invoice_repository import invoice_repository
 from app.database.offer_repository import CONVERTED_OFFER_MESSAGE, offer_repository
 
@@ -26,15 +27,13 @@ class OfferService:
 
         Returns (invoice_id, invoice_number).
         Raises ValueError if the offer is missing, empty, or already converted.
+
+        The full conversion (number allocation, invoice, items, offer lock)
+        runs in a single BEGIN IMMEDIATE transaction.
         """
         offer = offer_repository.get_by_id(offer_id)
         if offer is None:
             raise ValueError("Ponudba ne obstaja.")
-
-        if offer_repository.is_converted(offer_id):
-            raise ValueError(
-                "Ponudba je že pretvorjena v račun. Ponovna pretvorba ni dovoljena."
-            )
 
         items = offer_repository.get_items(offer_id)
         if not items:
@@ -43,52 +42,59 @@ class OfferService:
         today = date.today()
         due = today + timedelta(days=30)
         notes = (offer[10] or "") + (f"\n[Iz ponudbe {offer[1]}]" if offer[1] else "")
+        vat_liable = offer_repository.get_vat_liable(offer_id)
 
-        # Allocate a free invoice number (counter can lag if other flows
-        # inserted numbers without bumping company.invoice_counter).
-        import sqlite3
+        # Schema upgrades commit; run them before the conversion transaction.
+        offer_repository.ensure_schema()
+        invoice_repository.ensure_schema()
 
-        invoice_id = None
-        number = None
-        for _ in range(50):
-            number = invoice_repository.get_next_number()
-            try:
-                invoice_id = invoice_repository.add(
-                    invoice_number=number,
-                    customer_id=offer[2],
-                    issue_date=today.isoformat(),
-                    due_date=due.isoformat(),
-                    subtotal=float(offer[6] or 0),
-                    discount=float(offer[7] or 0),
-                    vat=float(offer[8] or 0),
-                    total=float(offer[9] or 0),
-                    notes=notes,
-                    status="Izdan",
-                    vat_liable=offer_repository.get_vat_liable(offer_id),
+        with db.transaction(immediate=True) as conn:
+            cursor = conn.cursor()
+            row = cursor.execute(
+                "SELECT converted_invoice_id FROM offers WHERE id=?",
+                (offer_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("Ponudba ne obstaja.")
+            if row[0] is not None:
+                raise ValueError(
+                    "Ponudba je že pretvorjena v račun. Ponovna pretvorba ni dovoljena."
                 )
-                break
-            except sqlite3.IntegrityError:
-                invoice_repository.increase_counter()
-        if invoice_id is None:
-            raise ValueError("Ni mogoče dodeliti številke računa.")
-        invoice_repository.increase_counter()
 
-        for item in items:
-            invoice_repository.add_item(
-                invoice_id=invoice_id,
-                article_id=item[1],
-                code=item[2],
-                name=item[3],
-                description=item[4] or "",
-                quantity=item[5],
-                unit=item[6],
-                price=item[7],
-                discount=item[8] or 0,
-                vat=item[9],
-                total=item[10],
+            number = invoice_repository.allocate_next_number(conn)
+            invoice_id = invoice_repository.add(
+                invoice_number=number,
+                customer_id=offer[2],
+                issue_date=today.isoformat(),
+                due_date=due.isoformat(),
+                subtotal=float(offer[6] or 0),
+                discount=float(offer[7] or 0),
+                vat=float(offer[8] or 0),
+                total=float(offer[9] or 0),
+                notes=notes,
+                status="Izdan",
+                vat_liable=vat_liable,
+                conn=conn,
             )
 
-        offer_repository.mark_converted(offer_id, invoice_id)
+            for item in items:
+                invoice_repository.add_item(
+                    invoice_id=invoice_id,
+                    article_id=item[1],
+                    code=item[2],
+                    name=item[3],
+                    description=item[4] or "",
+                    quantity=item[5],
+                    unit=item[6],
+                    price=item[7],
+                    discount=item[8] or 0,
+                    vat=item[9],
+                    total=item[10],
+                    conn=conn,
+                )
+
+            offer_repository.mark_converted(offer_id, invoice_id, conn=conn)
+
         return invoice_id, number
 
 

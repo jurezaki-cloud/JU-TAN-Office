@@ -224,7 +224,7 @@ class AutomationService:
             if not customers:
                 raise ValueError("Ni stranke za račun.")
             customer_id = customers[0][0]
-        number = invoice_repository.get_next_number()
+        number = invoice_repository.allocate_next_number()
         today = date.today()
         due = today + timedelta(days=int(config.get("days") or 14))
         total = float(config.get("total") or context.get("invoice_total") or 0)
@@ -232,7 +232,6 @@ class AutomationService:
             number, customer_id, today.isoformat(), due.isoformat(),
             total, 0, 0, total, config.get("notes") or "Automation",
         )
-        invoice_repository.increase_counter()
         return number
 
     def _action_create_po(self, config: dict, context: dict) -> int:

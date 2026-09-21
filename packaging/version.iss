@@ -8,4 +8,4 @@
 #define MyAppUpdatesURL "https://www.ju-tan.com"
 #define MyAppSupportEmail "support@ju-tan.com"
 #define MyAppCopyright "(C) 2026 JU-TAN Studio"
-#define MySchemaVersion "2"
+#define MySchemaVersion "3"

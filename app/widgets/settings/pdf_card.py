@@ -1,6 +1,10 @@
+from pathlib import Path
+
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
+    QColorDialog,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
@@ -11,6 +15,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.database.company_repository import (
+    DEFAULT_ACCENT,
+    DEFAULT_PRIMARY,
+    DEFAULT_TABLE_HEADER,
+    company_repository,
+)
+from app.pdf.pdf_branding import archive_branding_asset, normalize_hex
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
@@ -36,7 +47,21 @@ class PdfCard(QWidget):
         title.setObjectName("DashboardSectionTitle")
         card.body.addWidget(title)
 
-        self.chk_logo = QCheckBox("Logo")
+        branding_title = QLabel("Blagovna znamka dokumentov")
+        branding_title.setObjectName("SectionTitle")
+        card.body.addWidget(branding_title)
+
+        self.logo_preview = QLabel("Logotip ni izbran")
+        self.logo_preview.setObjectName("LogoPreview")
+        self.logo_preview.setAlignment(Qt.AlignCenter)
+        self.logo_preview.setFixedSize(96, 64)
+        card.body.addWidget(self.logo_preview)
+
+        self.logo_path = QLineEdit()
+        self.logo_path.setReadOnly(True)
+        card.body.addLayout(self._file_row("Logotip podjetja", self.logo_path, self._pick_logo))
+
+        self.chk_logo = QCheckBox("Prikaži logotip na dokumentih")
         self.chk_vat = QCheckBox("DDV")
         self.chk_discounts = QCheckBox("Popusti")
         self.chk_notes = QCheckBox("Opombe")
@@ -57,6 +82,24 @@ class PdfCard(QWidget):
         self.show_signature.currentTextChanged.connect(self._persist_signature_stamp)
         self.show_stamp.currentTextChanged.connect(self._persist_signature_stamp)
 
+        self.signature_path = QLineEdit()
+        self.signature_path.setReadOnly(True)
+        self.stamp_path = QLineEdit()
+        self.stamp_path.setReadOnly(True)
+        card.body.addLayout(self._file_row("Podpis direktorja", self.signature_path, self._pick_signature))
+        card.body.addLayout(self._file_row("Žig", self.stamp_path, self._pick_stamp))
+
+        colors_title = QLabel("Barve dokumentov")
+        colors_title.setObjectName("SectionTitle")
+        card.body.addWidget(colors_title)
+
+        self.primary_color = QLineEdit(DEFAULT_PRIMARY)
+        self.accent_color = QLineEdit(DEFAULT_ACCENT)
+        self.table_header_color = QLineEdit(DEFAULT_TABLE_HEADER)
+        card.body.addLayout(self._color_row("Primarna (besedilo)", self.primary_color))
+        card.body.addLayout(self._color_row("Poudarek (črte / glava)", self.accent_color))
+        card.body.addLayout(self._color_row("Ozadje tabel", self.table_header_color))
+
         footer_caption = QLabel("Noga dokumenta")
         footer_caption.setObjectName("DashboardMuted")
         self.footer = QLineEdit()
@@ -64,13 +107,6 @@ class PdfCard(QWidget):
         self.footer.textChanged.connect(lambda *_: self.changed.emit())
         card.body.addWidget(footer_caption)
         card.body.addWidget(self.footer)
-
-        self.signature_path = QLineEdit()
-        self.signature_path.setReadOnly(True)
-        self.stamp_path = QLineEdit()
-        self.stamp_path.setReadOnly(True)
-        card.body.addLayout(self._file_row("Podpis direktorja", self.signature_path, self._pick_signature))
-        card.body.addLayout(self._file_row("Žig", self.stamp_path, self._pick_stamp))
 
         folder_caption = QLabel("Privzeta mapa")
         folder_caption.setObjectName("DashboardMuted")
@@ -125,6 +161,45 @@ class PdfCard(QWidget):
         wrap.addLayout(inner)
         return wrap
 
+    def _color_row(self, caption: str, field: QLineEdit):
+        wrap = QVBoxLayout()
+        wrap.setSpacing(4)
+        label = QLabel(caption)
+        label.setObjectName("DashboardMuted")
+        wrap.addWidget(label)
+        inner = QHBoxLayout()
+        inner.setSpacing(8)
+        field.setPlaceholderText("#000000")
+        field.setMaximumWidth(110)
+        field.textChanged.connect(lambda *_: self.changed.emit())
+        swatch = QPushButton()
+        swatch.setObjectName("SecondaryButton")
+        swatch.setFixedSize(36, 36)
+        swatch.setCursor(Qt.PointingHandCursor)
+        swatch.setToolTip("Izberi barvo")
+
+        def _sync_swatch(_text: str = ""):
+            color = QColor(normalize_hex(field.text(), "#000000"))
+            swatch.setStyleSheet(
+                f"background:{color.name()}; border:1px solid #CBD5E1; border-radius:6px;"
+            )
+
+        def _pick():
+            current = QColor(normalize_hex(field.text(), DEFAULT_PRIMARY))
+            chosen = QColorDialog.getColor(current, self, caption)
+            if chosen.isValid():
+                field.setText(chosen.name().upper())
+                self.changed.emit()
+
+        field.textChanged.connect(_sync_swatch)
+        swatch.clicked.connect(_pick)
+        _sync_swatch()
+        inner.addWidget(field)
+        inner.addWidget(swatch)
+        inner.addStretch()
+        wrap.addLayout(inner)
+        return wrap
+
     def values(self) -> dict:
         return {
             "logo": self.chk_logo.isChecked(),
@@ -137,6 +212,18 @@ class PdfCard(QWidget):
             "footer": self.footer.text().strip(),
             "signature_path": self.signature_path.text().strip(),
             "stamp_path": self.stamp_path.text().strip(),
+        }
+
+    def branding_values(self) -> dict:
+        return {
+            "logo": self.logo_path.text().strip(),
+            "signature_path": self.signature_path.text().strip(),
+            "stamp_path": self.stamp_path.text().strip(),
+            "doc_primary_color": normalize_hex(self.primary_color.text(), DEFAULT_PRIMARY),
+            "doc_accent_color": normalize_hex(self.accent_color.text(), DEFAULT_ACCENT),
+            "doc_table_header_color": normalize_hex(
+                self.table_header_color.text(), DEFAULT_TABLE_HEADER
+            ),
         }
 
     def set_values(self, pdf: dict) -> None:
@@ -152,8 +239,36 @@ class PdfCard(QWidget):
         self.chk_notes.setChecked(bool(pdf.get("notes", True)))
         self.folder.setText(str(pdf.get("folder", "")))
         self.footer.setText(str(pdf.get("footer", "")))
-        self.signature_path.setText(str(pdf.get("signature_path", "")))
-        self.stamp_path.setText(str(pdf.get("stamp_path", "")))
+        # Prefer DB branding; settings.json remains a fallback for older installs.
+        branding = company_repository.get_branding()
+        self._set_logo(branding.get("logo") or "")
+        self.signature_path.setText(
+            branding.get("signature_path") or str(pdf.get("signature_path", "") or "")
+        )
+        self.stamp_path.setText(
+            branding.get("stamp_path") or str(pdf.get("stamp_path", "") or "")
+        )
+        self.primary_color.setText(
+            normalize_hex(branding.get("doc_primary_color"), DEFAULT_PRIMARY)
+        )
+        self.accent_color.setText(
+            normalize_hex(branding.get("doc_accent_color"), DEFAULT_ACCENT)
+        )
+        self.table_header_color.setText(
+            normalize_hex(branding.get("doc_table_header_color"), DEFAULT_TABLE_HEADER)
+        )
+
+    def save_branding(self) -> None:
+        """Persist logo / signature / stamp / colors to the company table."""
+        values = self.branding_values()
+        company_repository.save_branding(
+            logo=values["logo"],
+            signature_path=values["signature_path"],
+            stamp_path=values["stamp_path"],
+            doc_primary_color=values["doc_primary_color"],
+            doc_accent_color=values["doc_accent_color"],
+            doc_table_header_color=values["doc_table_header_color"],
+        )
 
     def excel_values(self) -> dict:
         return {
@@ -183,6 +298,18 @@ class PdfCard(QWidget):
             logger.error("PDF signature/stamp persist failed: %s", exc)
         self.changed.emit()
 
+    def _set_logo(self, path: str) -> None:
+        self.logo_path.setText(path or "")
+        if path and Path(path).exists():
+            pixmap = QPixmap(path)
+            self.logo_preview.setPixmap(
+                pixmap.scaled(96, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
+            self.logo_preview.setText("")
+        else:
+            self.logo_preview.setPixmap(QPixmap())
+            self.logo_preview.setText("Logotip ni izbran")
+
     def _pick_folder(self):
         path = QFileDialog.getExistingDirectory(self, "Privzeta mapa za PDF")
         if path:
@@ -201,19 +328,37 @@ class PdfCard(QWidget):
             self.excel_import.setText(path)
             self.changed.emit()
 
+    def _pick_logo(self):
+        path = self._pick_image_path("Logotip podjetja")
+        if path is None:
+            return
+        archived = archive_branding_asset(path, "logo") if path else ""
+        self._set_logo(archived)
+        self.changed.emit()
+
     def _pick_signature(self):
-        self._pick_image(self.signature_path, "Podpis direktorja")
+        path = self._pick_image_path("Podpis direktorja")
+        if path is None:
+            return
+        archived = archive_branding_asset(path, "signature") if path else ""
+        self.signature_path.setText(archived)
+        self.changed.emit()
 
     def _pick_stamp(self):
-        self._pick_image(self.stamp_path, "Žig")
+        path = self._pick_image_path("Žig")
+        if path is None:
+            return
+        archived = archive_branding_asset(path, "stamp") if path else ""
+        self.stamp_path.setText(archived)
+        self.changed.emit()
 
-    def _pick_image(self, field: QLineEdit, title: str):
+    def _pick_image_path(self, title: str) -> str | None:
         path, _ = QFileDialog.getOpenFileName(
             self,
             title,
             "",
             "Slike (*.png *.jpg *.jpeg *.webp)",
         )
-        if path:
-            field.setText(path)
-            self.changed.emit()
+        if not path:
+            return None
+        return path

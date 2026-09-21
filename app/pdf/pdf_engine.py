@@ -6,6 +6,7 @@ from pathlib import Path
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import (
+    KeepTogether,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -13,11 +14,12 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.pdf.pdf_branding import resolve_palette
 from app.pdf.pdf_company import CompanyProfile, existing_path, load_company, load_pdf_options
 from app.pdf.pdf_footer import draw_footer
 from app.pdf.pdf_header import build_header
 from app.pdf.pdf_images import image_or_space
-from app.pdf.pdf_styles import BORDER, PAD, MUTED, styles
+from app.pdf.pdf_styles import PAD, styles
 from app.pdf.pdf_tables import build_items_table, build_summary
 from app.utils.vat import ARTICLE_94_NOTICE, DOCUMENT_FOOTER_MESSAGE, WEBSITE_URL
 
@@ -72,19 +74,19 @@ class PdfEngine:
             pagesize=A4,
             leftMargin=15 * mm,
             rightMargin=15 * mm,
-            topMargin=16 * mm,
+            topMargin=14 * mm,
             bottomMargin=28 * mm,
             title=f"{document.title} {document.number}",
             author=company.name or "JU-TAN Office",
         )
         story = []
         story.extend(build_header(company, options))
-        story.extend(self._title_block(document))
+        story.extend(self._title_block(document, options))
         if document.doc_type == "invoice" and document.status == "Storniran":
-            look = styles()
+            look = styles(options)
             story.append(Paragraph("STORNIRANO", look["title"]))
             story.append(Spacer(1, PAD))
-        story.extend(self._customer_block(document))
+        story.extend(self._customer_block(document, options))
         story.append(build_items_table(document.items, options))
         story.extend(
             build_summary(
@@ -96,12 +98,12 @@ class PdfEngine:
             )
         )
         if not document.vat_liable:
-            look = styles()
+            look = styles(options)
             story.append(Spacer(1, PAD))
             story.append(Paragraph(ARTICLE_94_NOTICE, look["body"]))
         story.extend(self._payment_block(document, company, options))
         if options.get("show_notes") and document.notes:
-            look = styles()
+            look = styles(options)
             story.append(Spacer(1, PAD))
             story.append(Paragraph("Opombe", look["label"]))
             story.append(Paragraph(document.notes.replace("\n", "<br/>"), look["body"]))
@@ -111,15 +113,23 @@ class PdfEngine:
         website = options.get("website_url") or company.website or WEBSITE_URL
         if website and not str(website).startswith(("http://", "https://")):
             website = f"http://{website}"
-        doc.build(
-            story,
-            onFirstPage=lambda c, d: draw_footer(c, d, footer_text, website_url=website),
-            onLaterPages=lambda c, d: draw_footer(c, d, footer_text, website_url=website),
-        )
+
+        def _footer(canvas, d):
+            draw_footer(
+                canvas,
+                d,
+                footer_text,
+                website_url=website,
+                options=options,
+            )
+
+        doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
         return output
 
-    def _title_block(self, document: PdfDocument):
-        look = styles()
+    def _title_block(self, document: PdfDocument, options: dict | None = None):
+        options = options or {}
+        look = styles(options)
+        palette = resolve_palette(options)
         due_label = "Rok plačila" if document.doc_type == "invoice" else "Velja do"
         if document.doc_type == "order":
             due_label = "Dobava"
@@ -140,6 +150,12 @@ class PdfEngine:
                 ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                 ("TOPPADDING", (0, 0), (-1, -1), 2),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("BACKGROUND", (0, 0), (-1, -1), palette["table_header"]),
+                ("BOX", (0, 0), (-1, -1), 0.35, palette["border"]),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ])
         )
         row = Table(
@@ -155,23 +171,38 @@ class PdfEngine:
         )
         return [row, Spacer(1, PAD)]
 
-    def _customer_block(self, document: PdfDocument):
-        look = styles()
+    def _customer_block(self, document: PdfDocument, options: dict | None = None):
+        options = options or {}
+        look = styles(options)
+        palette = resolve_palette(options)
         city = document.customer_city or ""
-        block = [
+        lines = [
             Paragraph("Kupec", look["label"]),
             Paragraph(document.customer_name or "—", look["body"]),
             Paragraph(document.customer_address or "", look["body"]),
             Paragraph(city, look["body"]),
         ]
         if document.customer_tax:
-            block.append(Paragraph(f"Davčna: {document.customer_tax}", look["body"]))
-        return block + [Spacer(1, PAD)]
+            lines.append(Paragraph(f"Davčna: {document.customer_tax}", look["body"]))
+        panel = Table([[lines]], colWidths=[180 * mm])
+        panel.setStyle(
+            TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), palette["table_header"]),
+                ("BOX", (0, 0), (-1, -1), 0.35, palette["border"]),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LINEBEFORE", (0, 0), (0, 0), 2.5, palette["primary"]),
+            ])
+        )
+        return [panel, Spacer(1, PAD)]
 
     def _payment_block(self, document: PdfDocument, company: CompanyProfile, options: dict):
         if document.doc_type in ("order", "delivery") or document.status == "Storniran":
             return []
-        look = styles()
+        look = styles(options)
+        palette = resolve_palette(options)
         method = document.payment_method or options.get("payment_method") or "Nakazilo"
         due_label = "Rok plačila" if document.doc_type == "invoice" else "Velja do"
         data = [
@@ -184,31 +215,63 @@ class PdfEngine:
             data.append(
                 [Paragraph("Sklic", look["label"]), Paragraph(document.reference or document.number, look["body"])],
             )
-        table = Table(data, colWidths=[40 * mm, 140 * mm])
-        table.setStyle(
+        details = Table(data, colWidths=[36 * mm, 74 * mm])
+        details.setStyle(
             TableStyle([
                 ("TOPPADDING", (0, 0), (-1, -1), 3),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("LINEABOVE", (0, 0), (-1, 0), 0.4, BORDER),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ])
         )
-        blocks = [Spacer(1, PAD), table]
-        # Slightly denser QR when signature/stamp also consume vertical space,
-        # so a short invoice + UPN + signing lines still fit on one A4 page.
-        compact = bool(options.get("show_signature") or options.get("show_stamp"))
-        qr = self._qr_flowable(document, company, module_mm=0.52 if compact else 0.65)
-        if qr is not None:
-            blocks.append(Spacer(1, PAD))
-            blocks.append(qr)
-        return blocks
 
-    def _qr_flowable(self, document: PdfDocument, company: CompanyProfile, *, module_mm: float = 0.65):
+        compact = bool(options.get("show_signature") or options.get("show_stamp"))
+        qr = self._qr_flowable(document, company, options, module_mm=0.52 if compact else 0.65)
+
+        heading = Paragraph("Plačilni podatki", look["label"])
+        if qr is not None:
+            inner = Table(
+                [[details, qr]],
+                colWidths=[112 * mm, 60 * mm],
+            )
+            inner.setStyle(
+                TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (0, 0), 8),
+                    ("LEFTPADDING", (1, 0), (1, 0), 4),
+                ])
+            )
+            content = [[heading], [inner]]
+        else:
+            content = [[heading], [details]]
+
+        panel = Table(content, colWidths=[180 * mm])
+        panel.setStyle(
+            TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), palette["surface"]),
+                ("BOX", (0, 0), (-1, -1), 0.45, palette["border"]),
+                ("LINEBEFORE", (0, 0), (0, -1), 2.5, palette["primary"]),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ])
+        )
+        return [Spacer(1, PAD), panel]
+
+    def _qr_flowable(
+        self,
+        document: PdfDocument,
+        company: CompanyProfile,
+        options: dict | None = None,
+        *,
+        module_mm: float = 0.65,
+    ):
         if document.doc_type != "invoice":
             return None
         import segno
         from reportlab.graphics.shapes import Drawing, Rect
-        from reportlab.platypus import KeepTogether
 
         from app.pdf.upn_qr import build_upn_qr
 
@@ -231,7 +294,7 @@ class PdfEngine:
         if not payload:
             return None
 
-        look = styles()
+        look = styles(options)
         code = segno.make(
             payload,
             version=15,
@@ -260,7 +323,6 @@ class PdfEngine:
                         strokeWidth=0,
                         fillColor=None,
                     ))
-        # Rect defaults are not safe for barcode output; force solid black modules.
         from reportlab.lib.colors import black
         for shape in drawing.contents:
             shape.fillColor = black
@@ -274,16 +336,16 @@ class PdfEngine:
         if not show_stamp and not show_sign:
             return []
 
-        look = styles()
+        look = styles(options)
+        palette = resolve_palette(options)
         stamp_path = existing_path(options.get("stamp_path", ""))
         sign_path = existing_path(options.get("signature_path", ""))
 
         def _signing_line(width_mm: float = 40):
-            # Compact ink line — never reserve a tall empty image box (forced page 2).
             line = Table([[""]], colWidths=[width_mm * mm], rowHeights=[6])
             line.setStyle(
                 TableStyle([
-                    ("LINEBELOW", (0, 0), (-1, -1), 0.7, MUTED),
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.7, palette["muted"]),
                     ("TOPPADDING", (0, 0), (-1, -1), 0),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -294,34 +356,46 @@ class PdfEngine:
 
         def _slot(enabled: bool, path: str, caption: str):
             if not enabled:
-                return []
+                return None
             if path:
                 graphic = image_or_space(path, 36, 14)
             else:
                 graphic = _signing_line(36)
-            return [graphic, Paragraph(caption, look["caption"])]
+            inner = Table(
+                [[graphic], [Paragraph(caption, look["caption"])]],
+                colWidths=[70 * mm],
+            )
+            inner.setStyle(
+                TableStyle([
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("BACKGROUND", (0, 0), (-1, -1), palette["surface"]),
+                    ("BOX", (0, 0), (-1, -1), 0.4, palette["border"]),
+                ])
+            )
+            return inner
 
         left = _slot(show_stamp, stamp_path, "Žig")
         right = _slot(show_sign, sign_path, "Podpis")
-        if show_stamp and show_sign:
-            row = [[left, right]]
-            widths = [90 * mm, 90 * mm]
-        elif show_stamp:
-            row = [[left]]
-            widths = [180 * mm]
-        else:
-            row = [[right]]
-            widths = [180 * mm]
+        cells = []
+        widths = []
+        if left is not None:
+            cells.append(left)
+            widths.append(90 * mm)
+        if right is not None:
+            cells.append(right)
+            widths.append(90 * mm)
 
-        table = Table(row, colWidths=widths)
+        table = Table([cells], colWidths=widths)
         style_cmds = [
             ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("TEXTCOLOR", (0, 0), (-1, -1), MUTED),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ]
-        if show_stamp and show_sign:
+        if len(cells) == 2:
             style_cmds += [
                 ("ALIGN", (0, 0), (0, 0), "LEFT"),
                 ("ALIGN", (1, 0), (1, 0), "RIGHT"),
@@ -331,7 +405,7 @@ class PdfEngine:
         else:
             style_cmds.append(("ALIGN", (0, 0), (0, 0), "LEFT"))
         table.setStyle(TableStyle(style_cmds))
-        return [Spacer(1, 6), table]
+        return [Spacer(1, 8), table]
 
 
 pdf_engine = PdfEngine()

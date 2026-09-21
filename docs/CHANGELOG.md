@@ -6,6 +6,7 @@ Uradna produkcijska izdaja JU-TAN Office Enterprise. `APP_VERSION` = **1.0.0** /
 
 ### Produkcijska utrjanje
 
+- GOLD-1: schema v3 company branding migration; atomic invoice numbering; transactional offer→invoice conversion; Premium PDF redesign freeze.
 - Centralized EUR money math (`app/utils/money.py`) for editors, recalculation, PDF.
 - Offer → invoice conversion implemented (was placeholder).
 - Partial/full payment ledger (`payments` table) with Delno plačan / Plačan sync.
@@ -20,7 +21,7 @@ Uradna produkcijska izdaja JU-TAN Office Enterprise. `APP_VERSION` = **1.0.0** /
 
 - Feature freeze / code freeze, oznaka `v1.0.0`.
 - Paket: Setup.exe, Portable ZIP, SHA256 (`dist/SHA256SUMS.txt`), vodiči PDF.
-- QA, varnost, zmogljivost in shema baze (`SCHEMA_VERSION` = 2) potrjeni.
+- QA, varnost, zmogljivost in shema baze (`SCHEMA_VERSION` = 3) potrjeni.
 - Končni QA Gold: poslovni tok, WAL sočasnost, PDF, stres paginacije (TASK-033).
 - Incremental tabele, debounce iskanje, async PDF, Excel streaming.
 - Setup.exe 64-bit, čarovnik, licenca, version info, Start Menu / namizje / uninstall.

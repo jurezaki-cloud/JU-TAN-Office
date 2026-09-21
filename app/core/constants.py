@@ -10,7 +10,7 @@ APP_VERSION = "1.0.0"
 APP_CHANNEL = "GOLD"
 APP_BUILD = "RELEASE"
 APP_AUTHOR = "JU-TAN Studio"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 

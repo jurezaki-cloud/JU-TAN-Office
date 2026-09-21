@@ -266,16 +266,24 @@ class OfferRepository:
         conn.commit()
         conn.close()
 
-    def mark_converted(self, offer_id, invoice_id):
+    def mark_converted(self, offer_id, invoice_id, conn=None):
         """Record conversion linkage and set status to Sprejeta (immutable thereafter)."""
-        self.ensure_schema()
         # Only the explicit column counts here: invoice notes already contain the
         # "[Iz ponudbe …]" marker at this point, which must not block linkage.
-        if self.get_converted_invoice_id(offer_id, include_legacy=False):
-            raise ValueError("Ponudba je že pretvorjena v račun.")
-
-        conn = db.connect()
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            if self.get_converted_invoice_id(offer_id, include_legacy=False):
+                raise ValueError("Ponudba je že pretvorjena v račun.")
+            conn = db.connect()
         cursor = conn.cursor()
+        if not owns:
+            row = cursor.execute(
+                "SELECT converted_invoice_id FROM offers WHERE id=?",
+                (offer_id,),
+            ).fetchone()
+            if row and row[0] is not None:
+                raise ValueError("Ponudba je že pretvorjena v račun.")
         cursor.execute(
             """
             UPDATE offers
@@ -284,8 +292,9 @@ class OfferRepository:
             """,
             ("Sprejeta", invoice_id, offer_id),
         )
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
     def delete(self, offer_id):
         self.ensure_schema()

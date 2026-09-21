@@ -58,16 +58,28 @@ class Database:
             self._local.conn = None
 
     @contextmanager
-    def transaction(self):
-        """Transakcija z rollback ob napaki (obstoječi CRUD ostane nespremenjen)."""
+    def transaction(self, *, immediate: bool = False):
+        """Transakcija z rollback ob napaki (obstoječi CRUD ostane nespremenjen).
+
+        immediate=True uses BEGIN IMMEDIATE so writers serialize before first SELECT
+        (required for atomic document-number allocation).
+        """
         conn = self.connect()
+        raw = object.__getattribute__(conn, "_raw")
+        previous_isolation = raw.isolation_level
         try:
+            raw.isolation_level = None
+            raw.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
             yield conn
-            conn.commit()
+            raw.commit()
         except Exception:
-            conn.rollback()
+            try:
+                raw.rollback()
+            except sqlite3.Error:
+                pass
             raise
         finally:
+            raw.isolation_level = previous_isolation
             conn.close()
 
     def initialize(self):
@@ -116,6 +128,12 @@ class Database:
             notes TEXT,
 
             vat_liable INTEGER DEFAULT 1,
+
+            signature_path TEXT,
+            stamp_path TEXT,
+            doc_primary_color TEXT DEFAULT '#0F172A',
+            doc_accent_color TEXT DEFAULT '#059669',
+            doc_table_header_color TEXT DEFAULT '#F1F5F9',
 
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )

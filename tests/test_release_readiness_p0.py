@@ -123,7 +123,7 @@ def test_changelog_aligned_with_app_version():
     assert APP_VERSION in report
     assert f"SCHEMA_VERSION` = **{SCHEMA_VERSION}**" in report or f"SCHEMA {SCHEMA_VERSION}" in report
     cert = (ROOT / "docs" / "GOLD_CERT.md").read_text(encoding="utf-8")
-    assert "schema v2" in cert.lower()
+    assert f"schema v{SCHEMA_VERSION}" in cert.lower()
 
 
 def test_signing_readiness_doc_present():

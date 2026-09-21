@@ -445,6 +445,12 @@ class SettingsPage(QWidget):
             self.security_card.role.setCurrentText(current_role())
         appearance_before = dict(getattr(self, "_applied_appearance", {}) or {})
         self.controller.save_extras(extras)
+        try:
+            self.pdf_card.save_branding()
+        except Exception as exc:
+            from app.core.logger import logger
+
+            logger.error("Document branding save failed: %s", exc)
         if can("users"):
             set_identity(role=requested_role)
         timeout_sec = max(5, int(self.security_card.timeout.value())) * 60

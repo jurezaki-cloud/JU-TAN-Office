@@ -12,6 +12,11 @@ def ensure_schema_version() -> int:
     extras = controller.load_extras()
     current = int(extras.get("database_version") or 0)
     if current < SCHEMA_VERSION:
+        from app.database.database import db
+        from app.database.migrations import apply_pending_migrations
+
+        with db.transaction() as conn:
+            apply_pending_migrations(current, SCHEMA_VERSION, conn)
         extras["database_version"] = SCHEMA_VERSION
         controller.save_extras_unrestricted(extras)
         logger.info("Shema baze: %s", SCHEMA_VERSION)

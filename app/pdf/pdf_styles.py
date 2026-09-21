@@ -6,8 +6,10 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
+from app.pdf.pdf_branding import resolve_palette
 from app.theme.colors import LightColors
 
+# Module-level defaults — used when callers do not pass branded options.
 NAVY = HexColor(LightColors.TEXT)
 PRIMARY = HexColor(LightColors.PRIMARY)
 MUTED = HexColor(LightColors.SECONDARY)
@@ -58,14 +60,17 @@ def ensure_fonts() -> tuple[str, str]:
     return FONT, FONT_BOLD
 
 
-def styles() -> dict[str, ParagraphStyle]:
+def styles(options: dict | None = None) -> dict[str, ParagraphStyle]:
     regular, bold = ensure_fonts()
+    palette = resolve_palette(options)
+    navy = palette["navy"]
+    muted = palette["muted"]
     return {
         "title": ParagraphStyle(
             "PdfTitle",
             fontName=bold,
             fontSize=22,
-            textColor=NAVY,
+            textColor=navy,
             alignment=TA_LEFT,
             spaceAfter=8,
             leading=26,
@@ -73,31 +78,31 @@ def styles() -> dict[str, ParagraphStyle]:
         "company": ParagraphStyle(
             "PdfCompany",
             fontName=bold,
-            fontSize=11,
-            textColor=NAVY,
-            alignment=TA_RIGHT,
-            leading=14,
+            fontSize=12,
+            textColor=navy,
+            alignment=TA_LEFT,
+            leading=15,
         ),
         "meta": ParagraphStyle(
             "PdfMeta",
             fontName=regular,
-            fontSize=9,
-            textColor=MUTED,
-            alignment=TA_RIGHT,
-            leading=12,
+            fontSize=8.5,
+            textColor=muted,
+            alignment=TA_LEFT,
+            leading=11,
         ),
         "label": ParagraphStyle(
             "PdfLabel",
             fontName=bold,
             fontSize=8,
-            textColor=MUTED,
+            textColor=muted,
             leading=11,
         ),
         "body": ParagraphStyle(
             "PdfBody",
             fontName=regular,
             fontSize=9,
-            textColor=NAVY,
+            textColor=navy,
             leading=12,
             alignment=TA_LEFT,
         ),
@@ -105,7 +110,7 @@ def styles() -> dict[str, ParagraphStyle]:
             "PdfBodyRight",
             fontName=regular,
             fontSize=9,
-            textColor=NAVY,
+            textColor=navy,
             leading=12,
             alignment=TA_RIGHT,
         ),
@@ -113,7 +118,7 @@ def styles() -> dict[str, ParagraphStyle]:
             "PdfTh",
             fontName=bold,
             fontSize=8,
-            textColor=NAVY,
+            textColor=navy,
             alignment=TA_CENTER,
             leading=11,
         ),
@@ -121,14 +126,14 @@ def styles() -> dict[str, ParagraphStyle]:
             "PdfTd",
             fontName=regular,
             fontSize=8,
-            textColor=NAVY,
+            textColor=navy,
             leading=11,
         ),
         "td_right": ParagraphStyle(
             "PdfTdRight",
             fontName=regular,
             fontSize=8,
-            textColor=NAVY,
+            textColor=navy,
             alignment=TA_RIGHT,
             leading=11,
         ),
@@ -136,7 +141,7 @@ def styles() -> dict[str, ParagraphStyle]:
             "PdfFooter",
             fontName=regular,
             fontSize=8,
-            textColor=MUTED,
+            textColor=muted,
             alignment=TA_CENTER,
             leading=10,
         ),
@@ -144,8 +149,23 @@ def styles() -> dict[str, ParagraphStyle]:
             "PdfCaption",
             fontName=regular,
             fontSize=8,
-            textColor=MUTED,
+            textColor=muted,
             alignment=TA_CENTER,
             leading=10,
+        ),
+        "total_label": ParagraphStyle(
+            "PdfTotalLabel",
+            fontName=bold,
+            fontSize=10,
+            textColor=navy,
+            leading=13,
+        ),
+        "total_value": ParagraphStyle(
+            "PdfTotalValue",
+            fontName=bold,
+            fontSize=11,
+            textColor=navy,
+            alignment=TA_RIGHT,
+            leading=14,
         ),
     }

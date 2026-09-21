@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.constants import DATABASE_PATH
+from app.core.constants import DATABASE_PATH, SCHEMA_VERSION
 from app.core.db_guard import integrity_ok
 from app.core.pagination import page_slice
 from app.core.perf import memory_mb
@@ -320,7 +320,7 @@ def test_installer_upgrade_contract():
     assert "pre-upgrade.db-shm" in iss
     version = Path("Version.txt").read_text(encoding="utf-8")
     assert "1.0.0 GOLD" in version or "1.0.0" in version
-    assert "SCHEMA 2" in version
+    assert f"SCHEMA {SCHEMA_VERSION}" in version
     assert Path("packaging/LICENSE.txt").exists()
     assert Path("docs/INSTALL.md").exists()
     assert Path("docs/SECURITY.md").exists()

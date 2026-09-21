@@ -9,7 +9,7 @@ Uninstall ne zbriše baze, backupov in dokumentov.
 
 ## Shema baze
 
-SQLite 3, WAL, tuji ključi, `SCHEMA_VERSION = 2`. Nadgradnja: CloseApplications/AppMutex, nato WAL-varna kopija v `pre-upgrade.db` (+ sidecars).
+SQLite 3, WAL, tuji ključi, `SCHEMA_VERSION = 3`. Nadgradnja: CloseApplications/AppMutex, nato WAL-varna kopija v `pre-upgrade.db` (+ sidecars).
 
 Če je `setup_complete`, a tabela `users` prazna (legacy), zagon odpre **Nastavitev prijave** in ustvari prvega skrbnika — brez ponovnega čarovnika in brez brisanja poslovnih podatkov.
 

@@ -1,7 +1,8 @@
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
 
-from app.pdf.pdf_styles import BORDER, NAVY, PAD, TABLE_HEADER, WHITE, ensure_fonts, styles
+from app.pdf.pdf_branding import resolve_palette
+from app.pdf.pdf_styles import PAD, ensure_fonts, styles
 
 
 def _money(value) -> str:
@@ -12,7 +13,8 @@ def _money(value) -> str:
 
 
 def build_items_table(items: list[dict], options: dict):
-    look = styles()
+    look = styles(options)
+    palette = resolve_palette(options)
     _regular, bold = ensure_fonts()
     show_vat = options.get("show_vat", True)
     show_discount = options.get("show_discount", True)
@@ -61,47 +63,62 @@ def build_items_table(items: list[dict], options: dict):
     table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(
         TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), TABLE_HEADER),
-            ("TEXTCOLOR", (0, 0), (-1, 0), NAVY),
+            ("BACKGROUND", (0, 0), (-1, 0), palette["table_header"]),
+            ("TEXTCOLOR", (0, 0), (-1, 0), palette["navy"]),
             ("FONTNAME", (0, 0), (-1, 0), bold),
-            ("LINEBELOW", (0, 0), (-1, 0), 0.6, BORDER),
-            ("LINEBELOW", (0, 1), (-1, -1), 0.3, BORDER),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.0, palette["primary"]),
+            ("LINEBELOW", (0, 1), (-1, -1), 0.3, palette["border"]),
             ("LEFTPADDING", (0, 0), (-1, -1), PAD / 2),
             ("RIGHTPADDING", (0, 0), (-1, -1), PAD / 2),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BACKGROUND", (0, 1), (-1, -1), WHITE),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, TABLE_HEADER]),
+            ("BACKGROUND", (0, 1), (-1, -1), palette["white"]),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [palette["white"], palette["table_header"]]),
         ])
     )
     return table
 
 
 def build_summary(subtotal, discount, vat, total, options: dict):
-    look = styles()
-    _regular, bold = ensure_fonts()
-    rows = [["Osnova", _money(subtotal)]]
+    """Right-aligned totals panel with accent emphasis on the grand total."""
+    look = styles(options)
+    palette = resolve_palette(options)
+    rows = [
+        [Paragraph("Osnova", look["body"]), Paragraph(_money(subtotal), look["body_right"])],
+    ]
     if options.get("show_discount", True) and float(discount or 0) != 0:
-        rows.append(["Popust", _money(discount)])
+        rows.append(
+            [Paragraph("Popust", look["body"]), Paragraph(_money(discount), look["body_right"])]
+        )
     if options.get("show_vat", True):
-        rows.append(["DDV", _money(vat)])
-    rows.append(["Skupaj", _money(total)])
+        rows.append(
+            [Paragraph("DDV", look["body"]), Paragraph(_money(vat), look["body_right"])]
+        )
+    rows.append(
+        [
+            Paragraph("Skupaj za plačilo", look["total_label"]),
+            Paragraph(_money(total), look["total_value"]),
+        ]
+    )
 
-    table = Table(rows, colWidths=[40 * mm, 35 * mm])
+    table = Table(rows, colWidths=[42 * mm, 38 * mm])
+    last = len(rows) - 1
     table.setStyle(
         TableStyle([
-            ("FONTNAME", (0, -1), (-1, -1), bold),
-            ("TEXTCOLOR", (0, 0), (-1, -1), NAVY),
             ("ALIGN", (1, 0), (1, -1), "RIGHT"),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING", (0, 0), (-1, -1), PAD / 2),
-            ("LINEABOVE", (0, -1), (-1, -1), 0.8, NAVY),
-            ("BACKGROUND", (0, -1), (-1, -1), TABLE_HEADER),
+            ("RIGHTPADDING", (0, 0), (-1, -1), PAD / 2),
+            ("LINEABOVE", (0, last), (-1, last), 1.1, palette["primary"]),
+            ("BACKGROUND", (0, last), (-1, last), palette["table_header"]),
+            ("BOX", (0, 0), (-1, -1), 0.4, palette["border"]),
+            ("TOPPADDING", (0, last), (-1, last), 7),
+            ("BOTTOMPADDING", (0, last), (-1, last), 7),
         ])
     )
-    wrapper = Table([[Spacer(1, 1), table]], colWidths=[105 * mm, 75 * mm])
+    wrapper = Table([[Spacer(1, 1), table]], colWidths=[100 * mm, 80 * mm])
     wrapper.setStyle(
         TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),

@@ -6,7 +6,7 @@
 | Security | PASSED |
 | QA | PASSED |
 | Installer `JU-TAN-Office-Setup.exe` | READY (CloseApplications / AppMutex / WAL pre-upgrade) |
-| Database schema v2 | APPROVED |
+| Database schema v3 | APPROVED |
 | UI | PASSED |
 | Documentation | COMPLETE (`SECURITY.md` in all bundles) |
 | Backup / restore | VERIFIED |

@@ -17,7 +17,7 @@ def test_versioning_major_minor_build():
 
 
 def test_schema_version_constant():
-    assert SCHEMA_VERSION == 2
+    assert SCHEMA_VERSION == 3
 
 
 def test_release_meta_matches_constants():

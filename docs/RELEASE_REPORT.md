@@ -1,7 +1,7 @@
 # TASK-033 / Release Report — JU-TAN Office Enterprise 1.0.0 GOLD
 
 Datum: 2026-09-21  
-Različica: **1.0.0** (`APP_VERSION`) / kanal **GOLD** / `SCHEMA_VERSION` = **2**  
+Različica: **1.0.0** (`APP_VERSION`) / kanal **GOLD** / `SCHEMA_VERSION` = **3**  
 Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb poslovne logike.
 
 ## Tokeni
@@ -11,7 +11,7 @@ Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb p
 | RC_READY | DA |
 | QA_PASS | DA (pytest release/package suite) |
 | PERFORMANCE_PASS | DA (lazy moduli, merjeni budgeti) |
-| DATABASE_PASS | DA (FK, UNIQUE, NOT NULL, CASCADE/RESTRICT, indeksi, rollback, integrity_check, SCHEMA 2) |
+| DATABASE_PASS | DA (FK, UNIQUE, NOT NULL, CASCADE/RESTRICT, indeksi, rollback, integrity_check, SCHEMA 3) |
 | SECURITY_PASS | DA (parametriziran SQL, permissions+audit, path traversal, WAL backup, `docs/SECURITY.md` v paketu) |
 | INSTALLER_READY | DA (CloseApplications, AppMutex, WAL-varna pre-upgrade kopija, Start Menu docs) |
 | RELEASE_READY | DA za 1.0.0 GOLD (Authenticode: opcijsko; obvezno z `-RequireSigned` / `JU_TAN_REQUIRE_SIGNED`) |
@@ -21,7 +21,7 @@ Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb p
 | Artifact | Vir resnice |
 | --- | --- |
 | `APP_VERSION` / `APP_CHANNEL` | `app/core/constants.py` → `1.0.0` / `GOLD` |
-| `SCHEMA_VERSION` | `app/core/constants.py` → `2` |
+| `SCHEMA_VERSION` | `app/core/constants.py` → `3` |
 | `Version.txt` / `packaging/Version.txt` | `scripts/sync_release_metadata.py` |
 | `packaging/version.iss` / `file_version_info.txt` | sync iz `release_meta` |
 | Checksums | **samo** `dist/SHA256SUMS.txt` (generira `build_release.ps1`) |

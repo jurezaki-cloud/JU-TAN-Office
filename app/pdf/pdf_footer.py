@@ -2,21 +2,23 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 
-from app.pdf.pdf_styles import MUTED, NAVY, ensure_fonts
+from app.pdf.pdf_branding import resolve_palette
+from app.pdf.pdf_styles import ensure_fonts
 from app.utils.vat import DOCUMENT_FOOTER_MESSAGE, WEBSITE_LABEL, WEBSITE_URL
 
 
-def draw_footer(canvas, doc, footer_text: str = "", *, website_url: str = ""):
+def draw_footer(canvas, doc, footer_text: str = "", *, website_url: str = "", options: dict | None = None):
     """
-    Professional two-line document footer with optional clickable website.
+    Professional two-line document footer with branded accent rule.
 
     Layout (from bottom):
       page number (right)
       website link (centered)
       thank-you message (centered)
-      hairline rule
+      accent hairline rule
     """
     font_name, _bold = ensure_fonts()
+    palette = resolve_palette(options)
     canvas.saveState()
 
     left = 15 * mm
@@ -28,19 +30,16 @@ def draw_footer(canvas, doc, footer_text: str = "", *, website_url: str = ""):
     url = (website_url or WEBSITE_URL).strip() or WEBSITE_URL
     link_label = WEBSITE_LABEL
 
-    # Soft separator above footer content (keeps clear of multi-page body).
     rule_y = baseline + 14
-    canvas.setStrokeColor(MUTED)
-    canvas.setLineWidth(0.35)
+    canvas.setStrokeColor(palette["primary"])
+    canvas.setLineWidth(0.9)
     canvas.line(left, rule_y, right, rule_y)
 
-    canvas.setFillColor(MUTED)
+    canvas.setFillColor(palette["muted"])
     canvas.setFont(font_name, 8)
-    # Wrap long message to at most ~95mm visual width by truncating is avoided;
-    # the canonical message fits a single centered line on A4.
     canvas.drawCentredString(center_x, baseline + 7, message)
 
-    canvas.setFillColor(NAVY)
+    canvas.setFillColor(palette["navy"])
     canvas.setFont(font_name, 8)
     canvas.drawCentredString(center_x, baseline + 1.5, link_label)
 
@@ -52,7 +51,7 @@ def draw_footer(canvas, doc, footer_text: str = "", *, website_url: str = ""):
     y2 = y1 + link_height
     canvas.linkURL(url, (x1, y1, x2, y2), relative=0)
 
-    canvas.setFillColor(MUTED)
+    canvas.setFillColor(palette["muted"])
     canvas.setFont(font_name, 8)
     canvas.drawRightString(right, baseline + 1.5, str(doc.page))
 

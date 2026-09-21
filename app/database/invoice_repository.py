@@ -121,18 +121,16 @@ class InvoiceRepository:
 
         return rows
 
-    def get_next_number(self):
-        """Next invoice number, never colliding with existing RAC-* rows."""
-        conn = self._connect()
+    def _next_counter_on_conn(self, conn) -> tuple[str, int]:
+        """Compute next free (prefix, counter) under an open write lock."""
         cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT
-                invoice_prefix,
-                invoice_counter
+        cursor.execute(
+            """
+            SELECT invoice_prefix, invoice_counter
             FROM company
             WHERE id=1
-        """)
+            """
+        )
         row = cursor.fetchone()
         prefix = (row[0] if row and row[0] else "RAC")
         counter = int(row[1] if row and row[1] is not None else 1)
@@ -152,37 +150,53 @@ class InvoiceRepository:
                 highest = max(highest, int(suffix) + 1)
             except (TypeError, ValueError):
                 continue
+        return prefix, highest
 
-        if highest != counter:
+    def get_next_number(self):
+        """Peek next invoice number (may heal counter); does not consume it."""
+        with db.transaction(immediate=True) as conn:
+            prefix, counter = self._next_counter_on_conn(conn)
+            cursor = conn.cursor()
             cursor.execute(
-                "UPDATE company SET invoice_counter=? WHERE id=1",
-                (highest,),
+                "SELECT invoice_counter FROM company WHERE id=1"
             )
-            conn.commit()
-            counter = highest
-
-        conn.close()
-        return f"{prefix}-{counter:04d}"
+            row = cursor.fetchone()
+            stored = int(row[0] if row and row[0] is not None else 1)
+            if counter != stored:
+                cursor.execute(
+                    "UPDATE company SET invoice_counter=? WHERE id=1",
+                    (counter,),
+                )
+            return f"{prefix}-{counter:04d}"
 
     def increase_counter(self):
+        with db.transaction(immediate=True) as conn:
+            conn.cursor().execute(
+                """
+                UPDATE company
+                SET invoice_counter = invoice_counter + 1
+                WHERE id=1
+                """
+            )
 
-        conn = self._connect()
-        cursor = conn.cursor()
+    def allocate_next_number(self, conn=None) -> str:
+        """Atomically reserve the next invoice number (BEGIN IMMEDIATE).
 
-        cursor.execute("""
-            UPDATE company
-            SET invoice_counter = invoice_counter + 1
-            WHERE id=1
-        """)
+        When *conn* is provided, allocation joins that outer transaction and
+        does not commit (used by offer→invoice conversion).
+        """
+        if conn is not None:
+            return self._allocate_on_conn(conn)
+        with db.transaction(immediate=True) as txn:
+            return self._allocate_on_conn(txn)
 
-        conn.commit()
-        conn.close()
-
-    def allocate_next_number(self) -> str:
-        """Atomically peek+bump so two open dialogs cannot share one number."""
-        number = self.get_next_number()
-        self.increase_counter()
-        return number
+    def _allocate_on_conn(self, conn) -> str:
+        prefix, counter = self._next_counter_on_conn(conn)
+        conn.cursor().execute(
+            "UPDATE company SET invoice_counter=? WHERE id=1",
+            (counter + 1,),
+        )
+        return f"{prefix}-{counter:04d}"
 
     def add(
         self,
@@ -197,14 +211,18 @@ class InvoiceRepository:
         notes,
         status="Osnutek",
         vat_liable=None,
+        conn=None,
     ):
         from app.utils.vat import company_vat_liable, vat_liable_int
 
-        self.ensure_schema()
+        if conn is None:
+            self.ensure_schema()
         if vat_liable is None:
             vat_liable = company_vat_liable()
 
-        conn = self._connect()
+        owns = conn is None
+        if owns:
+            conn = self._connect()
         cursor = conn.cursor()
 
         columns = {
@@ -237,11 +255,10 @@ class InvoiceRepository:
                 vat_liable_int(vat_liable),
             ))
 
-        conn.commit()
-
         invoice_id = cursor.lastrowid
-
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
         return invoice_id
 
@@ -458,7 +475,7 @@ class InvoiceRepository:
         items = self.get_items(invoice_id)
 
         new_id = self.add(
-            invoice_number=self.get_next_number(),
+            invoice_number=self.allocate_next_number(),
             customer_id=invoice[2],
             issue_date=invoice[3],
             due_date=invoice[4],
@@ -486,8 +503,6 @@ class InvoiceRepository:
                 total=item[10],
             )
 
-        self.increase_counter()
-
         return new_id
 
     # =====================================================
@@ -507,9 +522,12 @@ class InvoiceRepository:
         discount,
         vat,
         total,
+        conn=None,
     ):
 
-        conn = self._connect()
+        owns = conn is None
+        if owns:
+            conn = self._connect()
         cursor = conn.cursor()
 
         cursor.execute("""
@@ -541,8 +559,9 @@ class InvoiceRepository:
             total,
         ))
 
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
     def update_item(
         self,
