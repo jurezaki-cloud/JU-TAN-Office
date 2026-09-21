@@ -3,11 +3,9 @@ from datetime import date
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QGridLayout,
-    QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QPushButton,
     QScrollArea,
     QTableWidget,
     QTableWidgetItem,
@@ -15,21 +13,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.ui.brand_icons import brand_icon
-from app.database.customer_repository import customer_repository
-from app.database.invoice_repository import invoice_repository
-from app.database.offer_repository import offer_repository
-from app.database.payment_repository import payment_repository
-from app.theme.colors import semantic_color
+from app.theme.tokens import SPACE_3, SPACE_4
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
 from app.widgets.cards.revenue_chart import SLO_MONTHS, RevenueChart
+from app.widgets.dashboard.quick_actions import QuickActionsCard
+from app.widgets.dashboard.system_health import DashboardHealthCard
+from app.widgets.dashboard.welcome_header import WelcomeHeader
 from app.widgets.invoices.status_badge import StatusBadgeDelegate, invoice_badge
-
-SLO_MONTHS_FULL = (
-    "januar", "februar", "marec", "april", "maj", "junij",
-    "julij", "avgust", "september", "oktober", "november", "december",
-)
 
 
 class Dashboard(QWidget):
@@ -52,113 +43,81 @@ class Dashboard(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setAttribute(Qt.WA_StyledBackground, True)
 
         self._canvas = QWidget()
         self._canvas.setObjectName("DashboardCanvas")
+        self._canvas.setAttribute(Qt.WA_StyledBackground, True)
+        self._canvas.setAttribute(Qt.WA_OpaquePaintEvent, True)
         self._grid = QGridLayout(self._canvas)
-        self._grid.setContentsMargins(2, 2, 2, 2)
-        self._grid.setHorizontalSpacing(12)
-        self._grid.setVerticalSpacing(12)
+        self._grid.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_4)
+        self._grid.setHorizontalSpacing(SPACE_3)
+        self._grid.setVerticalSpacing(SPACE_3)
 
-        self._welcome = self._build_welcome()
-        self._kpi_invoices = KpiCard("Število računov", "0", "Vsi dokumenti")
-        self._kpi_revenue = KpiCard("Promet", "0,00 €", "Skupni promet")
-        self._kpi_unpaid = KpiCard("Neplačano", "0,00 €", "Odprti računi")
-        self._kpi_overdue = KpiCard("Zapadlo", "0,00 €", "Po roku plačila")
+        self._welcome = WelcomeHeader()
+        self._kpi_invoices = KpiCard(
+            "Število računov", "0", "Vsi dokumenti", tone="neutral"
+        )
+        self._kpi_revenue = KpiCard(
+            "Promet", "0,00 €", "Skupni promet", tone="primary"
+        )
+        self._kpi_unpaid = KpiCard(
+            "Neplačano", "0,00 €", "Odprti računi", tone="warning"
+        )
+        self._kpi_overdue = KpiCard(
+            "Zapadlo", "0,00 €", "Po roku plačila", tone="danger"
+        )
         self._chart_card = self._build_chart_card()
-        self._quick_card = self._build_quick_card()
+        self._quick_card = QuickActionsCard()
+        self._health_card = DashboardHealthCard()
         self._invoices_card = self._build_invoices_card()
         self._activity_card = self._build_activity_card()
+
+        self._quick_card.new_invoice_requested.connect(self.new_invoice_requested.emit)
+        self._quick_card.new_offer_requested.connect(self.new_offer_requested.emit)
+        self._quick_card.new_customer_requested.connect(self.new_customer_requested.emit)
+        self._quick_card.new_article_requested.connect(self.new_article_requested.emit)
+
+        # Backward-compatible aliases used by older UI helpers / polish scripts.
+        self.btn_new_invoice = self._quick_card.btn_new_invoice
+        self.btn_new_offer = self._quick_card.btn_new_offer
+        self.btn_new_customer = self._quick_card.btn_new_customer
+        self.btn_new_article = self._quick_card.btn_new_article
 
         scroll.setWidget(self._canvas)
         outer.addWidget(scroll)
 
         self._breakpoint = None
+        self._data_loaded = False
         self._place_widgets(1400)
-        self.refresh()
-
-    def _build_welcome(self) -> QWidget:
-        wrap = QWidget()
-        wrap.setObjectName("DashboardWelcomeBlock")
-        layout = QHBoxLayout(wrap)
-        layout.setContentsMargins(2, 0, 2, 4)
-        layout.setSpacing(12)
-
-        text = QVBoxLayout()
-        text.setContentsMargins(0, 0, 0, 0)
-        text.setSpacing(2)
-
-        hello = QLabel("Pregled poslovanja")
-        hello.setObjectName("DashboardWelcome")
-
-        self._date_label = QLabel(self._today_label())
-        self._date_label.setObjectName("DashboardDate")
-
-        text.addWidget(hello)
-        text.addWidget(self._date_label)
-
-        layout.addLayout(text)
-        layout.addStretch()
-        return wrap
+        # Defer DB-heavy refresh until first paint so MainWindow can show sooner.
 
     def _build_chart_card(self) -> EnterpriseCard:
         card = EnterpriseCard("DashboardCard")
-        title = QLabel("Promet")
+        eyebrow = QLabel("FINANČNI PREGLED")
+        eyebrow.setObjectName("DashboardEyebrow")
+        title = QLabel("Promet po mesecih")
         title.setObjectName("DashboardSectionTitle")
-        caption = QLabel("Zadnjih 6 mesecev")
-        caption.setObjectName("DashboardMuted")
+        self._chart_caption = QLabel("Zadnjih 6 mesecev")
+        self._chart_caption.setObjectName("DashboardMuted")
         self.chart = RevenueChart()
+        card.body.addWidget(eyebrow)
         card.body.addWidget(title)
-        card.body.addWidget(caption)
+        card.body.addWidget(self._chart_caption)
         card.body.addWidget(self.chart, 1)
-        return card
-
-    def _build_quick_card(self) -> EnterpriseCard:
-        card = EnterpriseCard("DashboardCard")
-        title = QLabel("Hitre akcije")
-        title.setObjectName("DashboardSectionTitle")
-        card.body.addWidget(title)
-
-        muted = semantic_color("TEXT", "#0F172A")
-        self.btn_new_invoice = QPushButton("Nov račun")
-        self.btn_new_invoice.setObjectName("PrimaryButton")
-        self.btn_new_invoice.setIcon(brand_icon("invoices", color="#FFFFFF", size=14))
-
-        self.btn_new_offer = QPushButton("Nova ponudba")
-        self.btn_new_offer.setObjectName("SecondaryButton")
-        self.btn_new_offer.setIcon(brand_icon("offers", color=muted, size=14))
-
-        self.btn_new_customer = QPushButton("Nova stranka")
-        self.btn_new_customer.setObjectName("SecondaryButton")
-        self.btn_new_customer.setIcon(brand_icon("customers", color=muted, size=14))
-
-        self.btn_new_article = QPushButton("Nov artikel")
-        self.btn_new_article.setObjectName("GhostButton")
-        self.btn_new_article.setIcon(brand_icon("articles", color=muted, size=14))
-
-        for button in (
-            self.btn_new_invoice,
-            self.btn_new_offer,
-            self.btn_new_customer,
-            self.btn_new_article,
-        ):
-            button.setCursor(Qt.PointingHandCursor)
-            button.setMinimumHeight(36)
-            card.body.addWidget(button)
-
-        card.body.addStretch()
-
-        self.btn_new_invoice.clicked.connect(self.new_invoice_requested.emit)
-        self.btn_new_offer.clicked.connect(self.new_offer_requested.emit)
-        self.btn_new_customer.clicked.connect(self.new_customer_requested.emit)
-        self.btn_new_article.clicked.connect(self.new_article_requested.emit)
         return card
 
     def _build_invoices_card(self) -> EnterpriseCard:
         card = EnterpriseCard("DashboardCard")
+        eyebrow = QLabel("DOKUMENTI")
+        eyebrow.setObjectName("DashboardEyebrow")
         title = QLabel("Zadnji računi")
         title.setObjectName("DashboardSectionTitle")
+        caption = QLabel("Najnovejši izdani dokumenti")
+        caption.setObjectName("DashboardMuted")
+        card.body.addWidget(eyebrow)
         card.body.addWidget(title)
+        card.body.addWidget(caption)
 
         self.invoice_table = QTableWidget(0, 4)
         self.invoice_table.setObjectName("DashboardTable")
@@ -181,9 +140,15 @@ class Dashboard(QWidget):
 
     def _build_activity_card(self) -> EnterpriseCard:
         card = EnterpriseCard("DashboardCard")
+        eyebrow = QLabel("AKTIVNOST")
+        eyebrow.setObjectName("DashboardEyebrow")
         title = QLabel("Zadnje aktivnosti")
         title.setObjectName("DashboardSectionTitle")
+        caption = QLabel("Računi, ponudbe in stranke")
+        caption.setObjectName("DashboardMuted")
+        card.body.addWidget(eyebrow)
         card.body.addWidget(title)
+        card.body.addWidget(caption)
 
         self.activity_list = QListWidget()
         self.activity_list.setObjectName("DashboardActivity")
@@ -192,12 +157,19 @@ class Dashboard(QWidget):
         card.body.addWidget(self.activity_list)
         return card
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._data_loaded:
+            from app.core.async_load import defer
+
+            defer(self.refresh)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._place_widgets(self.width())
 
     def _place_widgets(self, width: int) -> None:
-        if width >= 1100:
+        if width >= 1180:
             mode = "wide"
         elif width >= 760:
             mode = "medium"
@@ -208,87 +180,110 @@ class Dashboard(QWidget):
             return
 
         self._breakpoint = mode
+        self._canvas.setUpdatesEnabled(False)
+        try:
+            while self._grid.count():
+                item = self._grid.takeAt(0)
+                if item.widget():
+                    item.widget().setParent(self._canvas)
 
-        while self._grid.count():
-            item = self._grid.takeAt(0)
-            if item.widget():
-                item.widget().setParent(self._canvas)
+            kpis = (
+                self._kpi_invoices,
+                self._kpi_revenue,
+                self._kpi_unpaid,
+                self._kpi_overdue,
+            )
 
-        kpis = (
-            self._kpi_invoices,
-            self._kpi_revenue,
-            self._kpi_unpaid,
-            self._kpi_overdue,
-        )
-
-        if mode == "wide":
-            self._grid.addWidget(self._welcome, 0, 0, 1, 4)
-            for column, card in enumerate(kpis):
-                self._grid.addWidget(card, 1, column)
-            self._grid.addWidget(self._chart_card, 2, 0, 1, 3)
-            self._grid.addWidget(self._quick_card, 2, 3)
-            self._grid.addWidget(self._invoices_card, 3, 0, 1, 2)
-            self._grid.addWidget(self._activity_card, 3, 2, 1, 2)
-            for column in range(4):
-                self._grid.setColumnStretch(column, 1)
-        elif mode == "medium":
-            self._grid.addWidget(self._welcome, 0, 0, 1, 2)
-            self._grid.addWidget(self._kpi_invoices, 1, 0)
-            self._grid.addWidget(self._kpi_revenue, 1, 1)
-            self._grid.addWidget(self._kpi_unpaid, 2, 0)
-            self._grid.addWidget(self._kpi_overdue, 2, 1)
-            self._grid.addWidget(self._chart_card, 3, 0, 1, 2)
-            self._grid.addWidget(self._quick_card, 4, 0, 1, 2)
-            self._grid.addWidget(self._invoices_card, 5, 0)
-            self._grid.addWidget(self._activity_card, 5, 1)
-            self._grid.setColumnStretch(0, 1)
-            self._grid.setColumnStretch(1, 1)
-            self._grid.setColumnStretch(2, 0)
-            self._grid.setColumnStretch(3, 0)
-        else:
-            self._grid.addWidget(self._welcome, 0, 0)
-            row = 1
-            for card in kpis:
-                self._grid.addWidget(card, row, 0)
-                row += 1
-            self._grid.addWidget(self._chart_card, row, 0)
-            self._grid.addWidget(self._quick_card, row + 1, 0)
-            self._grid.addWidget(self._invoices_card, row + 2, 0)
-            self._grid.addWidget(self._activity_card, row + 3, 0)
-            self._grid.setColumnStretch(0, 1)
-            self._grid.setColumnStretch(1, 0)
-            self._grid.setColumnStretch(2, 0)
-            self._grid.setColumnStretch(3, 0)
+            if mode == "wide":
+                self._grid.addWidget(self._welcome, 0, 0, 1, 4)
+                for column, card in enumerate(kpis):
+                    self._grid.addWidget(card, 1, column)
+                self._grid.addWidget(self._chart_card, 2, 0, 1, 2)
+                self._grid.addWidget(self._quick_card, 2, 2)
+                self._grid.addWidget(self._health_card, 2, 3)
+                self._grid.addWidget(self._invoices_card, 3, 0, 1, 2)
+                self._grid.addWidget(self._activity_card, 3, 2, 1, 2)
+                for column in range(4):
+                    self._grid.setColumnStretch(column, 1)
+                self._grid.setRowStretch(2, 1)
+                self._grid.setRowStretch(3, 1)
+            elif mode == "medium":
+                self._grid.addWidget(self._welcome, 0, 0, 1, 2)
+                self._grid.addWidget(self._kpi_invoices, 1, 0)
+                self._grid.addWidget(self._kpi_revenue, 1, 1)
+                self._grid.addWidget(self._kpi_unpaid, 2, 0)
+                self._grid.addWidget(self._kpi_overdue, 2, 1)
+                self._grid.addWidget(self._chart_card, 3, 0, 1, 2)
+                self._grid.addWidget(self._quick_card, 4, 0)
+                self._grid.addWidget(self._health_card, 4, 1)
+                self._grid.addWidget(self._invoices_card, 5, 0)
+                self._grid.addWidget(self._activity_card, 5, 1)
+                self._grid.setColumnStretch(0, 1)
+                self._grid.setColumnStretch(1, 1)
+                self._grid.setColumnStretch(2, 0)
+                self._grid.setColumnStretch(3, 0)
+            else:
+                self._grid.addWidget(self._welcome, 0, 0)
+                row = 1
+                for card in kpis:
+                    self._grid.addWidget(card, row, 0)
+                    row += 1
+                self._grid.addWidget(self._chart_card, row, 0)
+                self._grid.addWidget(self._quick_card, row + 1, 0)
+                self._grid.addWidget(self._health_card, row + 2, 0)
+                self._grid.addWidget(self._invoices_card, row + 3, 0)
+                self._grid.addWidget(self._activity_card, row + 4, 0)
+                self._grid.setColumnStretch(0, 1)
+                self._grid.setColumnStretch(1, 0)
+                self._grid.setColumnStretch(2, 0)
+                self._grid.setColumnStretch(3, 0)
+        finally:
+            self._canvas.setUpdatesEnabled(True)
 
     def refresh(self):
-        invoices = invoice_repository.get_all()
-        offers = offer_repository.get_all()
-        customers = customer_repository.get_all()
-        revenue = float(invoice_repository.get_total_revenue() or 0)
-        unpaid = 0.0
-        overdue = 0.0
-        for row in invoices:
-            full = invoice_repository.get_by_id(row[0])
-            due = full[4] if full else None
-            badge = invoice_badge(row[5], due)
-            total = float(row[4] or 0)
-            outstanding = payment_repository.remaining(row[0], total)
-            if badge in ("Neplačano", "Delno plačano", "Zapadlo"):
-                unpaid += outstanding
-            if badge == "Zapadlo":
-                overdue += outstanding
+        from app.database.customer_repository import customer_repository
+        from app.database.invoice_repository import invoice_repository
+        from app.database.offer_repository import offer_repository
+        from app.database.payment_repository import payment_repository
 
-        self._date_label.setText(self._today_label())
-        self._kpi_invoices.set_value(str(len(invoices)))
-        self._kpi_revenue.set_value(self._money(revenue))
-        self._kpi_unpaid.set_value(self._money(unpaid))
-        self._kpi_overdue.set_value(self._money(overdue))
+        self._data_loaded = True
+        self.setUpdatesEnabled(False)
+        try:
+            invoices = invoice_repository.get_all()
+            offers = offer_repository.get_all()
+            customers = customer_repository.get_all()
+            revenue = float(invoice_repository.get_total_revenue() or 0)
+            unpaid = 0.0
+            overdue = 0.0
+            for row in invoices:
+                full = invoice_repository.get_by_id(row[0])
+                due = full[4] if full else None
+                badge = invoice_badge(row[5], due)
+                total = float(row[4] or 0)
+                outstanding = payment_repository.remaining(row[0], total)
+                if badge in ("Neplačano", "Delno plačano", "Zapadlo"):
+                    unpaid += outstanding
+                if badge == "Zapadlo":
+                    overdue += outstanding
 
-        self.chart.set_points(self._chart_points())
-        self._fill_invoices(invoices[:8])
-        self._fill_activity(invoices, offers, customers)
+            self._welcome.refresh()
+            self._quick_card.refresh_icons()
+            self._health_card.refresh()
+
+            self._kpi_invoices.set_value(str(len(invoices)))
+            self._kpi_revenue.set_value(self._money(revenue))
+            self._kpi_unpaid.set_value(self._money(unpaid))
+            self._kpi_overdue.set_value(self._money(overdue))
+
+            self.chart.set_points(self._chart_points())
+            self._fill_invoices(invoices[:8])
+            self._fill_activity(invoices, offers, customers)
+        finally:
+            self.setUpdatesEnabled(True)
 
     def _chart_points(self) -> list[tuple[str, float]]:
+        from app.database.invoice_repository import invoice_repository
+
         monthly = {
             str(month): float(total or 0)
             for month, total in invoice_repository.get_monthly_revenue()
@@ -307,6 +302,8 @@ class Dashboard(QWidget):
         return points
 
     def _fill_invoices(self, rows) -> None:
+        from app.database.invoice_repository import invoice_repository
+
         self.invoice_table.setRowCount(len(rows))
         if not rows:
             self.invoice_table.setRowCount(1)
@@ -366,13 +363,3 @@ class Dashboard(QWidget):
         from app.utils.money import format_eur
 
         return format_eur(value)
-
-    @staticmethod
-    def _today_label() -> str:
-        today = date.today()
-        weekday = (
-            "ponedeljek", "torek", "sreda", "četrtek",
-            "petek", "sobota", "nedelja",
-        )[today.weekday()]
-        month = SLO_MONTHS_FULL[today.month - 1]
-        return f"{weekday.capitalize()}, {today.day}. {month} {today.year}"

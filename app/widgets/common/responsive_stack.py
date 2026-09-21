@@ -22,11 +22,17 @@ class ResponsiveStackedWidget(QStackedWidget):
         self.currentChanged.connect(self._on_current_changed)
 
     def _on_current_changed(self, _index: int) -> None:
-        self.updateGeometry()
-        parent = self.parentWidget()
-        while parent is not None:
-            parent.updateGeometry()
-            parent = parent.parentWidget()
+        # Avoid cascading geometry thrash that flashes temporary frames.
+        self.setUpdatesEnabled(False)
+        try:
+            self.updateGeometry()
+            parent = self.parentWidget()
+            # One immediate parent is enough for sizeHint; full ancestor walk
+            # caused visible flicker when switching modules.
+            if parent is not None:
+                parent.updateGeometry()
+        finally:
+            self.setUpdatesEnabled(True)
 
     def sizeHint(self) -> QSize:
         current = self.currentWidget()

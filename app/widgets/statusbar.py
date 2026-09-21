@@ -1,7 +1,6 @@
 from PySide6.QtWidgets import QLabel, QStatusBar
 
 from app.core.constants import APP_VERSION, DATABASE_PATH
-from app.modules.automation.job_queue import job_queue
 
 
 class StatusBar(QStatusBar):
@@ -18,7 +17,7 @@ class StatusBar(QStatusBar):
             label.setObjectName("StatusChip")
             self.addPermanentWidget(label)
         self.showMessage("Sistem pripravljen")
-        self.refresh()
+        # DB/company refresh is deferred until MainWindow finishes showing.
 
     def refresh(self) -> None:
         try:
@@ -45,5 +44,10 @@ class StatusBar(QStatusBar):
             self._db.setText("Baza: OK" if ok else "Baza: ni datoteke")
         except Exception:
             self._db.setText("Baza: ?")
-        pending = len(getattr(job_queue, "_pending", []) or [])
+        try:
+            from app.modules.automation.job_queue import job_queue
+
+            pending = len(getattr(job_queue, "_pending", []) or [])
+        except Exception:
+            pending = 0
         self._jobs.setText(f"Opravila: {pending}")

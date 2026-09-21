@@ -9,7 +9,6 @@ from app.database.company_repository import company_repository
 def test_versioning_major_minor_build():
     assert APP_VERSION == "1.0.0"
     assert APP_CHANNEL == "GOLD"
-    assert APP_CHANNEL == "GOLD"
     assert parse_version("1.0.1") == (1, 0, 1)
     assert parse_version("1.1.0") > parse_version("1.0.2")
     assert is_newer("1.0.1", "1.0.0")
@@ -19,6 +18,14 @@ def test_versioning_major_minor_build():
 
 def test_schema_version_constant():
     assert SCHEMA_VERSION == 2
+
+
+def test_release_meta_matches_constants():
+    from app.core import release_meta
+
+    assert release_meta.APP_VERSION == APP_VERSION
+    assert release_meta.APP_CHANNEL == APP_CHANNEL
+    assert release_meta.SCHEMA_VERSION == SCHEMA_VERSION
 
 
 def test_first_run_then_complete():

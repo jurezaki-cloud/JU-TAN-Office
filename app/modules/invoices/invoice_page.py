@@ -2,11 +2,8 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QLabel,
-    QHBoxLayout,
     QMessageBox,
-    QStackedWidget,
 )
-
 from app.core.ui.notify import toast, toast_info
 from app.database.invoice_repository import invoice_repository
 from app.pdf.pdf_export import pdf_export
@@ -14,6 +11,7 @@ from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
 from app.modules.invoices.models.invoice_table_model import InvoiceTableModel
 from app.modules.invoices.invoice_dialog import InvoiceDialog
 from app.widgets.cards.enterprise_card import EnterpriseCard
+from app.widgets.common import DocumentListToolbar, PageHeader, ResponsiveStackedWidget
 from app.widgets.customers.empty_state import EmptyStateCard
 from app.widgets.invoices.invoice_actions import InvoiceActions
 from app.widgets.invoices.invoice_table import InvoiceTable
@@ -21,30 +19,27 @@ from app.widgets.invoices.search_field import InvoiceSearch
 from app.widgets.invoices.status_badge import StatusBadgeDelegate, invoice_badge
 from app.widgets.invoices.status_bar import InvoiceStatusBar
 
-
 class InvoicePage(QWidget):
 
     def __init__(self):
         super().__init__()
-
         self.setObjectName("InvoicePage")
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
-
         title = QLabel("Računi")
         title.setObjectName("PageTitle")
         title.hide()
         layout.addWidget(title)
-
-        from app.widgets.common.page_chrome import PageToolbar
-
-        toolbar = PageToolbar()
+        self.header = PageHeader(
+            "Računi",
+            "Pregled, iskanje in upravljanje izdanih računov.",
+        )
+        layout.addWidget(self.header)
+        toolbar = DocumentListToolbar()
         self.search_field = InvoiceSearch()
         self.search = self.search_field.input
         self.search.setMinimumWidth(260)
-
         self.actions = InvoiceActions()
         self.btn_new = self.actions.btn_new
         self.btn_edit = self.actions.btn_edit
@@ -52,50 +47,43 @@ class InvoicePage(QWidget):
         self.btn_delete = self.actions.btn_delete
         self.btn_pdf = self.actions.btn_pdf
         self.btn_refresh = self.actions.btn_refresh
-
         # Pattern: [ Search ] [Status] [actions…]
         toolbar.layout.addWidget(self.search_field, 1)
         # Re-parent filter + actions without duplicating the search.
         toolbar.layout.addWidget(self.actions, 0)
         layout.addWidget(toolbar)
-
         self.table = InvoiceTable()
         self.model = InvoiceTableModel()
         self.table.setModel(self.model)
         self.table.setColumnHidden(0, True)
         self.table.setItemDelegateForColumn(5, StatusBadgeDelegate(self.table))
-
-        table_card = EnterpriseCard("DashboardCard")
-        table_card.body.setContentsMargins(8, 8, 8, 8)
+        table_card = EnterpriseCard("DocumentListCard")
+        table_card.body.setContentsMargins(0, 0, 0, 0)
+        table_card.body.setSpacing(0)
         table_card.body.addWidget(self.table)
-
         self.empty_state = EmptyStateCard(
             "Ni računov",
             "Ustvarite prvi račun ali spremenite iskalni filter.",
+            action_text="Nov račun",
         )
-
-        self.content_stack = QStackedWidget()
+        self.content_stack = ResponsiveStackedWidget()
         self.content_stack.addWidget(self.empty_state)
         self.content_stack.addWidget(table_card)
         layout.addWidget(self.content_stack, 1)
-
         self.status = InvoiceStatusBar()
         layout.addWidget(self.status)
-
         self.empty_state.action_clicked.connect(self.new_invoice)
         self.btn_new.clicked.connect(self.new_invoice)
         self.btn_edit.clicked.connect(self.edit_invoice)
-        self.btn_duplicate.clicked.connect(self.duplicate_invoice)
         self.btn_delete.clicked.connect(self.delete_invoice)
-        # InvoiceActions owns the real PDF button. Connect its semantic signal
-        # instead of wiring the child QPushButton directly; this keeps the action
-        # working even when the toolbar is rebuilt/styled in the packaged app.
+        # InvoiceActions owns overflow actions via semantic signals.
+        self.actions.duplicate_clicked.connect(self.duplicate_invoice)
         self.actions.pdf_clicked.connect(self.export_pdf)
         self.actions.excel_clicked.connect(lambda: run_excel_export(self, "invoices"))
         self.actions.import_clicked.connect(
             lambda: run_excel_import(self, "invoices", self.refresh)
         )
-        self.btn_refresh.clicked.connect(self.refresh)
+        self.actions.refresh_clicked.connect(self.refresh)
         from app.core.pagination import IncrementalLoader
         from app.core.ui.debounce import Debouncer
         self._loader = IncrementalLoader(
@@ -110,53 +98,42 @@ class InvoicePage(QWidget):
         self.table.selectionModel().selectionChanged.connect(
             self._update_status
         )
-
         from app.core.ui.window_state import remember_layout
         remember_layout(self, "page.invoices", tables=[self.table], fields=[self.search, self.actions.filter])
         self.table.verticalScrollBar().valueChanged.connect(self._maybe_more)
         self.refresh()
 
     def new_invoice(self):
-
         dialog = InvoiceDialog(self)
-
         if dialog.exec():
             self.refresh()
             toast(self, "Račun shranjen")
 
     def edit_invoice(self):
-
         invoice_id = self.selected_invoice()
-
         if invoice_id is None:
             toast_info(
                 self,
                 "Najprej izberi račun."
             )
             return
-
         dialog = InvoiceDialog(
             self,
             invoice_id=invoice_id
         )
-
         if dialog.exec():
             self.refresh()
             toast(self, "Račun shranjen")
 
     def duplicate_invoice(self):
-
         invoice_id = self.selected_invoice()
-
         if invoice_id is None:
             toast_info(
                 self,
                 "Najprej izberi račun."
             )
             return
-
         new_id = invoice_repository.duplicate(invoice_id)
-
         if new_id is None:
             QMessageBox.warning(
                 self,
@@ -164,14 +141,11 @@ class InvoicePage(QWidget):
                 "Računa ni bilo mogoče kopirati."
             )
             return
-
         self.refresh()
-
         dialog = InvoiceDialog(
             self,
             invoice_id=new_id
         )
-
         if dialog.exec():
             self.refresh()
             toast(self, "Račun shranjen")
@@ -202,35 +176,27 @@ class InvoicePage(QWidget):
         self._apply_view()
 
     def selected_invoice(self):
-
         indexes = self.table.selectionModel().selectedRows()
-
         if not indexes:
             return None
-
         return self.model.invoice_id(indexes[0].row())
 
     def delete_invoice(self):
         from app.core.permissions import allow, audit
-
         if not allow("delete", self):
             return
-
         invoice_id = self.selected_invoice()
-
         if invoice_id is None:
             toast_info(
                 self,
                 "Najprej izberi račun."
             )
             return
-
         reply = QMessageBox.question(
             self,
             "Storniranje računa",
             "Račun bo označen kot storniran in bo ostal v evidenci. Nadaljujem?"
         )
-
         if reply == QMessageBox.Yes:
             invoice_repository.cancel(invoice_id)
             audit("edit", f"invoice:{invoice_id}:cancelled")
@@ -241,13 +207,11 @@ class InvoicePage(QWidget):
         invoices = self._loader.first()
         decorated = self._decorate(invoices)
         selected = self.actions.filter.currentData()
-
         if selected and selected != "all":
             decorated = [
                 row for row in decorated
                 if invoice_badge(row[5], row[6] if len(row) > 6 else None) == selected
             ]
-
         self.model.refresh(decorated)
         self._sync_empty_state(text, selected)
         self._update_status()
@@ -299,7 +263,6 @@ class InvoicePage(QWidget):
         if invoice_id is None:
             self.status.set_selected(None)
             return
-
         row = self.table.selectionModel().selectedRows()[0].row()
         number = self.model.invoices[row][1]
         self.status.set_selected(str(number))

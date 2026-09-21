@@ -28,6 +28,10 @@ Ob prvem zagonu vnesite podatke podjetja. Geslo je priporočeno.
 
 Lead → stranka → ponudba → naročilo → dobavnica → račun → plačilo → poročilo.
 
+## Zasebnost
+
+Lokalni podatki in politika zasebnosti: glej `docs/PRIVACY.md` ali Nastavitve → Zasebnost → Politika zasebnosti.
+
 ## Iskanje in izvoz
 
 Iskalnik v orodni vrstici filtrira trenutni seznam. Excel in PDF sta v orodni vrstici modulov.

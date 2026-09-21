@@ -53,10 +53,25 @@ def memory_mb() -> float:
             counters = PROCESS_MEMORY_COUNTERS()
             counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
             handle = ctypes.windll.kernel32.GetCurrentProcess()
-            if ctypes.windll.psapi.GetProcessMemoryInfo(
-                handle, ctypes.byref(counters), counters.cb
+            # Prefer K32* (kernel32) then psapi; set argtypes so the call
+            # marshals correctly on 64-bit Python (bare windll can return 0).
+            for dll_name, fn_name in (
+                ("kernel32", "K32GetProcessMemoryInfo"),
+                ("psapi", "GetProcessMemoryInfo"),
             ):
-                return counters.WorkingSetSize / (1024 * 1024)
+                try:
+                    dll = ctypes.WinDLL(dll_name)
+                    fn = getattr(dll, fn_name)
+                except (AttributeError, OSError):
+                    continue
+                fn.argtypes = [
+                    wintypes.HANDLE,
+                    ctypes.POINTER(PROCESS_MEMORY_COUNTERS),
+                    wintypes.DWORD,
+                ]
+                fn.restype = wintypes.BOOL
+                if fn(handle, ctypes.byref(counters), counters.cb):
+                    return counters.WorkingSetSize / (1024 * 1024)
         except Exception:
             return 0.0
     try:

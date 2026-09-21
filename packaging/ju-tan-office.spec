@@ -15,6 +15,13 @@ a = Analysis(
         (str(ROOT / "resources" / "logo_light.png"), "resources"),
         (str(ROOT / "packaging" / "Version.txt"), "."),
         (str(ROOT / "packaging" / "LICENSE.txt"), "."),
+        (str(ROOT / "docs" / "PRIVACY.md"), "docs"),
+        (str(ROOT / "docs" / "INSTALL.md"), "docs"),
+        (str(ROOT / "docs" / "USER_GUIDE.md"), "docs"),
+        (str(ROOT / "docs" / "ADMIN_GUIDE.md"), "docs"),
+        (str(ROOT / "docs" / "RELEASE_NOTES.md"), "docs"),
+        (str(ROOT / "docs" / "SECURITY.md"), "docs"),
+        (str(ROOT / "docs" / "SIGNING.md"), "docs"),
         (str(ROOT / "updates" / "latest.json"), "updates"),
     ],
     hiddenimports=[

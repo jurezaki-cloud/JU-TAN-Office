@@ -31,9 +31,13 @@ Thumbs.db
 
 # Generated / local artifacts (never for release)
 reports/
+.audit-tmp/
+.rc-qa-tmp/
+tmp_ui2.xml
 scripts/_ui_audit_shots/
 scripts/_*_out.txt
 scripts/_full_pytest.txt
+scripts/_stability_audit.py
 
 # Local-only capture helper (developer absolute paths)
 demo-session/_capture_customers_shot.py
@@ -42,6 +46,7 @@ demo-session/_capture_customers_shot.py
 scripts/_diag_*.py
 scripts/_inspect_*.py
 scripts/_measure_*.py
+scripts/_perf_*.py
 scripts/_probe_*.py
 scripts/_qa_*.py
 scripts/_ui_polish_audit.py

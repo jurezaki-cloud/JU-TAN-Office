@@ -311,10 +311,37 @@ def test_installer_upgrade_contract():
     assert "uninsneveruninstall" in iss
     assert "JU-TAN-Office-Setup" in iss
     assert "AppId=" in iss
+    assert "AppPublisherURL=" in iss
+    assert "PRIVACY.md" in iss
+    assert "SECURITY.md" in iss
+    assert "CloseApplications=yes" in iss
+    assert "AppMutex=JU-TANOfficeMutex" in iss
+    assert "pre-upgrade.db-wal" in iss
+    assert "pre-upgrade.db-shm" in iss
     version = Path("Version.txt").read_text(encoding="utf-8")
     assert "1.0.0 GOLD" in version or "1.0.0" in version
+    assert "SCHEMA 2" in version
     assert Path("packaging/LICENSE.txt").exists()
     assert Path("docs/INSTALL.md").exists()
     assert Path("docs/SECURITY.md").exists()
+    assert Path("docs/PRIVACY.md").exists()
+    assert Path("docs/SIGNING.md").exists()
     notes = Path("docs/RELEASE_NOTES.md").read_text(encoding="utf-8")
     assert "1.0.0" in notes
+    assert Path("packaging/version.iss").exists()
+    assert not Path("packaging/SHA256SUMS.txt").exists()
+    changelog = Path("docs/CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## 1.0.0" in changelog
+    assert "## 1.0.1" not in changelog
+    assert Path("INSTALL.md").read_text(encoding="utf-8") == Path("docs/INSTALL.md").read_text(
+        encoding="utf-8"
+    )
+    spec = Path("packaging/ju-tan-office.spec").read_text(encoding="utf-8")
+    for doc in ("SECURITY.md", "RELEASE_NOTES.md", "SIGNING.md"):
+        assert doc in spec
+    build_ps1 = Path("scripts/build_release.ps1").read_text(encoding="utf-8")
+    assert "docs/SECURITY.md" in build_ps1
+    assert 'dist/SHA256SUMS.txt' in build_ps1
+    from app.core.app_mutex import APP_MUTEX_NAME
+
+    assert APP_MUTEX_NAME == "JU-TANOfficeMutex"

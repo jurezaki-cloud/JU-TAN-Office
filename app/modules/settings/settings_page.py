@@ -1,30 +1,39 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QGridLayout,
+    QHBoxLayout,
     QMessageBox,
     QScrollArea,
+    QVBoxLayout,
     QWidget,
 )
 
 from app.core.constants import BACKUP_DIR
-from app.core.permissions import set_identity
+from app.core.permissions import can, set_identity
 from app.core.session import session
 from app.core.ui.notify import toast
 from app.modules.settings.settings_controller import SettingsController
+from app.theme.tokens import SPACE_3, SPACE_4
+from app.widgets.common.page_chrome import PageHeader
 from app.widgets.settings.about_card import AboutCard
 from app.widgets.settings.appearance_card import AppearanceCard
 from app.widgets.settings.backup_card import BackupCard
 from app.widgets.settings.fresh_zone_card import FreshZoneCard
+from app.widgets.settings.license_card import LicenseCard
 from app.widgets.settings.numbering_card import NumberingCard
 from app.widgets.settings.pdf_card import PdfCard
+from app.widgets.settings.privacy_card import PrivacyCard
 from app.widgets.settings.security_card import SecurityCard
+from app.widgets.settings.settings_health_card import SettingsHealthCard
+from app.widgets.settings.settings_nav import SettingsNav
+from app.widgets.settings.settings_section import SettingsSectionHeader
 from app.widgets.settings.travel_settings_card import TravelSettingsCard
+from app.widgets.settings.update_card import UpdateCard
 from app.widgets.settings.users_card import UsersCard
 
 
@@ -42,22 +51,95 @@ class SettingsPage(QWidget):
         self.setObjectName("SettingsPage")
         self.controller = SettingsController()
 
-        outer = QGridLayout(self)
+        outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
+
+        chrome = QWidget()
+        chrome.setObjectName("SettingsChrome")
+        chrome_layout = QVBoxLayout(chrome)
+        chrome_layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_3)
+        chrome_layout.setSpacing(SPACE_3)
+
+        self.header = PageHeader(
+            "Nastavitve",
+            "Settings Center — konfiguracija aplikacije, dostopa in sistema.",
+        )
+        chrome_layout.addWidget(self.header)
+
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(SPACE_3)
+
+        self.nav = SettingsNav()
+        self.nav.category_selected.connect(self._on_category)
+        body.addWidget(self.nav, 0)
 
         scroll = QScrollArea()
         scroll.setObjectName("SettingsScroll")
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._scroll = scroll
+        self._scroll_anim: QPropertyAnimation | None = None
+        self._nav_programmatic = False
 
         self._canvas = QWidget()
         self._canvas.setObjectName("SettingsCanvas")
         self._grid = QGridLayout(self._canvas)
-        self._grid.setContentsMargins(12, 12, 12, 12)
-        self._grid.setHorizontalSpacing(12)
-        self._grid.setVerticalSpacing(12)
+        self._grid.setContentsMargins(SPACE_3, SPACE_3, SPACE_4, SPACE_4)
+        self._grid.setHorizontalSpacing(SPACE_3)
+        self._grid.setVerticalSpacing(SPACE_3)
+
+        self.health_card = SettingsHealthCard()
+        self.section_overview = SettingsSectionHeader(
+            "Pregled sistema",
+            "Hitri status licence, baze, varnostnih kopij in seje.",
+        )
+        self.section_documents = SettingsSectionHeader(
+            "Dokumenti",
+            "PDF izvoz, Excel in številčenje dokumentov.",
+        )
+        self.section_appearance = SettingsSectionHeader(
+            "Videz",
+            "Tema, poudarek, tipografija in zaokrožitve.",
+        )
+        self.section_modules = SettingsSectionHeader(
+            "Moduli",
+            "Nastavitve potnih nalogov in modulov.",
+        )
+        self.section_security = SettingsSectionHeader(
+            "Varnost in seje",
+            "Vloga, časovna omejitev in geslo.",
+        )
+        self.section_users = SettingsSectionHeader(
+            "Uporabniki in pravice",
+            "Upravljanje računov in dovoljenj.",
+        )
+        self.section_backup = SettingsSectionHeader(
+            "Varnostne kopije",
+            "Backup baze in uvoz/izvoz nastavitev.",
+        )
+        self.section_license = SettingsSectionHeader(
+            "Licenca",
+            "Paket, podjetje, veljavnost in preverjanje licence.",
+        )
+        self.section_updates = SettingsSectionHeader(
+            "Posodobitve",
+            "Trenutna verzija in kanal posodobitev.",
+        )
+        self.section_privacy = SettingsSectionHeader(
+            "Zasebnost",
+            "GDPR informacije, politika zasebnosti in upravljanje podatkov.",
+        )
+        self.section_about = SettingsSectionHeader(
+            "O aplikaciji",
+            "JU-TAN blagovna znamka, verzija, podjetje in podpora.",
+        )
+        self.section_danger = SettingsSectionHeader(
+            "Nevarno območje",
+            "Destruktivna dejanja — samo za administratorja.",
+        )
 
         self.numbering_card = NumberingCard()
         self.appearance_card = AppearanceCard()
@@ -66,11 +148,35 @@ class SettingsPage(QWidget):
         self.security_card = SecurityCard()
         self.users_card = UsersCard()
         self.fresh_zone_card = FreshZoneCard()
+        self.license_card = LicenseCard()
+        self.update_card = UpdateCard()
+        self.privacy_card = PrivacyCard()
         self.about_card = AboutCard()
         self.travel_card = TravelSettingsCard()
 
+        # Stable section anchors — one nav key per content section.
+        self._anchors: dict[str, QWidget] = {
+            "overview": self.section_overview,
+            "documents": self.section_documents,
+            "appearance": self.section_appearance,
+            "modules": self.section_modules,
+            "security": self.section_security,
+            "users": self.section_users,
+            "backup": self.section_backup,
+            "license": self.section_license,
+            "updates": self.section_updates,
+            "privacy": self.section_privacy,
+            "about": self.section_about,
+            "danger": self.section_danger,
+        }
+        for key, widget in self._anchors.items():
+            widget.setProperty("settingsAnchor", key)
+
         scroll.setWidget(self._canvas)
-        outer.addWidget(scroll)
+        scroll.verticalScrollBar().valueChanged.connect(self._on_scroll_changed)
+        body.addWidget(scroll, 1)
+        chrome_layout.addLayout(body, 1)
+        outer.addWidget(chrome)
 
         self.appearance_card.theme_changed.connect(self._on_theme)
         self.appearance_card.changed.connect(self._apply_appearance)
@@ -87,16 +193,36 @@ class SettingsPage(QWidget):
         self._place_widgets(1400)
         self.refresh()
         from app.core.ui.window_state import remember_layout
+
         remember_layout(self, "page.settings")
         # Theme is applied at process startup (before MainWindow). Do NOT re-apply
         # here — that made opening Nastavitve the first moment DARK appeared.
 
+    def hideEvent(self, event):
+        if self._scroll_anim is not None:
+            self._scroll_anim.stop()
+            self._scroll_anim = None
+            self._nav_programmatic = False
+        super().hideEvent(event)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._place_widgets(self.width())
+        self._sync_bottom_spacer()
+
+    def _sync_bottom_spacer(self) -> None:
+        """Keep enough trailing space so every section can pin to the viewport top."""
+        if not hasattr(self, "_bottom_spacer"):
+            return
+        spacer_h = max(240, self._scroll.viewport().height() - 120)
+        if self._bottom_spacer.height() != spacer_h:
+            self._bottom_spacer.setMinimumHeight(spacer_h)
+            self._bottom_spacer.setFixedHeight(spacer_h)
 
     def _place_widgets(self, width: int) -> None:
-        mode = "wide" if width >= 980 else "narrow"
+        # Account for nav rail (~220) + chrome margins when choosing density.
+        content_width = max(320, width - 260)
+        mode = "wide" if content_width >= 980 else "narrow"
         if mode == self._breakpoint:
             return
         self._breakpoint = mode
@@ -106,32 +232,161 @@ class SettingsPage(QWidget):
             if item.widget():
                 item.widget().setParent(self._canvas)
 
+        self.nav.setVisible(width >= 720)
+        self.section_modules.show()
+
+        r = 0
+        self._grid.addWidget(self.section_overview, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.health_card, r, 0, 1, 2)
+        r += 1
+
+        self._grid.addWidget(self.section_documents, r, 0, 1, 2)
+        r += 1
         if mode == "wide":
-            # Company identity has its own dedicated module. Settings contains
-            # application behaviour only, avoiding two editable sources.
-            self._grid.addWidget(self.pdf_card, 0, 0)
-            self._grid.addWidget(self.numbering_card, 0, 1)
-            self._grid.addWidget(self.appearance_card, 1, 0)
-            self._grid.addWidget(self.travel_card, 1, 1)
-            self._grid.addWidget(self.security_card, 2, 0, 1, 2)
-            self._grid.addWidget(self.users_card, 3, 0, 1, 2)
-            self._grid.addWidget(self.backup_card, 4, 0, 1, 2)
-            self._grid.addWidget(self.about_card, 5, 0, 1, 2)
-            self._grid.addWidget(self.fresh_zone_card, 6, 0, 1, 2)
-            self._grid.setColumnStretch(0, 1)
-            self._grid.setColumnStretch(1, 1)
+            self._grid.addWidget(self.pdf_card, r, 0)
+            self._grid.addWidget(self.numbering_card, r, 1)
+            r += 1
+            self._grid.addWidget(self.section_appearance, r, 0, 1, 2)
+            r += 1
+            self._grid.addWidget(self.appearance_card, r, 0)
+            self._grid.addWidget(self.travel_card, r, 1)
+            r += 1
+            # Keep modules header as a nav anchor without taking vertical space.
+            self.section_modules.hide()
         else:
-            self._grid.addWidget(self.pdf_card, 0, 0)
-            self._grid.addWidget(self.numbering_card, 1, 0)
-            self._grid.addWidget(self.appearance_card, 2, 0)
-            self._grid.addWidget(self.travel_card, 3, 0)
-            self._grid.addWidget(self.security_card, 4, 0)
-            self._grid.addWidget(self.users_card, 5, 0)
-            self._grid.addWidget(self.backup_card, 6, 0)
-            self._grid.addWidget(self.about_card, 7, 0)
-            self._grid.addWidget(self.fresh_zone_card, 8, 0)
-            self._grid.setColumnStretch(0, 1)
-            self._grid.setColumnStretch(1, 0)
+            self._grid.addWidget(self.pdf_card, r, 0, 1, 2)
+            r += 1
+            self._grid.addWidget(self.numbering_card, r, 0, 1, 2)
+            r += 1
+            self._grid.addWidget(self.section_appearance, r, 0, 1, 2)
+            r += 1
+            self._grid.addWidget(self.appearance_card, r, 0, 1, 2)
+            r += 1
+            self._grid.addWidget(self.section_modules, r, 0, 1, 2)
+            r += 1
+            self._grid.addWidget(self.travel_card, r, 0, 1, 2)
+            r += 1
+
+        self._grid.addWidget(self.section_security, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.security_card, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.section_users, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.users_card, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.section_backup, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.backup_card, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.section_license, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.license_card, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.section_updates, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.update_card, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.section_privacy, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.privacy_card, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.section_about, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.about_card, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.section_danger, r, 0, 1, 2)
+        r += 1
+        self._grid.addWidget(self.fresh_zone_card, r, 0, 1, 2)
+        r += 1
+
+        # Spacer so the last sections can scroll flush to the top of the viewport.
+        if not hasattr(self, "_bottom_spacer"):
+            self._bottom_spacer = QWidget()
+            self._bottom_spacer.setObjectName("SettingsBottomSpacer")
+        self._grid.addWidget(self._bottom_spacer, r, 0, 1, 2)
+        self._sync_bottom_spacer()
+
+        self._grid.setColumnStretch(0, 1)
+        self._grid.setColumnStretch(1, 1 if mode == "wide" else 0)
+
+    def _anchor_for(self, key: str) -> QWidget | None:
+        """Resolve the content widget for a SettingsNav key."""
+        # In wide layout the modules header is hidden; land on the travel card.
+        if key == "modules" and not self.section_modules.isVisible():
+            return self.travel_card
+        return self._anchors.get(key)
+
+    def _on_category(self, key: str) -> None:
+        target = self._anchor_for(key)
+        if target is None:
+            return
+        self._scroll_to_section(target, smooth=True)
+
+    def _section_scroll_value(self, target: QWidget) -> int:
+        """Scrollbar value that pins ``target`` near the top of the viewport."""
+        margin = 12
+        y = target.mapTo(self._canvas, target.rect().topLeft()).y()
+        bar = self._scroll.verticalScrollBar()
+        return max(0, min(y - margin, bar.maximum()))
+
+    def _scroll_to_section(self, target: QWidget, *, smooth: bool = True) -> None:
+        """Scroll so the section header sits at the top (not merely on-screen)."""
+        self._sync_bottom_spacer()
+        bar = self._scroll.verticalScrollBar()
+        end_value = self._section_scroll_value(target)
+        if abs(bar.value() - end_value) <= 1:
+            return
+
+        if self._scroll_anim is not None:
+            self._scroll_anim.stop()
+            self._scroll_anim = None
+
+        if not smooth:
+            self._nav_programmatic = True
+            try:
+                bar.setValue(end_value)
+            finally:
+                self._nav_programmatic = False
+            return
+
+        self._nav_programmatic = True
+        anim = QPropertyAnimation(bar, b"value", self)
+        anim.setDuration(280)
+        anim.setStartValue(bar.value())
+        anim.setEndValue(end_value)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        def _finish() -> None:
+            self._nav_programmatic = False
+            self._scroll_anim = None
+
+        anim.finished.connect(_finish)
+        self._scroll_anim = anim
+        anim.start()
+
+    def _on_scroll_changed(self, _value: int = 0) -> None:
+        if self._nav_programmatic:
+            return
+        self._sync_nav_from_scroll()
+
+    def _sync_nav_from_scroll(self) -> None:
+        """Keep the nav highlight aligned with the section currently in view."""
+        top = self._scroll.verticalScrollBar().value()
+        band = 96
+        best_key = "overview"
+        best_y = -10_000
+        for key in self._anchors:
+            widget = self._anchor_for(key)
+            if widget is None or not widget.isVisible():
+                continue
+            y = widget.mapTo(self._canvas, widget.rect().topLeft()).y()
+            if y <= top + band and y >= best_y:
+                best_y = y
+                best_key = key
+        if self.nav._active != best_key:
+            self.nav.select(best_key)
 
     def refresh(self):
         bundle = self.controller.load_bundle()
@@ -145,7 +400,23 @@ class SettingsPage(QWidget):
         # Re-evaluate RBAC-gated cards from current effective permissions (no restart).
         self.users_card.refresh()
         self.fresh_zone_card.refresh()
-        self.about_card.set_values(self.controller.about())
+        self.license_card.refresh()
+        self.update_card.refresh()
+        about = self.controller.about()
+        self.about_card.set_values(about)
+        self.health_card.refresh(
+            about=about,
+            appearance=extras.get("appearance", {}),
+        )
+        self._sync_nav_visibility()
+
+    def _sync_nav_visibility(self) -> None:
+        users_ok = can("users")
+        fresh_ok = can("fresh")
+        self.nav.set_category_visible("users", users_ok)
+        self.nav.set_category_visible("danger", fresh_ok)
+        self.section_users.setVisible(users_ok)
+        self.section_danger.setVisible(fresh_ok)
 
     def extras(self) -> dict:
         return {
@@ -216,12 +487,19 @@ class SettingsPage(QWidget):
         if app is not None:
             self.controller.apply_appearance(app)
             self._applied_appearance = dict(appearance)
+            # Refresh nav icons for new theme colors.
+            if hasattr(self.nav, "_refresh_icons"):
+                self.nav._refresh_icons()
 
     def _backup(self):
         self.backup_requested.emit()
         try:
             self.controller.backup_database()
             toast(self, "Varnostna kopija uspešna")
+            self.health_card.refresh(
+                about=self.controller.about(),
+                appearance=self.appearance_card.values(),
+            )
         except Exception as exc:
             from app.core.errors import handle_error
 

@@ -118,7 +118,6 @@ class MainWindow(QMainWindow):
         self.setStatusBar(StatusBar())
         from app.core.ui.shortcuts import install_shortcuts
         install_shortcuts(self)
-        self.statusBar().refresh()
 
         self.sidebar.page_changed.connect(self.change_page)
         self.toolbar.new_invoice_clicked.connect(lambda: self.invoices.new_invoice())
@@ -135,7 +134,13 @@ class MainWindow(QMainWindow):
         self.dashboard.new_article_requested.connect(lambda: self.articles.new_article())
         self.dashboard.new_offer_requested.connect(lambda: self.offers.new_offer())
 
+        # Defer status chips (company/DB) until after first paint.
+        from app.core.async_load import defer
+
+        defer(self.statusBar().refresh)
+
     def change_page(self, index):
+        from app.core.async_load import defer
         from app.core.permissions import can_open_page
         from app.core.session import session
         from app.core.ui.notify import toast
@@ -144,6 +149,38 @@ class MainWindow(QMainWindow):
             toast(self, "Ni dovoljenja za ta modul.")
             return
         session.touch()
+
+        # Build lazy page shell before the stack switch so navigation does not
+        # flash an empty placeholder. Data refresh runs on the next tick.
+        page = self.stack.widget(index)
+        if isinstance(page, LazyPage) and not page.is_loaded:
+            page.ensure()
+
+        # Switch the stack first so navigation paints immediately, then refresh.
+        self.setUpdatesEnabled(False)
+        try:
+            self.stack.setCurrentIndex(index)
+            self.toolbar.set_context(index)
+            self.sidebar.set_active(index)
+        finally:
+            self.setUpdatesEnabled(True)
+
+        defer(lambda idx=index: self._finish_page_change(idx))
+
+    def _finish_page_change(self, index: int) -> None:
+        # Drop stale deferred callbacks from rapid navigation so we do not
+        # refresh modules the user already left (settings/license/DB work).
+        if self.stack.currentIndex() != index:
+            return
+        self._refresh_page(index)
+        bar = self.statusBar()
+        if hasattr(bar, "refresh"):
+            bar.refresh()
+        from app.core.recovery import save_ui_session
+
+        save_ui_session({"page": index})
+
+    def _refresh_page(self, index: int) -> None:
         if index == 0:
             self.dashboard.refresh()
         elif index == 1:
@@ -177,20 +214,10 @@ class MainWindow(QMainWindow):
             self.crm.refresh()
         elif index == 15:
             self.reports.refresh()
-
         elif index == 16:
             self.automation.refresh()
         elif index == 17:
             self.travel_orders.refresh()
-
-        self.stack.setCurrentIndex(index)
-        self.toolbar.set_context(index)
-        self.sidebar.set_active(index)
-        bar = self.statusBar()
-        if hasattr(bar, "refresh"):
-            bar.refresh()
-        from app.core.recovery import save_ui_session
-        save_ui_session({"page": index})
 
     def _toolbar_search(self, text: str):
         page = self.stack.currentWidget()
@@ -334,7 +361,7 @@ def _qt_message(mode, _context, message: str) -> None:
 
 def run():
     from PySide6.QtCore import Qt, QTimer
-    from PySide6.QtGui import QColor, QGuiApplication, QPixmap, QPixmapCache
+    from PySide6.QtGui import QGuiApplication, QPixmapCache
     from PySide6.QtWidgets import QSplashScreen
 
     from app.core.perf import PerfSpan
@@ -350,6 +377,9 @@ def run():
         # A leftover QApplication (failed prior start in-process) makes the UI appear "dead".
         logger.error("QApplication že obstaja — prekinjen zagon.")
         sys.exit(1)
+    from app.core.app_mutex import acquire_app_mutex
+
+    acquire_app_mutex()
     app = QApplication(sys.argv)
     from app.services.license_gate import ensure_licensed
     if not ensure_licensed():
@@ -366,15 +396,14 @@ def run():
     settings = SettingsController()
     mode_name = settings.apply_appearance(app)
     span.mark("theme")
-    splash_bg = QColor("#0B1220" if mode_name == "dark" else "#F4F6F8")
-    splash_fg = QColor("#F8FAFC" if mode_name == "dark" else "#0F172A")
-    splash_pix = QPixmap(420, 200)
-    splash_pix.fill(splash_bg)
+    from app.core.ui.splash_branding import build_splash_pixmap
+
+    splash_pix, splash_fg = build_splash_pixmap(mode_name)
     splash = QSplashScreen(splash_pix)
     splash.setWindowIcon(app.windowIcon())
     splash.showMessage(
-        "JU-TAN Office",
-        Qt.AlignBottom | Qt.AlignCenter,
+        "Zagon…",
+        Qt.AlignBottom | Qt.AlignHCenter,
         splash_fg,
     )
     splash.show()
@@ -397,8 +426,15 @@ def run():
     span.mark("database")
     from app.core.setup_state import needs_first_run
     if needs_first_run():
+        from app.core.ui.app_identity import apply_native_titlebar_theme
+        from app.theme.colors import ThemeMode
         from app.windows.first_run_wizard import FirstRunWizard
+
         wizard = FirstRunWizard()
+        apply_native_titlebar_theme(
+            wizard,
+            ThemeMode.DARK if mode_name == "dark" else ThemeMode.LIGHT,
+        )
         splash.hide()
         if wizard.exec() != QDialog.DialogCode.Accepted:
             sys.exit(0)
@@ -453,11 +489,20 @@ def run():
             sys.exit(0)
         splash.show()
         app.processEvents()
+    span.mark("auth")
     extras = settings.load_extras()
+    splash.showMessage(
+        "Nalaganje delovne površine…",
+        Qt.AlignBottom | Qt.AlignCenter,
+        splash_fg,
+    )
+    app.processEvents()
     window = MainWindow()
     span.mark("window")
     window.show()
+    app.processEvents()
     splash.finish(window)
+    span.mark("shown")
     saved = load_ui_session()
     page = saved.get("page")
     if crashed and isinstance(page, int) and 0 <= page <= 17:

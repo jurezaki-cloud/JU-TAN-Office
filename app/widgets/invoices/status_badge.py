@@ -122,19 +122,25 @@ class StatusBadgeDelegate(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
 
-        rect = option.rect.adjusted(8, 10, -8, -10)
+        rect = option.rect.adjusted(10, 11, -10, -11)
+        if rect.width() < 36 or rect.height() < 16:
+            rect = option.rect.adjusted(6, 10, -6, -10)
+
         fill = QColor(color)
-        fill.setAlpha(32)
-        painter.setPen(Qt.NoPen)
+        fill.setAlpha(28)
+        border = QColor(color)
+        border.setAlpha(110)
+
+        painter.setPen(border)
         painter.setBrush(fill)
-        painter.drawRoundedRect(rect, 8, 8)
+        painter.drawRoundedRect(rect, 999, 999)
 
         painter.setPen(color)
         # QSS uses pixel fonts (pointSize == -1). Never call setPointSize with
         # that sentinel — paint with an explicit pixel size instead.
         font = QFont(option.font)
         px = font.pixelSize()
-        font.setPixelSize(9 if px <= 0 else min(px, 11))
+        font.setPixelSize(10 if px <= 0 else min(px, 11))
         font.setWeight(QFont.DemiBold)
         painter.setFont(font)
         painter.drawText(rect, Qt.AlignCenter, str(text))
@@ -142,5 +148,5 @@ class StatusBadgeDelegate(QStyledItemDelegate):
 
     def sizeHint(self, option, index):
         hint = super().sizeHint(option, index)
-        hint.setHeight(44)
+        hint.setHeight(48)
         return hint

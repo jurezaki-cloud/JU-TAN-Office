@@ -1,4 +1,4 @@
-# Zmogljivost — JU-TAN Office Enterprise
+﻿# Zmogljivost — JU-TAN Office Enterprise
 
 Cilji (lokalna SQLite namizna aplikacija):
 
@@ -14,6 +14,8 @@ Cilji (lokalna SQLite namizna aplikacija):
 
 - Splash + profil zagona, ozadno ogrevanje (`openpyxl`, `reportlab`), čiščenje `Temp`.
 - Lazy moduli (QStackedWidget indeksi nespremenjeni).
+- Dashboard podatki se naložijo po `show` (ne blokirajo prikaza okna po prijavi).
+- Kartice / toolbar: QSS elevation brez `QGraphicsDropShadowEffect` (manj flickerja ob navigaciji).
 - SQLite: WAL, `cache_size`, `mmap`, `temp_store=MEMORY`, nabor povezav na nit.
 - Indeksi + opcijski FTS5 za artikle in stranke.
 - Tabele: fiksna višina vrstic, incremental LIMIT/OFFSET (200), debounce iskanja 180 ms.
@@ -28,4 +30,4 @@ Dejanski vnos 1.000.000 dokumentov v CI ni vključen (disk). Za ročni test upor
 
 ## Profil
 
-Ob zagonu se v dnevnik zapiše `startup total=…ms` in po warmup `memory_mb`.
+Ob zagonu se v dnevnik zapiše `startup total=…ms` z oznakami `theme`, `splash`, `database`, `auth`, `window`, `shown` in po warmup `memory_mb`.

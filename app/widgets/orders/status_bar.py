@@ -1,32 +1,7 @@
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
+from app.widgets.common.list_status_bar import DocumentListStatusBar
 
 
-class OrderStatusBar(QWidget):
-
+class OrderStatusBar(DocumentListStatusBar):
     def __init__(self, parent=None):
-        super().__init__(parent)
-
+        super().__init__("Naročila", parent)
         self.setObjectName("OrderStatusBar")
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 0)
-        layout.setSpacing(16)
-
-        self.count_label = QLabel("Naročila: 0")
-        self.count_label.setObjectName("CustomerStatusLabel")
-
-        self.selected_label = QLabel("Izbrana vrstica: ni izbrane")
-        self.selected_label.setObjectName("CustomerStatusLabel")
-
-        layout.addWidget(self.count_label)
-        layout.addStretch()
-        layout.addWidget(self.selected_label)
-
-    def set_count(self, count: int) -> None:
-        self.count_label.setText(f"Naročila: {count}")
-
-    def set_selected(self, name: str | None) -> None:
-        if name:
-            self.selected_label.setText(f"Izbrana vrstica: {name}")
-        else:
-            self.selected_label.setText("Izbrana vrstica: ni izbrane")

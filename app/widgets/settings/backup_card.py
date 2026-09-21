@@ -25,6 +25,13 @@ class BackupCard(QWidget):
         card.body.addWidget(title)
         card.body.addWidget(caption)
 
+        self.empty_hint = QLabel(
+            "Če še nimate varnostne kopije, ustvarite prvo pred večjimi spremembami."
+        )
+        self.empty_hint.setObjectName("DashboardMuted")
+        self.empty_hint.setWordWrap(True)
+        card.body.addWidget(self.empty_hint)
+
         self.btn_backup = QPushButton("Backup Database")
         self.btn_backup.setObjectName("PrimaryButton")
         self.btn_restore = QPushButton("Restore Database")

@@ -15,6 +15,8 @@ class ThemeManager:
     def __init__(self, mode: ThemeMode = ThemeMode.LIGHT) -> None:
         self._mode = mode
         self._template: str | None = None
+        self._template_mtime: float | None = None
+        self._stylesheet_cache: dict[tuple, str] = {}
         self._last_stylesheet: str | None = None
         self._defer_scheduled = False
         self._deferred_kwargs: dict | None = None
@@ -24,10 +26,15 @@ class ThemeManager:
         return self._mode
 
     def load_qss_template(self) -> str:
-        # Always re-read so theme polish iterates without process restart tricks.
+        # Re-read only when theme.qss changes on disk (dev polish + fast startup).
         if not THEME_QSS_PATH.exists():
             raise FileNotFoundError(f"Manjka theme.qss: {THEME_QSS_PATH}")
+        mtime = THEME_QSS_PATH.stat().st_mtime
+        if self._template is not None and self._template_mtime == mtime:
+            return self._template
         self._template = THEME_QSS_PATH.read_text(encoding="utf-8")
+        self._template_mtime = mtime
+        self._stylesheet_cache.clear()
         return self._template
 
     def build_stylesheet(
@@ -38,7 +45,20 @@ class ThemeManager:
         card_radius: str = "12px",
         control_radius: str = "8px",
     ) -> str:
-        palette = dict(PALETTES[mode or self._mode])
+        resolved = mode or self._mode
+        cache_key = (
+            resolved.value if hasattr(resolved, "value") else str(resolved),
+            accent_primary,
+            accent_hover,
+            card_radius,
+            control_radius,
+            self._template_mtime,
+        )
+        cached = self._stylesheet_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        palette = dict(PALETTES[resolved])
         if accent_primary:
             palette["PRIMARY"] = accent_primary
         if accent_hover:
@@ -46,8 +66,18 @@ class ThemeManager:
         palette["CARD_RADIUS"] = card_radius
         palette["CONTROL_RADIUS"] = control_radius
         stylesheet = self.load_qss_template()
+        # mtime may have changed during load — rebuild key with fresh mtime.
+        cache_key = (
+            cache_key[0],
+            accent_primary,
+            accent_hover,
+            card_radius,
+            control_radius,
+            self._template_mtime,
+        )
         for token, value in palette.items():
             stylesheet = stylesheet.replace("{{" + token + "}}", value)
+        self._stylesheet_cache[cache_key] = stylesheet
         return stylesheet
 
     def apply(

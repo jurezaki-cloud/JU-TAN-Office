@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -64,6 +64,14 @@ class UsersCard(QWidget):
         self.table.setMinimumHeight(140)
         card.body.addWidget(self.table)
 
+        self.empty_state = QLabel("Ni uporabnikov.\nDodajte prvega uporabnika za dostop do sistema.")
+        self.empty_state.setObjectName("SettingsEmptyState")
+        self.empty_state.setAlignment(Qt.AlignCenter)
+        self.empty_state.setWordWrap(True)
+        self.empty_state.setMinimumHeight(120)
+        self.empty_state.hide()
+        card.body.addWidget(self.empty_state)
+
         row = QHBoxLayout()
         self.btn_new = QPushButton("+ Nov uporabnik")
         self.btn_new.setObjectName("PrimaryButton")
@@ -98,6 +106,8 @@ class UsersCard(QWidget):
         self.btn_remove.setEnabled(allowed)
         if not allowed:
             self.table.setRowCount(0)
+            self.table.hide()
+            self.empty_state.hide()
             return
         try:
             self._users = list_public_users()
@@ -109,6 +119,9 @@ class UsersCard(QWidget):
             self.table.setItem(i, 1, QTableWidgetItem(display_role_for_user(user)))
             status = "Aktiven" if user["is_active"] else "Odstranjen/Neaktiven"
             self.table.setItem(i, 2, QTableWidgetItem(status))
+        empty = len(self._users) == 0
+        self.table.setVisible(not empty)
+        self.empty_state.setVisible(empty)
 
     def _selected(self) -> dict | None:
         rows = self.table.selectionModel().selectedRows()

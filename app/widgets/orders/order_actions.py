@@ -1,5 +1,10 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QSizePolicy, QWidget
+
+from app.core.ui.brand_icons import brand_icon
+from app.core.ui.icons import apply_button_icon
+from app.widgets.common.filter_controls import compact_filter
+from app.widgets.common.toolbar_overflow import ToolbarOverflowButton
 
 
 class OrderActions(QWidget):
@@ -16,14 +21,15 @@ class OrderActions(QWidget):
         super().__init__(parent)
 
         self.setObjectName("OrderActions")
+        self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
         self.filter = QComboBox()
-        self.filter.setObjectName("EnterpriseFilter")
-        self.filter.setMinimumHeight(36)
+        compact_filter(self.filter)
+        self.filter.setToolTip("Filtriraj po statusu")
         self.filter.addItem("Vsi statusi", "all")
         self.filter.addItem("Osnutek", "Osnutek")
         self.filter.addItem("Potrjeno", "Potrjeno")
@@ -33,10 +39,14 @@ class OrderActions(QWidget):
 
         self.btn_new = QPushButton("Novo naročilo")
         self.btn_new.setObjectName("PrimaryButton")
+        self.btn_new.setIcon(brand_icon("new", color="#FFFFFF", size=14))
+
         self.btn_edit = QPushButton("Uredi")
         self.btn_edit.setObjectName("SecondaryButton")
+
         self.btn_delete = QPushButton("Izbriši")
         self.btn_delete.setObjectName("DangerButton")
+
         self.btn_pdf = QPushButton("PDF")
         self.btn_pdf.setObjectName("SecondaryButton")
         self.btn_excel = QPushButton("Excel")
@@ -45,12 +55,31 @@ class OrderActions(QWidget):
         self.btn_import.setObjectName("SecondaryButton")
         self.btn_refresh = QPushButton("Osveži")
         self.btn_refresh.setObjectName("SecondaryButton")
+        for hidden in (
+            self.btn_pdf,
+            self.btn_excel,
+            self.btn_import,
+            self.btn_refresh,
+        ):
+            hidden.hide()
+
+        self.btn_more = ToolbarOverflowButton()
+        self.btn_more.add_actions(
+            (
+                ("PDF", self.pdf_clicked.emit),
+                ("Excel", self.excel_clicked.emit),
+                ("Uvoz", self.import_clicked.emit),
+                ("Osveži", self.refresh_clicked.emit),
+            )
+        )
 
         layout.addWidget(self.filter)
+
+        for button in (self.btn_new, self.btn_edit, self.btn_delete):
+            button.setCursor(Qt.PointingHandCursor)
+            button.setMinimumHeight(36)
+            layout.addWidget(button)
         for button in (
-            self.btn_new,
-            self.btn_edit,
-            self.btn_delete,
             self.btn_pdf,
             self.btn_excel,
             self.btn_import,
@@ -58,7 +87,10 @@ class OrderActions(QWidget):
         ):
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(36)
-            layout.addWidget(button)
+        layout.addWidget(self.btn_more)
+
+        apply_button_icon(self.btn_edit, "edit")
+        apply_button_icon(self.btn_delete, "delete")
 
         self.btn_new.clicked.connect(self.new_clicked.emit)
         self.btn_edit.clicked.connect(self.edit_clicked.emit)

@@ -1,6 +1,8 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QSizePolicy, QWidget
 
+from app.core.ui.brand_icons import brand_icon
+from app.core.ui.icons import apply_button_icon
 from app.widgets.common.filter_controls import compact_filter
 from app.widgets.common.toolbar_overflow import ToolbarOverflowButton
 
@@ -28,6 +30,7 @@ class OfferActions(QWidget):
 
         self.filter = QComboBox()
         compact_filter(self.filter)
+        self.filter.setToolTip("Filtriraj po statusu")
         self.filter.addItem("Vsi statusi", "all")
         self.filter.addItem("Osnutek", "Osnutek")
         self.filter.addItem("Poslana", "Poslana")
@@ -37,6 +40,7 @@ class OfferActions(QWidget):
 
         self.btn_new = QPushButton("Nova ponudba")
         self.btn_new.setObjectName("PrimaryButton")
+        self.btn_new.setIcon(brand_icon("new", color="#FFFFFF", size=14))
 
         self.btn_edit = QPushButton("Uredi")
         self.btn_edit.setObjectName("SecondaryButton")
@@ -90,6 +94,9 @@ class OfferActions(QWidget):
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(36)
         layout.addWidget(self.btn_more)
+
+        apply_button_icon(self.btn_edit, "edit")
+        apply_button_icon(self.btn_delete, "delete")
 
         self.btn_new.clicked.connect(self.new_clicked.emit)
         self.btn_edit.clicked.connect(self.edit_clicked.emit)

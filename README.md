@@ -30,11 +30,17 @@ pytest -q
 ## Izgradnja
 
 ```powershell
+# Razvoj / RC — certifikat ni potreben
 .\scripts\build_release.ps1
+
+# Produkcijski Authenticode release (glej docs/SIGNING.md)
+# $env:JU_TAN_PFX = "C:\certs\ju-tan.pfx"
+# .\scripts\build_release.ps1 -RequireSigned
 ```
 
 Portable mapa: `dist/JU-TAN-Office-Portable`  
-Installer (če je Inno Setup 6): `dist/JU-TAN-Office-Setup.exe`
+Installer (če je Inno Setup 6): `dist/JU-TAN-Office-Setup.exe`  
+Checksums: `dist/SHA256SUMS.txt` (po podpisu)
 
 ## Dokumentacija
 
@@ -42,6 +48,7 @@ Installer (če je Inno Setup 6): `dist/JU-TAN-Office-Setup.exe`
 - [Uporabniški vodič](docs/USER_GUIDE.md) / [PDF](docs/USER_GUIDE.pdf)
 - [Skrbniški vodič](docs/ADMIN_GUIDE.md) / [PDF](docs/ADMIN_GUIDE.pdf)
 - [Varnost](docs/SECURITY.md)
+- [Podpisovanje (Authenticode)](docs/SIGNING.md)
 - [QA Gold](docs/QA_GOLD.md)
 - [Changelog](docs/CHANGELOG.md)
 - [Release notes](docs/RELEASE_NOTES.md)

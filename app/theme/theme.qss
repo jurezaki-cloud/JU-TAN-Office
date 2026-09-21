@@ -93,7 +93,7 @@ QLabel#ToolbarTitle {
 
 #ToolbarSearch:focus {
     background: {{SURFACE}};
-    border: 1px solid {{PRIMARY}};
+    border-color: {{PRIMARY}};
 }
 
 #ModernToolbar QPushButton#PrimaryButton,
@@ -180,7 +180,8 @@ QPushButton:disabled {
 }
 
 QPushButton:focus {
-    border: 1px solid {{FOCUS}};
+    /* Color-only — rewriting full border can flash a temporary outline. */
+    border-color: {{FOCUS}};
 }
 
 /* Pripravljene variante — aktivne šele z objectName; obstoječi gumbi ostanejo privzeti QPushButton. */
@@ -333,7 +334,7 @@ QPlainTextEdit:focus,
 QSpinBox:focus,
 QDoubleSpinBox:focus,
 QDateEdit:focus {
-    border: 1px solid {{PRIMARY}};
+    border-color: {{PRIMARY}};
 }
 
 QTableView,
@@ -403,16 +404,51 @@ QDialog {
 
 QFrame#StatCard,
 QFrame#KpiCard,
-QFrame#DashboardCard {
+QFrame#DashboardCard,
+QFrame#DashboardWelcomeCard,
+QFrame#DocumentEditorCard {
     background: {{SURFACE}};
     border: 1px solid {{BORDER}};
     border-radius: {{CARD_RADIUS}};
 }
 
 QFrame#KpiCard:hover,
-QFrame#DashboardCard:hover {
-    border: 1px solid {{BORDER}};
+QFrame#DashboardCard:hover,
+QFrame#DashboardWelcomeCard:hover,
+QFrame#DocumentEditorCard:hover {
+    /* Keep identical border width; only elevate fill to avoid layout flicker. */
+    border-color: {{BORDER}};
     background: {{SURFACE_ELEVATED}};
+}
+
+QFrame#KpiCard[tone="primary"] {
+    border-left: 3px solid {{PRIMARY}};
+}
+
+QFrame#KpiCard[tone="warning"] {
+    border-left: 3px solid {{WARNING}};
+}
+
+QFrame#KpiCard[tone="danger"] {
+    border-left: 3px solid {{DANGER}};
+}
+
+QFrame#KpiCard[tone="neutral"] {
+    border-left: 3px solid {{INFO}};
+}
+
+QFrame#DashboardWelcomeCard {
+    background: {{SURFACE_ELEVATED}};
+}
+
+QLabel#DashboardWelcomeIcon {
+    background: {{HOVER}};
+    border: 1px solid {{BORDER}};
+    border-radius: 12px;
+    min-width: 44px;
+    max-width: 44px;
+    min-height: 44px;
+    max-height: 44px;
 }
 
 QLabel#StatTitle,
@@ -436,21 +472,98 @@ QLabel#DashboardMuted {
     color: {{TEXT_MUTED}};
 }
 
-QLabel#DashboardWelcome {
-    font-size: 18px;
+QLabel#DashboardEyebrow {
+    font-size: 10px;
     font-weight: 700;
-    color: {{TEXT}};
+    letter-spacing: 0.12em;
+    color: {{TEXT_MUTED}};
 }
 
-QLabel#DashboardDate {
+QLabel#DashboardWelcome {
+    font-size: 20px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.3px;
+}
+
+QLabel#DashboardDate,
+QLabel#DashboardWelcomeMeta {
     font-size: 12px;
     color: {{TEXT_MUTED}};
+}
+
+QLabel#DashboardWelcomeMeta {
+    font-weight: 600;
+    color: {{PRIMARY}};
 }
 
 QLabel#DashboardSectionTitle {
     font-size: 13px;
     font-weight: 700;
     color: {{TEXT}};
+}
+
+QLabel#DashboardHealthValue {
+    font-size: 12px;
+    font-weight: 600;
+    color: {{TEXT}};
+}
+
+QLabel#DashboardHealthDot[kind="ok"],
+QLabel#DashboardHealthValue[kind="ok"] {
+    color: {{SUCCESS}};
+}
+
+QLabel#DashboardHealthDot[kind="warn"],
+QLabel#DashboardHealthValue[kind="warn"] {
+    color: {{WARNING}};
+}
+
+QLabel#DashboardHealthDot[kind="bad"],
+QLabel#DashboardHealthValue[kind="bad"] {
+    color: {{DANGER}};
+}
+
+QLabel#DashboardHealthSummary {
+    font-size: 12px;
+    font-weight: 600;
+    color: {{TEXT_MUTED}};
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid {{BORDER}};
+    background: {{TABLE_HEADER}};
+    margin-top: 4px;
+}
+
+QLabel#DashboardHealthSummary[kind="ok"] {
+    color: {{SUCCESS}};
+    border: 1px solid {{SUCCESS}};
+    background: {{HOVER}};
+}
+
+QLabel#DashboardHealthSummary[kind="warn"] {
+    color: {{WARNING}};
+    border: 1px solid {{WARNING}};
+}
+
+QLabel#DashboardHealthSummary[kind="bad"] {
+    color: {{DANGER}};
+    border: 1px solid {{DANGER}};
+}
+
+QPushButton[dashboardAction="true"] {
+    text-align: left;
+    padding: 10px 12px;
+    min-height: 64px;
+}
+
+QScrollArea {
+    border: none;
+    background: {{BACKGROUND}};
+}
+
+QScrollArea > QWidget > QWidget {
+    background: {{BACKGROUND}};
 }
 
 #DashboardScroll,
@@ -781,12 +894,20 @@ NavigationButton:disabled,
 NavigationButton:focus,
 #Sidebar NavigationButton:focus {
     outline: none;
+    border: none;
+    border-left: 3px solid transparent;
 }
 
 NavigationButton:focus:!checked,
 #Sidebar NavigationButton:focus:!checked {
+    /* Background only — changing border-left draws a temporary frame outline. */
     background: {{SIDEBAR_HOVER}};
-    border-left: 3px solid {{SIDEBAR_MUTED}};
+    border-left: 3px solid transparent;
+}
+
+NavigationButton:checked:focus,
+#Sidebar NavigationButton:checked:focus {
+    border-left: 3px solid {{PRIMARY}};
 }
 
 QLabel#LoginBrand {
@@ -801,9 +922,56 @@ QDialog#UnlockDialog {
 
 QLineEdit#EnterpriseSearch {
     min-height: 36px;
+    max-height: 36px;
     padding-left: 8px;
+    padding-right: 10px;
     border-radius: 8px;
+    background: {{BACKGROUND}};
+    border: 1px solid {{BORDER}};
+    color: {{TEXT}};
+}
+
+QLineEdit#EnterpriseSearch:focus {
     background: {{SURFACE}};
+    border-color: {{PRIMARY}};
+}
+
+QFrame#DocumentListToolbar {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+}
+
+QFrame#DocumentListCard,
+QFrame#DocumentListCard:hover {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+}
+
+QFrame#DocumentListStatusBar,
+QFrame#InvoiceStatusBar,
+QFrame#OfferStatusBar,
+QFrame#OrderStatusBar {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+}
+
+QLabel#DocumentListStatusCount {
+    font-size: 12px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+QLabel#DocumentListStatusHint {
+    font-size: 11px;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#DocumentListStatusSelected {
+    font-size: 12px;
+    color: {{SECONDARY}};
 }
 
 QTableView#EnterpriseTable,
@@ -811,7 +979,7 @@ QTableWidget#EnterpriseTable {
     background: {{SURFACE}};
     alternate-background-color: {{TABLE_ALTERNATE}};
     gridline-color: transparent;
-    border: 1px solid {{BORDER}};
+    border: none;
     border-radius: {{CARD_RADIUS}};
     selection-background-color: {{SELECTED}};
     selection-color: {{TEXT}};
@@ -862,11 +1030,14 @@ QLabel#EmptyStateTitle {
     font-size: 20px;
     font-weight: 700;
     color: {{TEXT}};
+    letter-spacing: -0.2px;
 }
 
 QLabel#EmptyStateSubtitle {
     font-size: 13px;
     color: {{SECONDARY}};
+    max-width: 420px;
+    padding: 0 24px 8px 24px;
 }
 
 QLabel#CustomerStatusLabel {
@@ -949,6 +1120,144 @@ QLabel#DetailValue {
     border: none;
 }
 
+#SettingsPage,
+#SettingsChrome {
+    background: {{BACKGROUND}};
+}
+
+#SettingsNav {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+}
+
+QLabel#SettingsNavEyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#SettingsNavTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.2px;
+}
+
+QLabel#SettingsNavHint {
+    font-size: 11px;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#SettingsNavGroup {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: {{TEXT_MUTED}};
+    padding: 8px 8px 2px 8px;
+}
+
+QPushButton#SettingsNavItem {
+    text-align: left;
+    padding: 4px 10px 4px 8px;
+    border: none;
+    border-left: 2px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: {{TEXT}};
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 28px;
+    max-height: 28px;
+}
+
+QPushButton#SettingsNavItem:hover {
+    background: {{HOVER}};
+}
+
+QPushButton#SettingsNavItem:checked {
+    background: {{HOVER}};
+    border-left: 2px solid {{PRIMARY}};
+    color: {{TEXT}};
+    font-weight: 600;
+}
+
+QPushButton#SettingsNavItem:hover:checked {
+    background: {{HOVER}};
+}
+
+#SettingsSectionHeader {
+    background: transparent;
+}
+
+QLabel#SettingsSectionTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.2px;
+}
+
+QLabel#SettingsSectionCaption {
+    font-size: 12px;
+    color: {{TEXT_MUTED}};
+}
+
+#SettingsSectionRule {
+    background: {{BORDER}};
+    border: none;
+    max-height: 1px;
+}
+
+QLabel#SettingsHealthEyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#SettingsHealthTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.3px;
+}
+
+QLabel#SettingsHealthSummary {
+    font-size: 12px;
+    font-weight: 600;
+    color: {{TEXT_MUTED}};
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid {{BORDER}};
+    background: {{TABLE_HEADER}};
+}
+
+QLabel#SettingsHealthSummary[kind="ok"] {
+    color: {{SUCCESS}};
+    border: 1px solid {{SUCCESS}};
+    background: {{HOVER}};
+}
+
+QLabel#SettingsHealthSummary[kind="warn"] {
+    color: {{WARNING}};
+    border: 1px solid {{WARNING}};
+}
+
+QLabel#SettingsHealthSummary[kind="bad"] {
+    color: {{DANGER}};
+    border: 1px solid {{DANGER}};
+}
+
+QLabel#SettingsEmptyState {
+    font-size: 13px;
+    color: {{TEXT_MUTED}};
+    padding: 24px 16px;
+    border: 1px dashed {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+    background: {{TABLE_HEADER}};
+}
+
 QLabel#SettingsPreview {
     font-size: 16px;
     font-weight: 700;
@@ -993,6 +1302,82 @@ QPushButton#AccentChip:checked {
 
 QDialog#ExcelWizard {
     background: {{BACKGROUND}};
+}
+
+QDialog#FirstRunWizard {
+    background: {{BACKGROUND}};
+}
+
+QFrame#FirstRunProgress {
+    background: transparent;
+    border: none;
+}
+
+QLabel#FirstRunProgressStep {
+    color: {{TEXT_MUTED}};
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+QLabel#FirstRunProgressStep[active="true"] {
+    color: {{TEXT}};
+    background: {{SELECTED}};
+    border: 1px solid {{PRIMARY}};
+}
+
+QLabel#FirstRunProgressStep[done="true"] {
+    color: {{PRIMARY}};
+}
+
+QLabel#FirstRunProgressSep {
+    color: {{TEXT_MUTED}};
+    font-size: 14px;
+    font-weight: 700;
+}
+
+QFrame#FirstRunCard {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: {{CARD_RADIUS}};
+}
+
+QLabel#FirstRunEyebrow {
+    color: {{PRIMARY}};
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+QLabel#FirstRunLead {
+    color: {{TEXT}};
+    font-size: 14px;
+    font-weight: 500;
+}
+
+QLabel#FirstRunSectionTitle {
+    color: {{TEXT}};
+    font-size: 18px;
+    font-weight: 700;
+}
+
+QLabel#FirstRunGuide {
+    color: {{TEXT}};
+    font-size: 13px;
+    line-height: 1.45;
+    padding: 12px 14px;
+    background: {{BACKGROUND}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+}
+
+QCheckBox#FirstRunCheck {
+    color: {{TEXT}};
+    spacing: 10px;
+    padding: 4px 0;
 }
 
 QTabWidget#CrmTabs::pane {
@@ -1050,4 +1435,263 @@ QLabel#StatusChip {
     font-size: 12px;
     color: {{SECONDARY}};
     padding: 0 8px;
+}
+
+/* —— Enterprise License card (Settings) —— */
+QLabel#LicenseEyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#LicenseCardTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.2px;
+}
+
+QLabel#LicenseCompanyName {
+    font-size: 20px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.3px;
+}
+
+QFrame#LicenseHero {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+}
+
+QFrame#LicenseMetaTile {
+    background: {{SURFACE_ELEVATED}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+}
+
+QLabel#LicenseMetaCaption {
+    font-size: 11px;
+    font-weight: 600;
+    color: {{TEXT_MUTED}};
+    letter-spacing: 0.02em;
+}
+
+QLabel#LicenseMetaValue {
+    font-size: 13px;
+    font-weight: 600;
+    color: {{TEXT}};
+}
+
+QLabel#LicenseStatusBadge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid {{BORDER}};
+    background: {{TABLE_HEADER}};
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#LicenseStatusBadge[kind="active"] {
+    background: {{HOVER}};
+    border: 1px solid {{SUCCESS}};
+    color: {{SUCCESS}};
+}
+
+QLabel#LicenseStatusBadge[kind="grace"] {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{WARNING}};
+    color: {{WARNING}};
+}
+
+QLabel#LicenseStatusBadge[kind="local"] {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{INFO}};
+    color: {{INFO}};
+}
+
+QLabel#LicenseStatusBadge[kind="inactive"],
+QLabel#LicenseStatusBadge[kind="none"] {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{BORDER}};
+    color: {{TEXT_MUTED}};
+}
+
+/* —— Premium Document Editor (Invoice / Offer / Order) —— */
+QWidget#DocumentWorkspace {
+    background: transparent;
+}
+
+QLabel#DocumentEditorEyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#DocumentEditorNumber {
+    font-size: 22px;
+    font-weight: 800;
+    color: {{TEXT}};
+    letter-spacing: -0.4px;
+}
+
+QLabel#DocumentEditorCustomer {
+    font-size: 13px;
+    font-weight: 600;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#DocumentSectionTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.2px;
+}
+
+QLabel#DocumentCustomerName {
+    font-size: 18px;
+    font-weight: 700;
+    color: {{TEXT}};
+    letter-spacing: -0.3px;
+}
+
+QFrame#DocumentCustomerHero,
+QFrame#DocumentPaymentInfo {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+}
+
+QFrame#DocumentMetaTile {
+    background: {{SURFACE_ELEVATED}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+}
+
+QLabel#DocumentMetaCaption {
+    font-size: 11px;
+    font-weight: 600;
+    color: {{TEXT_MUTED}};
+    letter-spacing: 0.02em;
+}
+
+QLabel#DocumentMetaValue {
+    font-size: 13px;
+    font-weight: 600;
+    color: {{TEXT}};
+}
+
+QLabel#DocumentTotalCaption {
+    font-size: 13px;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#DocumentTotalValue {
+    font-size: 13px;
+    font-weight: 600;
+    color: {{TEXT}};
+}
+
+QLabel#DocumentGrandTotalCaption {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: {{TEXT_MUTED}};
+}
+
+QFrame#DocumentTotalsDivider {
+    background: {{BORDER}};
+    border: none;
+}
+
+QLabel#DocumentStatusBadge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid {{BORDER}};
+    background: {{TABLE_HEADER}};
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#DocumentStatusBadge[kind="draft"],
+QLabel#DocumentStatusBadge[kind="muted"] {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{BORDER}};
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#DocumentStatusBadge[kind="info"],
+QLabel#DocumentStatusBadge[kind="issued"] {
+    background: {{HOVER}};
+    border: 1px solid {{INFO}};
+    color: {{INFO}};
+}
+
+QLabel#DocumentStatusBadge[kind="warning"] {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{WARNING}};
+    color: {{WARNING}};
+}
+
+QLabel#DocumentStatusBadge[kind="success"] {
+    background: {{HOVER}};
+    border: 1px solid {{SUCCESS}};
+    color: {{SUCCESS}};
+}
+
+QLabel#DocumentStatusBadge[kind="danger"] {
+    background: {{TABLE_HEADER}};
+    border: 1px solid {{DANGER}};
+    color: {{DANGER}};
+}
+
+QSplitter#DocumentEditorSplitter::handle {
+    background: {{BORDER}};
+    width: 1px;
+    margin: 4px 3px;
+}
+
+QTableView#DocumentItemsTable {
+    background: {{SURFACE}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+    gridline-color: transparent;
+    selection-background-color: {{HOVER}};
+    selection-color: {{TEXT}};
+    alternate-background-color: {{TABLE_HEADER}};
+}
+
+QTableView#DocumentItemsTable::item {
+    padding: 10px 12px;
+    border: none;
+    min-height: 28px;
+}
+
+QTableView#DocumentItemsTable QHeaderView::section {
+    background: {{TABLE_HEADER}};
+    color: {{TEXT_MUTED}};
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 10px 12px;
+    border: none;
+    border-bottom: 1px solid {{BORDER}};
+}
+
+QTextEdit#DocumentNotes {
+    background: {{SURFACE_ELEVATED}};
+    border: 1px solid {{BORDER}};
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+QComboBox#DocumentCustomerCombo {
+    min-height: 36px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: {{SURFACE_ELEVATED}};
 }

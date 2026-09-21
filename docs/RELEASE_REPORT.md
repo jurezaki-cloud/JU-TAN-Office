@@ -1,83 +1,60 @@
-# TASK-029 — Enterprise Release Candidate (RC1)
+# TASK-033 / Release Report — JU-TAN Office Enterprise 1.0.0 GOLD
 
-Datum: 2026-09-12  
-Različica: **1.0.0-rc1**  
-Pravilo: **code freeze** — ni novih modulov, tabel ali poslovne logike.
+Datum: 2026-09-21  
+Različica: **1.0.0** (`APP_VERSION`) / kanal **GOLD** / `SCHEMA_VERSION` = **2**  
+Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb poslovne logike.
 
 ## Tokeni
 
 | Token | Stanje |
 | --- | --- |
 | RC_READY | DA |
-| QA_PASS | DA (pytest) |
-| PERFORMANCE_PASS | DA (100k seznam < 50 ms stran, iskanje < 250 ms; init baze < 8 s na tem stroju) |
-| DATABASE_PASS | DA (FK, UNIQUE, NOT NULL, CASCADE/RESTRICT, indeksi, rollback, integrity_check) |
-| SECURITY_PASS | DA (parametriziran SQL, whitelist identifikatorjev, permissions+audit, path traversal, WAL backup) |
-| INSTALLER_READY | DA (spec + Inno: ikona, version info, Start Menu, namizje, uninstaller) |
-| RELEASE_READY | DA za notranji RC1; produkcija 1.0.0 po podpisu installerja in preizkusu na kopiji podatkov |
+| QA_PASS | DA (pytest release/package suite) |
+| PERFORMANCE_PASS | DA (lazy moduli, merjeni budgeti) |
+| DATABASE_PASS | DA (FK, UNIQUE, NOT NULL, CASCADE/RESTRICT, indeksi, rollback, integrity_check, SCHEMA 2) |
+| SECURITY_PASS | DA (parametriziran SQL, permissions+audit, path traversal, WAL backup, `docs/SECURITY.md` v paketu) |
+| INSTALLER_READY | DA (CloseApplications, AppMutex, WAL-varna pre-upgrade kopija, Start Menu docs) |
+| RELEASE_READY | DA za 1.0.0 GOLD (Authenticode: opcijsko; obvezno z `-RequireSigned` / `JU_TAN_REQUIRE_SIGNED`) |
 
-## QA moduli
+## Metapodatki
 
-| Modul | Login | CRUD / iskanje | Print/PDF/Excel | Opomba |
-| --- | --- | --- | --- | --- |
-| Login | n/a | n/a | n/a | Lokalna enouporabniška app, brez zaslona za prijavo |
-| Dashboard | — | branje | — | Vedno naložen |
-| Customers | — | Create/Read/Update/Delete/Search | Excel | Testi + UI smoke |
-| Suppliers | — | CRUD + filter | — | Integracija nabave |
-| Products (Artikli) | — | CRUD + unique koda | Excel | Unit |
-| Quotes (Ponudbe) | — | CRUD | PDF/Excel | UI okvir |
-| Orders | — | CRUD | PDF | Shema + indeksi |
-| Invoices | — | CRUD | PDF/Excel | FK restrict/cascade |
-| Inventory | — | gibanja | Excel/Print | `warehouse.json` |
-| Purchase | — | tok naročila | PDF/Excel | Integracija |
-| CRM | — | lead/aktivnost | Excel | Integracija |
-| DMS | — | mapa/datoteka | seznam Excel | Integracija |
-| Reports | — | filtri | PDF/Excel/CSV/Print | Integracija |
-| Analytics | — | branje | — | Deloma vzorčni grafikoni |
-| Settings | — | shranjevanje | backup/restore | Atomski JSON + DB backup |
-| Automation | — | pravila | Excel | Testi engine |
+| Artifact | Vir resnice |
+| --- | --- |
+| `APP_VERSION` / `APP_CHANNEL` | `app/core/constants.py` → `1.0.0` / `GOLD` |
+| `SCHEMA_VERSION` | `app/core/constants.py` → `2` |
+| `Version.txt` / `packaging/Version.txt` | `scripts/sync_release_metadata.py` |
+| `packaging/version.iss` / `file_version_info.txt` | sync iz `release_meta` |
+| Checksums | **samo** `dist/SHA256SUMS.txt` (generira `build_release.ps1`) |
 
-## Performanse (offscreen / pytest)
+## Dokumentacija v paketu
 
-- Inicializacija SQLite: < 2 s
-- Paginacija 100 000 vrstic: < 50 ms
-- Linearno iskanje 100 000: < 250 ms
-- Lazy strani: moduli se naložijo ob prvem obisku
-- Čas prijave: n/a (ni logina)
-- Čas zagona UI: odvisen od stroja; High DPI PassThrough, WAL
+| Dokument | Installer | PyInstaller datas | Portable |
+| --- | --- | --- | --- |
+| PRIVACY.md | DA | DA | DA |
+| INSTALL.md | DA | DA | DA |
+| USER_GUIDE.md | DA | DA | DA |
+| ADMIN_GUIDE.md | DA | DA | DA |
+| RELEASE_NOTES.md | DA | DA | DA |
+| SECURITY.md | DA | DA | DA |
+| SIGNING.md | DA | DA | DA |
 
-## Baza
+`INSTALL.md` (root) je usklajen z `docs/INSTALL.md`.
 
-- `PRAGMA foreign_keys=ON`, WAL, `busy_timeout=5000` (zaklep zapisov v SQLite)
-- UNIQUE: številke računov/ponudb/naročil
-- NOT NULL: npr. `customers.company`, `articles.name`
-- CASCADE: postavke dokumentov; RESTRICT: stranka z dokumenti
-- Indeksi na iskalnih in FK stolpcih (`CREATE INDEX IF NOT EXISTS`)
-- `Database.transaction()` z rollback
+## Nadgradnja (installer)
 
-## Varnost
-
-- Parametriziran SQL + `_ident` whitelist
-- `permissions.can/require` + `AUDIT` v dnevnik
-- Backup/restore zahtevata `backup` permission
-- Validacije `app.core.security`
-- Ni večuporabniškega RBAC / šifriranja baze (znana omejitev v1.0)
+- `CloseApplications=yes` + `AppMutex=JU-TANOfficeMutex`
+- Pred zamenjavo datotek: hladna WAL-varna kopija `ju_tan.db` (+ `.db-wal` / `.db-shm` če obstajata) → `Backup\pre-upgrade.db*`
+- ProgramData (Data/Logs/Backup) ostane ob uninstall (`uninsneveruninstall`)
 
 ## Pakiranje
 
-- `packaging/ju-tan-office.spec` — ikona, `file_version_info.txt`
-- `packaging/installer.iss` — desktop, Start Menu, Odstrani, VersionInfo
-- `scripts/build_release.ps1` — PyInstaller + Inno Setup 6
+- `packaging/ju-tan-office.spec` — ikona, version info, release docs
+- `packaging/installer.iss` — desktop, Start Menu (vključno Varnost), Odstrani
+- `scripts/build_release.ps1` — PyInstaller → sign EXE → portable → Inno → sign Setup → `dist/SHA256SUMS.txt` → verify
+- `scripts/AuthenticodeSigning.ps1` / `sign_authenticode.ps1` / `verify_release_signatures.ps1`
 - Ikona: `resources/app.ico`
 
-## Testi
+## Znane omejitve
 
-Glej izhod pytest: **43 passed** (brez UI smoke v istem procesu); UI smoke **3 passed** ločeno. Znana omejitev: Qt offscreen se ob uničenju `MainWindow` včasih sesuje, če so v istem procesu že bili drugi dialogi.
-
-## Odprti TODO (po 1.0.0)
-
-- Authenticode podpis installerja
-- Polni RBAC in prijava, če bo več uporabnikov
-- Odprava vzorčnih podatkov v analitiki
-- Poročilo Service
-- CI (GitHub Actions)
+- Authenticode je pripravljen; brez `JU_TAN_PFX` ostane unsigned (OK za razvoj/RC). Produkcijski gate: `-RequireSigned` (glej `docs/SIGNING.md`).
+- Posodobitveni kanal (`updates/latest.json`) je pripravljen; zunanji feed je konfiguracija okolja

@@ -17,4 +17,8 @@ Lokalna namizna aplikacija (SQLite). Ni javnega HTTP API.
 
 Ob zagonu: če obstaja `password_hash`, je zahtevan `UnlockDialog`. Izvoz nastavitev **ne** vključuje `password_hash` / `secrets_blob`. Sprememba vloge zahteva dovoljenje `users` (Administrator).
 
+## Zasebnost
+
+Lokalni model shranjevanja: glej [`PRIVACY.md`](PRIVACY.md). V aplikaciji: Nastavitve → Zasebnost.
+
 **SECURITY_PASSED** (lokalni enouporabniški model; ni formalne pen-test certificiranosti)

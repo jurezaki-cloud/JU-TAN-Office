@@ -2,10 +2,9 @@ from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
+    QMessageBox,
     QTextEdit,
+    QWidget,
 )
 
 from app.core.ui.enterprise_dialog import EnterpriseDialog
@@ -14,8 +13,7 @@ from app.database.customer_repository import customer_repository
 from app.database.order_repository import order_repository
 from app.modules.invoices.invoice_item_dialog import InvoiceItemDialog
 from app.modules.invoices.models.invoice_items_model import InvoiceItemsModel
-from app.widgets.cards.enterprise_card import EnterpriseCard
-from app.widgets.invoices.invoice_table import InvoiceTable
+from app.widgets.document_editor import DocumentWorkspace
 
 
 class OrderDialog(EnterpriseDialog):
@@ -37,10 +35,17 @@ class OrderDialog(EnterpriseDialog):
             parse_vat_liable(company_vat_liable()) if order_id is None else True
         )
 
-        header_card = EnterpriseCard("DashboardCard")
-        grid = FormGrid()
-        self.lbl_number = QLabel(order_repository.get_next_number())
-        self.customer = QComboBox()
+        self.heading.hide()
+        self.workspace = DocumentWorkspace(doc_kind="Naročilo")
+        self.body.addWidget(self.workspace, 1)
+
+        self.doc_header = self.workspace.header
+        self.customer_panel = self.workspace.customer_panel
+        self.items_panel = self.workspace.items_panel
+        self.totals_panel = self.workspace.totals_panel
+
+        self.lbl_number = self.doc_header.lbl_number
+        self.customer = self.customer_panel.customer
         self.issue_date = QDateEdit()
         self.issue_date.setCalendarPopup(True)
         self.issue_date.setDate(QDate.currentDate())
@@ -53,67 +58,60 @@ class OrderDialog(EnterpriseDialog):
         self.notes.setAcceptRichText(False)
         self.notes.setMinimumHeight(72)
         self.notes.setMaximumHeight(120)
-        grid.add("Številka", self.lbl_number, "Datum", self.issue_date)
-        grid.add("Stranka", self.customer, "Status", self.status)
-        grid.add("Dobava", self.delivery_date)
-        grid.add_full("Opombe", self.notes)
-        header_card.body.addLayout(grid.layout)
-        self.body.addWidget(header_card)
+        self.notes.setObjectName("DocumentNotes")
 
-        items_card = EnterpriseCard("DashboardCard")
-        items_title = QLabel("Postavke")
-        items_title.setObjectName("DashboardSectionTitle")
-        items_card.body.addWidget(items_title)
+        grid = FormGrid()
+        grid.add("Datum", self.issue_date, "Status", self.status)
+        grid.add("Dobava", self.delivery_date)
+        meta_wrap = QWidget()
+        meta_wrap.setLayout(grid.layout)
+        self.customer_panel.meta_layout.addWidget(meta_wrap)
+        self.customer_panel.notes_layout.addWidget(self.notes)
+
         self.items_model = InvoiceItemsModel()
-        self.items_table = InvoiceTable()
+        self.items_table = self.items_panel.items_table
         self.items_table.setModel(self.items_model)
         self.bind_table(self.items_table)
-        items_card.body.addWidget(self.items_table)
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(8)
-        self.btn_add_item = QPushButton("+ Dodaj postavko")
-        self.btn_add_item.setObjectName("PrimaryButton")
-        self.btn_remove_item = QPushButton("Odstrani postavko")
-        self.btn_remove_item.setObjectName("DangerButton")
-        for button in (self.btn_add_item, self.btn_remove_item):
-            button.setMinimumHeight(36)
-            button.setCursor(Qt.PointingHandCursor)
-            toolbar.addWidget(button)
-        toolbar.addStretch()
-        items_card.body.addLayout(toolbar)
-        self.body.addWidget(items_card)
+        self.btn_add_item = self.items_panel.btn_add_item
+        self.btn_remove_item = self.items_panel.btn_remove_item
 
-        totals_card = EnterpriseCard("DashboardCard")
-        totals_card.body.setContentsMargins(16, 12, 16, 12)
-        total_layout = QHBoxLayout()
-        total_layout.addStretch()
-        self.lbl_subtotal = QLabel("0.00 €")
-        self.lbl_vat = QLabel("0.00 €")
-        self.lbl_vat_caption = QLabel("DDV:")
-        self.lbl_total = QLabel("0.00 €")
-        self.lbl_total.setObjectName("TotalValue")
-        total_layout.addWidget(QLabel("Osnova:"))
-        total_layout.addWidget(self.lbl_subtotal)
-        total_layout.addSpacing(20)
-        total_layout.addWidget(self.lbl_vat_caption)
-        total_layout.addWidget(self.lbl_vat)
-        total_layout.addSpacing(20)
-        total_layout.addWidget(QLabel("SKUPAJ:"))
-        total_layout.addWidget(self.lbl_total)
-        totals_card.body.addLayout(total_layout)
-        self.lbl_vat_notice = QLabel("")
-        self.lbl_vat_notice.setObjectName("DashboardMuted")
-        self.lbl_vat_notice.setWordWrap(True)
-        self.lbl_vat_notice.hide()
-        totals_card.body.addWidget(self.lbl_vat_notice)
-        self.body.addWidget(totals_card)
+        self.lbl_subtotal = self.totals_panel.lbl_subtotal
+        self.lbl_discount = self.totals_panel.lbl_discount
+        self.lbl_vat = self.totals_panel.lbl_vat
+        self.lbl_vat_caption = self.totals_panel.lbl_vat_caption
+        self.lbl_total = self.totals_panel.lbl_total
+        self.lbl_vat_notice = self.totals_panel.lbl_vat_notice
+
+        if order_id is None:
+            self.lbl_number.setText(order_repository.get_next_number())
+        self.doc_header.set_document_number(self.lbl_number.text())
+        self.doc_header.set_status(self.status.currentText())
+        self.totals_panel.set_payment_info("Naročilo — plačilo se vodi prek računa.")
 
         self.btn_add_item.clicked.connect(self.add_item)
         self.btn_remove_item.clicked.connect(self.remove_item)
+        self.customer.currentIndexChanged.connect(self._on_customer_changed)
+        self.status.currentTextChanged.connect(lambda text: self.doc_header.set_status(text))
+        self.doc_header.save_clicked.connect(self.btn_save.click)
+        self.doc_header.export_pdf_clicked.connect(self.export_pdf)
+        self.doc_header.more_action.connect(self._on_more_action)
+
+        from app.core.ui.window_state import remember_layout
+
+        remember_layout(
+            self,
+            "dialog.order.workspace",
+            splitters=[self.workspace.splitter],
+            tables=[self.items_table],
+            geometry=False,
+        )
+
         self.load_customers()
         self._apply_vat_ui()
         if self.order_id is not None:
             self.load_order()
+        else:
+            self.update_total()
 
     def _apply_vat_ui(self):
         from app.utils.vat import ARTICLE_94_NOTICE, parse_vat_liable
@@ -131,10 +129,42 @@ class OrderDialog(EnterpriseDialog):
             self.lbl_vat_notice.setText(ARTICLE_94_NOTICE)
             self.lbl_vat_notice.show()
 
+    def _on_customer_changed(self, _index: int = -1) -> None:
+        customer_id = self.customer.currentData()
+        name = self.customer.currentText()
+        self.doc_header.set_customer_name(name if customer_id is not None else None)
+        if customer_id is None:
+            self.customer_panel.set_customer_record(None)
+            return
+        self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+
+    def _on_more_action(self, action: str) -> None:
+        if action == "refresh_totals":
+            self.update_total()
+        elif action == "focus_items":
+            self.items_table.setFocus(Qt.OtherFocusReason)
+        elif action == "close":
+            self.reject()
+
+    def export_pdf(self) -> None:
+        from app.core.ui.notify import toast, toast_info
+        from app.pdf.pdf_export import pdf_export
+
+        if self.order_id is None:
+            toast(self, "Najprej shranite naročilo, nato izvozite PDF.")
+            return
+        try:
+            toast_info(self, "Ustvarjam PDF ...")
+            path = pdf_export.export_order(self.order_id)
+            pdf_export.show_result(self, path)
+        except Exception as exc:
+            QMessageBox.warning(self, "PDF", f"PDF ni bilo mogoče ustvariti:\n{exc}")
+
     def load_customers(self):
         self.customer.clear()
         for customer in customer_repository.get_all():
             self.customer.addItem(customer[1], customer[0])
+        self._on_customer_changed()
 
     def add_item(self):
         dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
@@ -154,8 +184,10 @@ class OrderDialog(EnterpriseDialog):
 
         totals = document_totals(self.items_model.items, vat_liable=self.vat_liable)
         self.lbl_subtotal.setText(format_eur(totals["subtotal"]))
+        self.lbl_discount.setText(format_eur(totals["discount"]))
         self.lbl_vat.setText(format_eur(totals["vat"]))
         self.lbl_total.setText(format_eur(totals["total"]))
+        self.items_panel.set_item_count(len(self.items_model.items))
 
     def save(self):
         from app.core.permissions import allow, audit
@@ -256,9 +288,11 @@ class OrderDialog(EnterpriseDialog):
         self._apply_vat_ui()
 
         self.lbl_number.setText(order[1])
+        self.doc_header.set_document_number(order[1])
         index = self.customer.findData(order[2])
         if index >= 0:
             self.customer.setCurrentIndex(index)
+        self._on_customer_changed()
 
         self.issue_date.setDate(QDate.fromString(order[3], "yyyy-MM-dd"))
         if order[4]:
@@ -267,6 +301,7 @@ class OrderDialog(EnterpriseDialog):
         status_index = self.status.findText(order[5] or "Osnutek")
         if status_index >= 0:
             self.status.setCurrentIndex(status_index)
+        self.doc_header.set_status(self.status.currentText())
 
         self.notes.setPlainText(order[10] or "")
 
@@ -285,3 +320,7 @@ class OrderDialog(EnterpriseDialog):
             ])
         self.items_model.refresh(ui_items)
         self.update_total()
+        self.totals_panel.set_payment_info(
+            f"Status naročila: {self.status.currentText()}\n"
+            f"Predvidena dobava: {self.delivery_date.date().toString('dd.MM.yyyy')}"
+        )

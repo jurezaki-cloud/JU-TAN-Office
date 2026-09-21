@@ -28,9 +28,7 @@ def ensure_licensed(parent=None) -> bool:
         result = validate(state)
         if result.get("status") == "active":
             # Persist refreshed server metadata/token when supplied.
-            state.activation_token = result.get("activation_token", state.activation_token)
-            state.company_name = result.get("company_name", state.company_name)
-            state.grace_until = result.get("grace_until", state.grace_until)
+            state.apply_server_result(result)
             state.save()
             return True
         QMessageBox.critical(parent, "Licenca", "Licenca JU-TAN Office ni aktivna.")

@@ -386,6 +386,9 @@ class SettingsController:
             "build": f"2026-09-12 {APP_BUILD}",
             "copyright": f"© 2026 {APP_AUTHOR}",
             "name": APP_NAME,
+            "company": APP_AUTHOR,
+            "support": "support@ju-tan.com",
+            "website": "www.ju-tan.com",
         }
 
     @staticmethod

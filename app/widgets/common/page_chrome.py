@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -13,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.ui.brand_icons import brand_icon
-from app.theme.tokens import SPACE_2, SPACE_4
+from app.theme.tokens import SPACE_2, SPACE_3, SPACE_4
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
@@ -74,6 +75,23 @@ class PageToolbar(QWidget):
         self.layout.setContentsMargins(0, 0, 0, SPACE_2)
         self.layout.setSpacing(SPACE_2)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def add_stretch(self) -> None:
+        self.layout.addStretch(1)
+
+
+class DocumentListToolbar(QFrame):
+    """Elevated search / filter / actions strip for document list pages."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("DocumentListToolbar")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(SPACE_3, SPACE_2, SPACE_3, SPACE_2)
+        self.layout.setSpacing(SPACE_2)
 
     def add_stretch(self) -> None:
         self.layout.addStretch(1)

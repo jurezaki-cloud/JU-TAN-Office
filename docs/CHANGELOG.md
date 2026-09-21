@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.0.1 — production hardening (2026-09-19)
+## 1.0.0 GOLD — 2026-09-12 (production hardening through 2026-09-19)
+
+Uradna produkcijska izdaja JU-TAN Office Enterprise. `APP_VERSION` = **1.0.0** / kanal **GOLD**.
+
+### Produkcijska utrjanje
 
 - Centralized EUR money math (`app/utils/money.py`) for editors, recalculation, PDF.
 - Offer → invoice conversion implemented (was placeholder).
@@ -10,29 +14,25 @@
 - Settings restore/import/export show real errors (no “coming soon” on failure).
 - Slovenian navigation/toolbar labels; dashboard unpaid/overdue KPIs.
 - RBAC page gating + crash recovery (from security hardening workstream).
-- **Follow-up:** re-enabled unlock login; settings export strips secrets; role change requires `users`; Read Only cannot open Settings; Excel import reverse-splits VAT; new invoices saved as `Izdan`; PDF export promotes `Osnutek` → `Izdan`.
+- Re-enabled unlock login; settings export strips secrets; role change requires `users`; Read Only cannot open Settings; Excel import reverse-splits VAT; new invoices saved as `Izdan`; PDF export promotes `Osnutek` → `Izdan`.
 
-## 1.0.0 GOLD — 2026-09-12
-
-Uradna produkcijska izdaja JU-TAN Office Enterprise.
+### Izdaja / paket
 
 - Feature freeze / code freeze, oznaka `v1.0.0`.
-- Paket: Setup.exe, Portable ZIP, SHA256, vodiči PDF.
-- QA, varnost, zmogljivost in shema baze (v1) potrjeni.
-
+- Paket: Setup.exe, Portable ZIP, SHA256 (`dist/SHA256SUMS.txt`), vodiči PDF.
+- QA, varnost, zmogljivost in shema baze (`SCHEMA_VERSION` = 2) potrjeni.
 - Končni QA Gold: poslovni tok, WAL sočasnost, PDF, stres paginacije (TASK-033).
 - Incremental tabele, debounce iskanje, async PDF, Excel streaming.
-
 - Setup.exe 64-bit, čarovnik, licenca, version info, Start Menu / namizje / uninstall.
 - Podatki v ProgramData (uninstall jih ohrani).
 - Prvi zagon: čarovnik podjetja.
-- Nadgradnja z backupom baze in rollback ob napaki.
+- Nadgradnja: CloseApplications/AppMutex + WAL-varna kopija (`pre-upgrade.db` + sidecars) in rollback ob napaki.
 - SQLite vgrajen; .NET in SQL Server nista potrebna.
+- Dokumentacija v paketu: PRIVACY, INSTALL, USER_GUIDE, ADMIN_GUIDE, RELEASE_NOTES, SECURITY, SIGNING.
 
 ## 1.0.0-rc1 — 2026-09-12
 
 Kandidatka za izdajo (code freeze, QA, indeksi, dnevniki).
-
 
 Prva kandidatka za produkcijsko izdajo. **Code freeze:** ni novih modulov, tabel ali sprememb poslovne logike.
 
@@ -55,5 +55,5 @@ Prva kandidatka za produkcijsko izdajo. **Code freeze:** ni novih modulov, tabel
 - RBAC je obvezen na zapisu, brisanju, izvozu, tisku in nastavitvah; Read Only vidi module, ne more spreminjati.
 - Analitika ima deloma vzorčne grafikone.
 - Poročilo **Service** je placeholder.
-- Windows installer ni Authenticode podpisan.
+- Windows installer Authenticode: pripravljen prek `JU_TAN_PFX` / `-RequireSigned` (glej `docs/SIGNING.md`); razvojni buildi ostanejo nepodpisani.
 - PyInstaller/Inno je treba zagnati na build stroju (`scripts/build_release.ps1`).

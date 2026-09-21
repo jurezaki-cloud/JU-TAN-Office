@@ -67,6 +67,10 @@ class LicenseState:
     device_id: str
     company_name: str = ""
     grace_until: str = ""
+    license_id: str = ""
+    device_name: str = ""
+    last_seen_at: str = ""
+    status: str = ""
 
     @classmethod
     def load(cls) -> "LicenseState | None":
@@ -77,6 +81,10 @@ class LicenseState:
                 device_id=data["device_id"],
                 company_name=data.get("company_name", ""),
                 grace_until=data.get("grace_until", ""),
+                license_id=str(data.get("license_id") or ""),
+                device_name=str(data.get("device_name") or ""),
+                last_seen_at=str(data.get("last_seen_at") or ""),
+                status=str(data.get("status") or ""),
             )
         except (OSError, KeyError, ValueError, TypeError):
             return None
@@ -86,6 +94,29 @@ class LicenseState:
         data = dict(self.__dict__)
         data["activation_token"] = _dpapi_protect(self.activation_token)
         STATE_FILE.write_text(json.dumps(data), encoding="utf-8")
+
+    def apply_server_result(self, result: dict[str, Any]) -> None:
+        """Merge validate/activate payload into local license.json fields."""
+        from datetime import datetime, timezone
+
+        if result.get("activation_token"):
+            self.activation_token = str(result["activation_token"])
+        if "company_name" in result and result.get("company_name") is not None:
+            self.company_name = str(result.get("company_name") or "")
+        if "grace_until" in result and result.get("grace_until") is not None:
+            self.grace_until = str(result.get("grace_until") or "")
+        if result.get("license_id"):
+            self.license_id = str(result["license_id"])
+        if result.get("device_name"):
+            self.device_name = str(result["device_name"])
+        if result.get("status"):
+            self.status = str(result["status"])
+        self.last_seen_at = str(
+            result.get("last_seen_at")
+            or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        )
+        if not self.device_name:
+            self.device_name = platform.node() or ""
 
 
 def _windows_machine_guid() -> str:
@@ -152,7 +183,9 @@ def activate(license_key: str) -> LicenseState:
         device_id=did,
         company_name=result.get("company_name", ""),
         grace_until=result.get("grace_until", ""),
+        device_name=platform.node() or "",
     )
+    state.apply_server_result(result)
     state.save()
     return state
 

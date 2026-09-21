@@ -6,8 +6,10 @@ Publisher: JU-TAN Studio
 Product: JU-TAN Office Enterprise
 Copyright: (C) 2026 JU-TAN Studio
 Architecture: x64
-Database: SQLite 3 (vgrajen) SCHEMA 1
+Database: SQLite 3 (vgrajen) SCHEMA 2
 Runtime: PySide6 / Python (vgrajen)
 Requires: Windows 10 64-bit ali novejši
 Does not require: .NET, SQL Server
 Release date: 2026-09-12
+Publisher URL: https://www.ju-tan.com
+Support: support@ju-tan.com

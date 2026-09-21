@@ -5,8 +5,16 @@
 `dist/JU-TAN-Office-Setup.exe` (64-bit, Inno Setup).
 
 ```powershell
+# Razvoj / RC (certifikat ni potreben):
 .\scripts\build_release.ps1
+
+# Produkcijski podpisani release (zahteva JU_TAN_PFX + signtool):
+# $env:JU_TAN_PFX = "C:\certs\ju-tan.pfx"
+# $env:JU_TAN_PFX_PASSWORD = "***"
+# .\scripts\build_release.ps1 -RequireSigned
 ```
+
+Podrobnosti: `docs/SIGNING.md`.
 
 Privzeta mapa: `C:\Program Files\JU-TAN Office\`  
 Podatki: `%ProgramData%\JU-TAN Office\` (Data, Logs, Backup, Temp, Reports).
@@ -25,7 +33,7 @@ Ob odstranitvi se **ne** zbrišejo baza, backupi in dokumenti.
 | .NET Runtime | **ni potreben** |
 | SQL Server | **ni potreben** |
 | VC++ Runtime | običajno v paketu PyInstaller |
-| Podpisan Setup | če obstaja `JU_TAN_PFX` |
+| Podpisan Setup | opcijsko (`JU_TAN_PFX`); obvezno le z `-RequireSigned` |
 
 ## Prvi zagon
 
@@ -33,7 +41,9 @@ Ob odstranitvi se **ne** zbrišejo baza, backupi in dokumenti.
 
 ## Nadgradnja
 
-Namestite novi Setup.exe čez obstoječo namestitev. Baza se pred tem kopira v `Backup\pre-upgrade.db`. Ob napaki sheme aplikacija naredi rollback.
+Namestite novi Setup.exe čez obstoječo namestitev. Installer zapre tekočo aplikacijo (`CloseApplications` / `AppMutex`), nato naredi WAL-varno kopijo baze (`ju_tan.db` + morebitna `.db-wal` / `.db-shm`) v `Backup\pre-upgrade.db*`. Ob napaki sheme aplikacija naredi rollback.
+
+Če je bila namestitev označena kot dokončana (`setup_complete`), a še ni uporabnikov v SQLite (starejše različice brez večuporabniške prijave), aplikacija **ne** zažene čarovnika znova. Namesto tega odpre enkratno **Nastavitev prijave** (Credential Onboarding), kjer lastnik ustvari skrbnika. Poslovni podatki ostanejo nedotaknjeni; nato velja običajna prijava.
 
 ## Razvoj
 
@@ -43,6 +53,10 @@ python -m venv .venv
 pip install -r requirements.txt
 python app.py
 ```
+
+## Zasebnost
+
+Politika zasebnosti je vključena v paket (`docs/PRIVACY.md`) in dostopna v Nastavitve → Zasebnost.
 
 ## Preizkus namestitve
 
