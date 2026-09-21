@@ -24,7 +24,11 @@ def build_header(company, options: dict):
 
     logo = None
     if options.get("show_logo"):
+        # Prefer the company-selected logo. If an older installation contains a
+        # stale absolute path, fall back to the logo bundled with JU-TAN Office.
         logo = pdf_image(company.logo, 48, 26)
+        if logo is None:
+            logo = pdf_image("resources/logo.png", 48, 26)
 
     city_line = " ".join(
         part for part in (company.postal_code, company.city) if part
