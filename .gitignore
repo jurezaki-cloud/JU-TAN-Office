@@ -47,3 +47,4 @@ scripts/_qa_*.py
 scripts/_ui_polish_audit.py
 scripts/_verify_*.py
 scripts/repro_*.py
+backups/
