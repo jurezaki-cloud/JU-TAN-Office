@@ -6,7 +6,6 @@ from pathlib import Path
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    KeepTogether,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -327,7 +326,19 @@ class PdfEngine:
         for shape in drawing.contents:
             shape.fillColor = black
         label = Paragraph("UPN QR za plačilo", look["label"])
-        return KeepTogether([label, drawing])
+        # KeepTogether inside a Table reports an effectively infinite height to
+        # ReportLab (0xFFFFFF), which made invoice/offer PDF export fail.
+        qr_box = Table([[label], [drawing]], colWidths=[size])
+        qr_box.setStyle(
+            TableStyle([
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ])
+        )
+        return qr_box
 
     def _signature_block(self, options: dict):
         """Signature/stamp only when enabled. OFF => zero Flowables (no labels/spacers)."""
