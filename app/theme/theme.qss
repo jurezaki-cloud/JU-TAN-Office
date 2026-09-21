@@ -596,6 +596,31 @@ QScrollArea {
 }
 
 QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+
+/* Explicit page canvases own their background. Keeping generic scroll-area
+   viewport children transparent prevents native black gutters between cards. */
+#DashboardPage,
+#DashboardScroll,
+#DashboardCanvas,
+#SettingsPage,
+#SettingsChrome,
+#SettingsScroll,
+#SettingsCanvas,
+#SettingsBottomSpacer,
+#DocumentWorkspace,
+#DocumentEditorLeft,
+#DocumentEditorRight {
+    background: {{BACKGROUND}};
+}
+
+#DocumentEditorSplitter,
+#DocumentEditorSplitter QWidget {
+    background: transparent;
+}
+
+#DocumentEditorSplitter::handle {
     background: {{BACKGROUND}};
 }
 
