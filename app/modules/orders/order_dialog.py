@@ -239,16 +239,7 @@ class OrderDialog(EnterpriseDialog):
             vat_liable=self.vat_liable,
         )
 
-        if self.order_id is None:
-            order_id = order_repository.create(
-                number=self.lbl_number.text(),
-                **payload,
-            )
-        else:
-            order_repository.update(self.order_id, **payload)
-            order_repository.delete_items(self.order_id)
-            order_id = self.order_id
-
+        line_items = []
         for row in self.items_model.items:
             # Prefer discount-aware editor rows; fall back to legacy 8-column rows.
             if len(row) >= 9:
@@ -261,21 +252,36 @@ class OrderDialog(EnterpriseDialog):
                 )
             if not self.vat_liable:
                 vat = 0
-            order_repository.add_item(
-                order_id=order_id,
-                article_id=article_id,
-                code=row[0],
-                name=row[1],
-                description="",
-                quantity=qty,
-                unit=unit,
-                price=price,
-                discount=discount,
-                vat=vat,
-                total=as_float(
+            line_items.append({
+                "article_id": article_id,
+                "code": row[0],
+                "name": row[1],
+                "description": "",
+                "quantity": qty,
+                "unit": unit,
+                "price": price,
+                "discount": discount,
+                "vat": vat,
+                "total": as_float(
                     line_gross(qty, price, vat, discount, vat_liable=self.vat_liable)
                 ),
+            })
+
+        if self.order_id is None:
+            order_id, number = order_repository.create_with_items(
+                number=None,
+                items=line_items,
+                **payload,
             )
+            self.lbl_number.setText(number)
+            self.doc_header.set_document_number(number)
+        else:
+            order_repository.update_with_items(
+                self.order_id,
+                items=line_items,
+                **payload,
+            )
+            order_id = self.order_id
         audit("create" if self.order_id is None else "edit", f"order:{order_id}")
         self.accept()
 

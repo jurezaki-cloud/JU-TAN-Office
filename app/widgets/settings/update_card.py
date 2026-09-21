@@ -142,9 +142,17 @@ class UpdateCard(QWidget):
         self.btn_check.setEnabled(False)
         try:
             # Lazy import avoids circular load via app.core.update → SettingsController.
-            from app.core.update import check_for_update
+            from app.core.update import UpdateError, check_for_update
 
-            payload = check_for_update()
+            try:
+                payload = check_for_update()
+            except UpdateError as exc:
+                self._set_status("Kanal zavrnjen", "none")
+                self.empty_state.show()
+                self.lbl_detail.hide()
+                toast(self, str(exc))
+                return
+
             if payload is None:
                 # Channel missing, unreadable, or already up to date — professional empty state.
                 self._set_status("Ni posodobitev", "local")

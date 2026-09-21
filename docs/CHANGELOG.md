@@ -7,6 +7,9 @@ Uradna produkcijska izdaja JU-TAN Office Enterprise. `APP_VERSION` = **1.0.0** /
 ### Produkcijska utrjanje
 
 - GOLD-1: schema v3 company branding migration; atomic invoice numbering; transactional offer→invoice conversion; Premium PDF redesign freeze.
+- GOLD-2: document create numbering under BEGIN IMMEDIATE (invoice save allocate+insert; offer/order/PO create allocates in the same transaction); concurrent-create regression tests.
+- GOLD-3A: invoice/offer/order/PO header+items create in one transaction with pre-commit item validation; rollback tests for item-insert failure; travel-order save validates required fields in-transaction.
+- GOLD-4: commercial readiness — license HTTPS/DPAPI/device-bind hardening; signed update-manifest channel readiness; installer production check script (`docs/GOLD4_COMMERCIAL_READINESS.md`).
 - Centralized EUR money math (`app/utils/money.py`) for editors, recalculation, PDF.
 - Offer → invoice conversion implemented (was placeholder).
 - Partial/full payment ledger (`payments` table) with Delno plačan / Plačan sync.

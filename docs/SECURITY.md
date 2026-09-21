@@ -10,7 +10,8 @@ Lokalna namizna aplikacija (SQLite). Ni javnega HTTP API.
 - SQLite: FK, WAL, `integrity_check`, preverjena varnostna kopija, tedenski VACUUM, rollback po sesutju.
 - Dnevniki: velikost, dnevna in tedenska rotacija, gzip, čiščenje starejših od 30 dni.
 - Seja: timeout, samodejni zaklep, zapomni uporabnika, varna odjava z geslom.
-- Licenca: Trial / Professional / Enterprise, offline HMAC.
+- Licenca (produkcija): spletna aktivacija + DPAPI žeton + vezava na napravo (`device_id`) + periodična `validate` ob zagonu z offline milostnim rokom. Glej `docs/GOLD4_COMMERCIAL_READINESS.md`.
+- Licenca (legacy metadata): lokalni HMAC zapis izdaje/plana v `app.core.license` — **ne** nadomešča spletne aktivacije.
 - Konfiguracija: SHA-256 checksum, manjkajoča polja, selitev različice.
 
 `DEBUG` v `app/core/config.py` je `False`. Traceback ostane samo v dnevniku.

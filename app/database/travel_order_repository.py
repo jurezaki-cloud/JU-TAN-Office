@@ -53,32 +53,69 @@ class TravelOrderRepository:
         row=conn.execute("SELECT * FROM travel_orders WHERE id=?", (order_id,)).fetchone()
         conn.close(); return row
 
-    def next_number(self) -> str:
-        self.ensure_schema(); conn=db.connect()
-        row=conn.execute("SELECT COALESCE(MAX(id),0)+1 FROM travel_orders").fetchone()
-        conn.close()
+    def _next_number_on_conn(self, conn) -> str:
+        row = conn.execute(
+            "SELECT COALESCE(MAX(id),0)+1 FROM travel_orders"
+        ).fetchone()
         return f"PN-{int(row[0]):05d}"
+
+    def next_number(self) -> str:
+        """Peek next travel-order number for UI preview; does not reserve."""
+        self.ensure_schema()
+        with db.transaction(immediate=True) as conn:
+            return self._next_number_on_conn(conn)
 
     def save(self, data: dict, order_id=None) -> int:
         self.ensure_schema()
-        fields=("number","employee","purpose","route","vehicle","registration","departure_at","return_at",
-                "start_km","end_km","distance_km","mileage_rate","mileage_amount","per_diem_amount",
-                "parking","tolls","fuel","other_costs","advance","total","settlement","status","notes")
-        values=[data.get(k) for k in fields]
-        conn=db.connect()
-        if order_id is None:
-            marks=",".join("?" for _ in fields)
-            cur=conn.execute(f"INSERT INTO travel_orders ({','.join(fields)}) VALUES ({marks})", values)
-            order_id=cur.lastrowid
-        else:
-            current=conn.execute("SELECT status FROM travel_orders WHERE id=?", (order_id,)).fetchone()
-            if current is None:
-                conn.close(); raise ValueError("Potni nalog ne obstaja.")
-            if (current[0] or "") in ("Zaključen","Storniran"):
-                conn.close(); raise ValueError("Zaključenega ali storniranega potnega naloga ni mogoče spreminjati.")
-            assigns=",".join(f"{k}=?" for k in fields)
-            conn.execute(f"UPDATE travel_orders SET {assigns} WHERE id=?", values+[order_id])
-        conn.commit(); conn.close()
+        fields = (
+            "number", "employee", "purpose", "route", "vehicle", "registration",
+            "departure_at", "return_at", "start_km", "end_km", "distance_km",
+            "mileage_rate", "mileage_amount", "per_diem_amount", "parking", "tolls",
+            "fuel", "other_costs", "advance", "total", "settlement", "status", "notes",
+        )
+        employee = str(data.get("employee") or "").strip()
+        route = str(data.get("route") or "").strip()
+        if not employee or not route:
+            raise ValueError("Zaposleni in relacija sta obvezna.")
+
+        with db.transaction(immediate=True) as conn:
+            if order_id is None:
+                payload = dict(data)
+                payload["employee"] = employee
+                payload["route"] = route
+                if not payload.get("number"):
+                    payload["number"] = self._next_number_on_conn(conn)
+                values = [payload.get(k) for k in fields]
+                marks = ",".join("?" for _ in fields)
+                cur = conn.execute(
+                    f"INSERT INTO travel_orders ({','.join(fields)}) VALUES ({marks})",
+                    values,
+                )
+                order_id = cur.lastrowid
+                # Travel orders have no line-items table; validate header persisted.
+                saved = conn.execute(
+                    "SELECT employee, route FROM travel_orders WHERE id=?",
+                    (order_id,),
+                ).fetchone()
+                if saved is None or not saved[0] or not saved[1]:
+                    raise RuntimeError("Potni nalog ni bil shranjen.")
+            else:
+                values = [data.get(k) for k in fields]
+                current = conn.execute(
+                    "SELECT status FROM travel_orders WHERE id=?",
+                    (order_id,),
+                ).fetchone()
+                if current is None:
+                    raise ValueError("Potni nalog ne obstaja.")
+                if (current[0] or "") in ("Zaključen", "Storniran"):
+                    raise ValueError(
+                        "Zaključenega ali storniranega potnega naloga ni mogoče spreminjati."
+                    )
+                assigns = ",".join(f"{k}=?" for k in fields)
+                conn.execute(
+                    f"UPDATE travel_orders SET {assigns} WHERE id=?",
+                    values + [order_id],
+                )
         return int(order_id)
 
     def cancel(self, order_id) -> None:

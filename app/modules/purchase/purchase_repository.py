@@ -127,33 +127,48 @@ class PurchaseRepository:
         conn.close()
         return rows
 
+    def _next_number_on_conn(self, conn) -> str:
+        """Compute next PO number under an open write lock."""
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT number FROM purchase_orders
+            WHERE number LIKE 'PO-%'
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return "PO-0001"
+        try:
+            number = int(str(row[0]).split("-")[-1]) + 1
+        except (TypeError, ValueError):
+            number = 1
+        return f"PO-{number:04d}"
+
     def get_next_number(self) -> str:
-        """Next PO number under a write lock (serialized peeks)."""
+        """Peek next PO number for UI preview; does not consume it."""
         self.ensure_schema()
-        from app.database.database import db
-
         with db.transaction(immediate=True) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT number FROM purchase_orders
-                WHERE number LIKE 'PO-%'
-                ORDER BY id DESC
-                LIMIT 1
-                """
-            )
-            row = cursor.fetchone()
-            if row is None:
-                return "PO-0001"
-            try:
-                number = int(str(row[0]).split("-")[-1]) + 1
-            except (TypeError, ValueError):
-                number = 1
-            return f"PO-{number:04d}"
+            return self._next_number_on_conn(conn)
 
-    def create(
+    @staticmethod
+    def _validate_create(supplier_id, items) -> None:
+        if not supplier_id:
+            raise ValueError("Dobavitelj je obvezen.")
+        if not items:
+            raise ValueError("Dokument mora vsebovati vsaj eno postavko.")
+        for item in items:
+            if not str(item.get("name") or "").strip():
+                raise ValueError("Postavka mora imeti naziv.")
+            if float(item.get("quantity") or 0) <= 0:
+                raise ValueError("Količina postavke mora biti večja od 0.")
+
+    def _insert_on_conn(
         self,
-        number: str,
+        conn,
+        number: str | None,
         supplier_id: int,
         issue_date: str,
         delivery_date: str,
@@ -162,9 +177,9 @@ class PurchaseRepository:
         vat: float,
         total: float,
         notes: str,
-    ) -> int:
-        self.ensure_schema()
-        conn = self._connect()
+    ) -> tuple[int, str]:
+        if not number:
+            number = self._next_number_on_conn(conn)
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -179,10 +194,93 @@ class PurchaseRepository:
                 subtotal, vat, total, notes,
             ),
         )
-        conn.commit()
-        purchase_id = cursor.lastrowid
-        conn.close()
-        return purchase_id
+        return cursor.lastrowid, number
+
+    def create(
+        self,
+        number: str | None,
+        supplier_id: int,
+        issue_date: str,
+        delivery_date: str,
+        status: str,
+        subtotal: float,
+        vat: float,
+        total: float,
+        notes: str,
+        conn=None,
+    ) -> int:
+        self.ensure_schema()
+
+        def _run(txn):
+            purchase_id, _ = self._insert_on_conn(
+                txn,
+                number,
+                supplier_id,
+                issue_date,
+                delivery_date,
+                status,
+                subtotal,
+                vat,
+                total,
+                notes,
+            )
+            return purchase_id
+
+        if conn is not None:
+            return _run(conn)
+        with db.transaction(immediate=True) as txn:
+            return _run(txn)
+
+    def create_with_items(
+        self,
+        number: str | None,
+        supplier_id: int,
+        issue_date: str,
+        delivery_date: str,
+        status: str,
+        subtotal: float,
+        vat: float,
+        total: float,
+        notes: str,
+        items: list,
+    ) -> tuple[int, str]:
+        """Allocate number + insert PO header and items in one transaction."""
+        self.ensure_schema()
+        self._validate_create(supplier_id, items)
+
+        with db.transaction(immediate=True) as conn:
+            purchase_id, number = self._insert_on_conn(
+                conn,
+                number,
+                supplier_id,
+                issue_date,
+                delivery_date,
+                status,
+                subtotal,
+                vat,
+                total,
+                notes,
+            )
+            for item in items:
+                self.add_item(
+                    purchase_id=purchase_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    quantity=float(item.get("quantity") or 0),
+                    qty_received=float(item.get("qty_received") or 0),
+                    price=float(item.get("price") or 0),
+                    vat=float(item.get("vat") or 0),
+                    total=float(item.get("total") or 0),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM purchase_order_items WHERE purchase_id=?",
+                (purchase_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke nabavnega naročila niso bile shranjene.")
+            return purchase_id, number
 
     def update(
         self,
@@ -195,9 +293,12 @@ class PurchaseRepository:
         vat: float,
         total: float,
         notes: str,
+        conn=None,
     ) -> None:
-        self.ensure_schema()
-        conn = self._connect()
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            conn = self._connect()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -217,8 +318,60 @@ class PurchaseRepository:
                 subtotal, vat, total, notes, purchase_id,
             ),
         )
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
+
+    def update_with_items(
+        self,
+        purchase_id: int,
+        supplier_id: int,
+        issue_date: str,
+        delivery_date: str,
+        status: str,
+        subtotal: float,
+        vat: float,
+        total: float,
+        notes: str,
+        items: list,
+    ) -> None:
+        """Update header + replace items in one transaction (GOLD-3B)."""
+        self.ensure_schema()
+        self._validate_create(supplier_id, items)
+
+        with db.transaction(immediate=True) as conn:
+            self.update(
+                purchase_id,
+                supplier_id=supplier_id,
+                issue_date=issue_date,
+                delivery_date=delivery_date,
+                status=status,
+                subtotal=subtotal,
+                vat=vat,
+                total=total,
+                notes=notes,
+                conn=conn,
+            )
+            self.delete_items(purchase_id, conn=conn)
+            for item in items:
+                self.add_item(
+                    purchase_id=purchase_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    quantity=float(item.get("quantity") or 0),
+                    qty_received=float(item.get("qty_received") or 0),
+                    price=float(item.get("price") or 0),
+                    vat=float(item.get("vat") or 0),
+                    total=float(item.get("total") or 0),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM purchase_order_items WHERE purchase_id=?",
+                (purchase_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke nabavnega naročila niso bile shranjene.")
 
     def delete(self, purchase_id: int) -> None:
         self.ensure_schema()
@@ -259,9 +412,12 @@ class PurchaseRepository:
         price: float,
         vat: float,
         total: float,
+        conn=None,
     ) -> None:
-        self.ensure_schema()
-        conn = self._connect()
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            conn = self._connect()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -276,19 +432,23 @@ class PurchaseRepository:
                 price, vat, total,
             ),
         )
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
-    def delete_items(self, purchase_id: int) -> None:
-        self.ensure_schema()
-        conn = self._connect()
+    def delete_items(self, purchase_id: int, conn=None) -> None:
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            conn = self._connect()
         cursor = conn.cursor()
         cursor.execute(
             "DELETE FROM purchase_order_items WHERE purchase_id=?",
             (purchase_id,),
         )
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
     def update_item_received(self, item_id: int, qty_received: float) -> None:
         self.ensure_schema()

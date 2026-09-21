@@ -218,20 +218,31 @@ class AutomationService:
         return handler(config, context)
 
     def _action_create_invoice(self, config: dict, context: dict) -> str:
+        from app.database.database import db
+
         customer_id = context.get("customer_id") or config.get("customer_id")
         if not customer_id:
             customers = customer_repository.get_all()
             if not customers:
                 raise ValueError("Ni stranke za račun.")
             customer_id = customers[0][0]
-        number = invoice_repository.allocate_next_number()
         today = date.today()
         due = today + timedelta(days=int(config.get("days") or 14))
         total = float(config.get("total") or context.get("invoice_total") or 0)
-        invoice_repository.add(
-            number, customer_id, today.isoformat(), due.isoformat(),
-            total, 0, 0, total, config.get("notes") or "Automation",
-        )
+        with db.transaction(immediate=True) as conn:
+            number = invoice_repository.allocate_next_number(conn)
+            invoice_repository.add(
+                number,
+                customer_id,
+                today.isoformat(),
+                due.isoformat(),
+                total,
+                0,
+                0,
+                total,
+                config.get("notes") or "Automation",
+                conn=conn,
+            )
         return number
 
     def _action_create_po(self, config: dict, context: dict) -> int:
@@ -239,12 +250,17 @@ class AutomationService:
         if not suppliers:
             raise ValueError("Ni dobavitelja za nabavno naročilo.")
         supplier_id = int(config.get("supplier_id") or suppliers[0][0])
-        number = config.get("number") or purchase_repository.get_next_number()
         today = date.today().isoformat()
         return purchase_repository.create(
-            number, supplier_id, today, today,
+            config.get("number"),
+            supplier_id,
+            today,
+            today,
             config.get("status") or "Draft",
-            0, 0, 0, config.get("notes") or "Automation",
+            0,
+            0,
+            0,
+            config.get("notes") or "Automation",
         )
 
     def _action_crm(self, config: dict, context: dict) -> int:

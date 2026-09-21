@@ -132,6 +132,94 @@ class OfferRepository:
     def is_converted(self, offer_id) -> bool:
         return self.get_converted_invoice_id(offer_id) is not None
 
+    def _next_number_on_conn(self, conn) -> str:
+        """Compute next offer number under an open write lock (does not reserve alone)."""
+        from datetime import datetime
+
+        year = datetime.now().year
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT number
+            FROM offers
+            WHERE number LIKE ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (f"P-{year}-%",),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return f"P-{year}-000001"
+        last = row[0]
+        try:
+            number = int(str(last).split("-")[-1]) + 1
+        except Exception:
+            number = 1
+        return f"P-{year}-{number:06d}"
+
+    def get_next_number(self) -> str:
+        """Peek next offer number for UI preview; does not consume it."""
+        self.ensure_schema()
+        with db.transaction(immediate=True) as conn:
+            return self._next_number_on_conn(conn)
+
+    @staticmethod
+    def _validate_create(customer_id, items) -> None:
+        if not customer_id:
+            raise ValueError("Stranka je obvezna.")
+        if not items:
+            raise ValueError("Dokument mora vsebovati vsaj eno postavko.")
+        for item in items:
+            if not str(item.get("name") or "").strip():
+                raise ValueError("Postavka mora imeti naziv.")
+            if float(item.get("quantity") or 0) <= 0:
+                raise ValueError("Količina postavke mora biti večja od 0.")
+
+    def _insert_on_conn(
+        self,
+        conn,
+        number,
+        customer_id,
+        issue_date,
+        valid_until,
+        status,
+        subtotal,
+        discount,
+        vat,
+        total,
+        notes,
+        vat_liable,
+    ) -> tuple[int, str]:
+        from app.utils.vat import vat_liable_int
+
+        if not number:
+            number = self._next_number_on_conn(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO offers(
+                number, customer_id, issue_date, valid_until, status,
+                subtotal, discount, vat, total, notes, vat_liable
+            )
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                number,
+                customer_id,
+                issue_date,
+                valid_until,
+                status,
+                subtotal,
+                discount,
+                vat,
+                total,
+                notes,
+                vat_liable_int(vat_liable),
+            ),
+        )
+        return cursor.lastrowid, number
+
     def create(
         self,
         number,
@@ -145,59 +233,96 @@ class OfferRepository:
         total,
         notes,
         vat_liable=None,
+        conn=None,
     ):
-        from app.utils.vat import company_vat_liable, vat_liable_int
+        from app.utils.vat import company_vat_liable
 
         self.ensure_schema()
         if vat_liable is None:
             vat_liable = company_vat_liable()
-        conn = db.connect()
-        cursor = conn.cursor()
 
-        cursor.execute("""
-            INSERT INTO offers(
-
+        def _run(txn):
+            offer_id, _ = self._insert_on_conn(
+                txn,
                 number,
                 customer_id,
                 issue_date,
                 valid_until,
                 status,
-
                 subtotal,
                 discount,
                 vat,
                 total,
-
                 notes,
-                vat_liable
-
+                vat_liable,
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?)
-        """, (
+            return offer_id
 
-            number,
-            customer_id,
-            issue_date,
-            valid_until,
-            status,
+        if conn is not None:
+            return _run(conn)
+        with db.transaction(immediate=True) as txn:
+            return _run(txn)
 
-            subtotal,
-            discount,
-            vat,
-            total,
+    def create_with_items(
+        self,
+        number,
+        customer_id,
+        issue_date,
+        valid_until,
+        status,
+        subtotal,
+        discount,
+        vat,
+        total,
+        notes,
+        items,
+        vat_liable=None,
+    ) -> tuple[int, str]:
+        """Allocate number + insert offer header and items in one transaction."""
+        from app.utils.vat import company_vat_liable
 
-            notes,
-            vat_liable_int(vat_liable),
+        self.ensure_schema()
+        self._validate_create(customer_id, items)
+        if vat_liable is None:
+            vat_liable = company_vat_liable()
 
-        ))
-
-        conn.commit()
-
-        offer_id = cursor.lastrowid
-
-        conn.close()
-
-        return offer_id
+        with db.transaction(immediate=True) as conn:
+            offer_id, number = self._insert_on_conn(
+                conn,
+                number,
+                customer_id,
+                issue_date,
+                valid_until,
+                status,
+                subtotal,
+                discount,
+                vat,
+                total,
+                notes,
+                vat_liable,
+            )
+            for item in items:
+                self.add_item(
+                    offer_id=offer_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    description=item.get("description") or "",
+                    quantity=item.get("quantity"),
+                    unit=item.get("unit") or "",
+                    price=item.get("price"),
+                    discount=item.get("discount") or 0,
+                    vat=item.get("vat") or 0,
+                    total=item.get("total"),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM offer_items WHERE offer_id=?",
+                (offer_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke ponudbe niso bile shranjene.")
+            return offer_id, number
 
     def update(
         self,
@@ -212,19 +337,22 @@ class OfferRepository:
         total,
         notes,
         vat_liable=None,
+        conn=None,
     ):
         from app.utils.vat import vat_liable_int
 
-        self.ensure_schema()
-        if self.is_converted(offer_id):
-            raise ValueError(CONVERTED_OFFER_MESSAGE)
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            if self.is_converted(offer_id):
+                raise ValueError(CONVERTED_OFFER_MESSAGE)
+            if vat_liable is None:
+                vat_liable = self.get_vat_liable(offer_id)
+            conn = db.connect()
+        elif vat_liable is None:
+            raise ValueError("vat_liable je obvezen znotraj zunanje transakcije.")
 
-        if vat_liable is None:
-            vat_liable = self.get_vat_liable(offer_id)
-
-        conn = db.connect()
         cursor = conn.cursor()
-
         cursor.execute("""
             UPDATE offers
             SET
@@ -263,8 +391,70 @@ class OfferRepository:
 
         ))
 
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
+
+    def update_with_items(
+        self,
+        offer_id,
+        customer_id,
+        issue_date,
+        valid_until,
+        status,
+        subtotal,
+        discount,
+        vat,
+        total,
+        notes,
+        items,
+        vat_liable=None,
+    ) -> None:
+        """Update header + replace items in one transaction (GOLD-3B)."""
+        self.ensure_schema()
+        if self.is_converted(offer_id):
+            raise ValueError(CONVERTED_OFFER_MESSAGE)
+        self._validate_create(customer_id, items)
+        if vat_liable is None:
+            vat_liable = self.get_vat_liable(offer_id)
+
+        with db.transaction(immediate=True) as conn:
+            self.update(
+                offer_id,
+                customer_id,
+                issue_date,
+                valid_until,
+                status,
+                subtotal,
+                discount,
+                vat,
+                total,
+                notes,
+                vat_liable=vat_liable,
+                conn=conn,
+            )
+            self.delete_items(offer_id, conn=conn)
+            for item in items:
+                self.add_item(
+                    offer_id=offer_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    description=item.get("description") or "",
+                    quantity=item.get("quantity"),
+                    unit=item.get("unit") or "",
+                    price=item.get("price"),
+                    discount=item.get("discount") or 0,
+                    vat=item.get("vat") or 0,
+                    total=item.get("total"),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM offer_items WHERE offer_id=?",
+                (offer_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke ponudbe niso bile shranjene.")
 
     def mark_converted(self, offer_id, invoice_id, conn=None):
         """Record conversion linkage and set status to Sprejeta (immutable thereafter)."""
@@ -358,12 +548,16 @@ class OfferRepository:
         discount,
         vat,
         total,
+        conn=None,
     ):
-        self.ensure_schema()
-        if self.is_converted(offer_id):
-            raise ValueError(CONVERTED_OFFER_MESSAGE)
+        if conn is None:
+            self.ensure_schema()
+            if self.is_converted(offer_id):
+                raise ValueError(CONVERTED_OFFER_MESSAGE)
 
-        conn = db.connect()
+        owns = conn is None
+        if owns:
+            conn = db.connect()
         cursor = conn.cursor()
 
         cursor.execute("""
@@ -400,24 +594,26 @@ class OfferRepository:
 
         ))
 
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
-    def delete_items(self, offer_id):
-        self.ensure_schema()
-        if self.is_converted(offer_id):
-            raise ValueError(CONVERTED_OFFER_MESSAGE)
+    def delete_items(self, offer_id, conn=None):
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            if self.is_converted(offer_id):
+                raise ValueError(CONVERTED_OFFER_MESSAGE)
+            conn = db.connect()
 
-        conn = db.connect()
         cursor = conn.cursor()
-
         cursor.execute(
             "DELETE FROM offer_items WHERE offer_id=?",
             (offer_id,),
         )
-
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
 
 offer_repository = OfferRepository()

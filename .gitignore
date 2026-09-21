@@ -25,6 +25,7 @@ data/drafts/
 data/documents/
 data/cache/
 data/logo_old.png
+data/premium_pdf_test/
 *.egg-info/
 .DS_Store
 Thumbs.db

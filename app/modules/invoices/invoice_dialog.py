@@ -279,7 +279,6 @@ class InvoiceDialog(EnterpriseDialog):
         from app.core.ui.notify import toast
         from app.utils.money import as_float, document_totals, line_gross
         from app.utils.vat import assert_vat_consistent
-        import sqlite3
         import time
 
         if getattr(self, "_saving", False):
@@ -337,41 +336,51 @@ class InvoiceDialog(EnterpriseDialog):
         self.doc_header.btn_save.setEnabled(False)
         t0 = time.perf_counter()
         try:
-            if self.invoice_id is None:
-                invoice_id = None
-                last_exc: Exception | None = None
-                for _attempt in range(5):
-                    number = invoice_repository.get_next_number()
-                    self.lbl_number.setText(number)
-                    self.doc_header.set_document_number(number)
-                    try:
-                        invoice_id = invoice_repository.add(
-                            invoice_number=number,
-                            customer_id=self.customer.currentData(),
-                            issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
-                            due_date=self.due_date.date().toString("yyyy-MM-dd"),
-                            subtotal=subtotal,
-                            discount=discount,
-                            vat=vat_amount,
-                            total=total,
-                            notes=self.notes.toPlainText(),
-                            status="Izdan",
-                            vat_liable=self.vat_liable,
+            line_items = []
+            for row in self.items_model.items:
+                qty = row[2]
+                price = row[4]
+                line_discount = row[5]
+                vat = 0 if not self.vat_liable else row[6]
+                line_items.append({
+                    "article_id": row[8],
+                    "code": row[0],
+                    "name": row[1],
+                    "description": "",
+                    "quantity": qty,
+                    "unit": row[3],
+                    "price": price,
+                    "discount": line_discount,
+                    "vat": vat,
+                    "total": as_float(
+                        line_gross(
+                            qty, price, vat, line_discount, vat_liable=self.vat_liable
                         )
-                        invoice_repository.increase_counter()
-                        break
-                    except sqlite3.IntegrityError as exc:
-                        last_exc = exc
-                        # Skip colliding counter slot and retry with healed next number.
-                        invoice_repository.increase_counter()
-                if invoice_id is None:
-                    raise last_exc or RuntimeError("Računa ni bilo mogoče shraniti.")
+                    ),
+                })
+
+            if self.invoice_id is None:
+                invoice_id, number = invoice_repository.create_with_items(
+                    customer_id=self.customer.currentData(),
+                    issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
+                    due_date=self.due_date.date().toString("yyyy-MM-dd"),
+                    subtotal=subtotal,
+                    discount=discount,
+                    vat=vat_amount,
+                    total=total,
+                    notes=self.notes.toPlainText(),
+                    status="Izdan",
+                    vat_liable=self.vat_liable,
+                    items=line_items,
+                )
+                self.lbl_number.setText(number)
+                self.doc_header.set_document_number(number)
             else:
                 invoice = invoice_repository.get_by_id(self.invoice_id)
                 status = invoice[5] if invoice else "Osnutek"
 
-                invoice_repository.update(
-                    invoice_id=self.invoice_id,
+                invoice_repository.update_with_items(
+                    self.invoice_id,
                     customer_id=self.customer.currentData(),
                     issue_date=self.issue_date.date().toString("yyyy-MM-dd"),
                     due_date=self.due_date.date().toString("yyyy-MM-dd"),
@@ -382,33 +391,12 @@ class InvoiceDialog(EnterpriseDialog):
                     status=status,
                     notes=self.notes.toPlainText(),
                     vat_liable=self.vat_liable,
+                    items=line_items,
                 )
-
-                invoice_repository.delete_items(self.invoice_id)
                 invoice_id = self.invoice_id
 
-            for row in self.items_model.items:
-                qty = row[2]
-                price = row[4]
-                discount = row[5]
-                vat = 0 if not self.vat_liable else row[6]
-                invoice_repository.add_item(
-                    invoice_id=invoice_id,
-                    article_id=row[8],
-                    code=row[0],
-                    name=row[1],
-                    description="",
-                    quantity=qty,
-                    unit=row[3],
-                    price=price,
-                    discount=discount,
-                    vat=vat,
-                    total=as_float(line_gross(qty, price, vat, discount, vat_liable=self.vat_liable)),
-                )
-
-            # Editing the amount of an invoice with recorded payments must also
-            # refresh its payment-derived status (e.g. paid -> partially paid).
-            if self.invoice_id is not None:
+                # Editing the amount of an invoice with recorded payments must also
+                # refresh its payment-derived status (e.g. paid -> partially paid).
                 from app.database.payment_repository import payment_repository
                 payment_repository.sync_invoice_status(invoice_id, total)
 

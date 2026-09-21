@@ -217,10 +217,15 @@ class InvoiceRepository:
 
         if conn is None:
             self.ensure_schema()
-        if vat_liable is None:
-            vat_liable = company_vat_liable()
 
         owns = conn is None
+        if vat_liable is None:
+            # Never read company inside an outer txn: company reads commit on the
+            # pooled connection and would finalize the caller's BEGIN early.
+            if owns:
+                vat_liable = company_vat_liable()
+            else:
+                vat_liable = True
         if owns:
             conn = self._connect()
         cursor = conn.cursor()
@@ -262,6 +267,83 @@ class InvoiceRepository:
 
         return invoice_id
 
+    @staticmethod
+    def _validate_create(customer_id, items) -> None:
+        if not customer_id:
+            raise ValueError("Stranka je obvezna.")
+        if not items:
+            raise ValueError("Dokument mora vsebovati vsaj eno postavko.")
+        for item in items:
+            if not str(item.get("name") or "").strip():
+                raise ValueError("Postavka mora imeti naziv.")
+            if float(item.get("quantity") or 0) <= 0:
+                raise ValueError("Količina postavke mora biti večja od 0.")
+
+    def create_with_items(
+        self,
+        *,
+        customer_id,
+        issue_date,
+        due_date,
+        subtotal,
+        discount,
+        vat,
+        total,
+        notes,
+        items,
+        status="Izdan",
+        vat_liable=None,
+        invoice_number=None,
+    ) -> tuple[int, str]:
+        """Allocate number + insert invoice header and items in one transaction."""
+        from app.utils.vat import company_vat_liable
+
+        self.ensure_schema()
+        self._validate_create(customer_id, items)
+        # Resolve VAT regime before BEGIN — company reads commit on the pooled
+        # connection and must not run inside the create transaction.
+        if vat_liable is None:
+            vat_liable = company_vat_liable()
+
+        with db.transaction(immediate=True) as conn:
+            number = invoice_number or self.allocate_next_number(conn)
+            invoice_id = self.add(
+                invoice_number=number,
+                customer_id=customer_id,
+                issue_date=issue_date,
+                due_date=due_date,
+                subtotal=subtotal,
+                discount=discount,
+                vat=vat,
+                total=total,
+                notes=notes,
+                status=status,
+                vat_liable=vat_liable,
+                conn=conn,
+            )
+            for item in items:
+                self.add_item(
+                    invoice_id=invoice_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    description=item.get("description") or "",
+                    quantity=item.get("quantity"),
+                    unit=item.get("unit") or "",
+                    price=item.get("price"),
+                    discount=item.get("discount") or 0,
+                    vat=item.get("vat") or 0,
+                    total=item.get("total"),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM invoice_items WHERE invoice_id=?",
+                (invoice_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke računa niso bile shranjene.")
+            return invoice_id, number
+
     def update(
         self,
         invoice_id,
@@ -275,16 +357,20 @@ class InvoiceRepository:
         status,
         notes,
         vat_liable=None,
+        conn=None,
     ):
         from app.utils.vat import vat_liable_int
 
-        self.ensure_schema()
-        if vat_liable is None:
-            vat_liable = self.get_vat_liable(invoice_id)
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            if vat_liable is None:
+                vat_liable = self.get_vat_liable(invoice_id)
+            conn = self._connect()
+        elif vat_liable is None:
+            raise ValueError("vat_liable je obvezen znotraj zunanje transakcije.")
 
-        conn = self._connect()
         cursor = conn.cursor()
-
         cursor.execute("""
             UPDATE invoices
             SET
@@ -313,8 +399,69 @@ class InvoiceRepository:
             invoice_id,
         ))
 
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
+
+    def update_with_items(
+        self,
+        invoice_id,
+        *,
+        customer_id,
+        issue_date,
+        due_date,
+        subtotal,
+        discount,
+        vat,
+        total,
+        status,
+        notes,
+        items,
+        vat_liable=None,
+    ) -> None:
+        """Update header + replace items in one transaction (GOLD-3B)."""
+        self.ensure_schema()
+        self._validate_create(customer_id, items)
+        if vat_liable is None:
+            vat_liable = self.get_vat_liable(invoice_id)
+
+        with db.transaction(immediate=True) as conn:
+            self.update(
+                invoice_id=invoice_id,
+                customer_id=customer_id,
+                issue_date=issue_date,
+                due_date=due_date,
+                subtotal=subtotal,
+                discount=discount,
+                vat=vat,
+                total=total,
+                status=status,
+                notes=notes,
+                vat_liable=vat_liable,
+                conn=conn,
+            )
+            self.delete_items(invoice_id, conn=conn)
+            for item in items:
+                self.add_item(
+                    invoice_id=invoice_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    description=item.get("description") or "",
+                    quantity=item.get("quantity"),
+                    unit=item.get("unit") or "",
+                    price=item.get("price"),
+                    discount=item.get("discount") or 0,
+                    vat=item.get("vat") or 0,
+                    total=item.get("total"),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM invoice_items WHERE invoice_id=?",
+                (invoice_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke računa niso bile shranjene.")
 
     def delete(self, invoice_id):
 
@@ -473,35 +620,40 @@ class InvoiceRepository:
             return None
 
         items = self.get_items(invoice_id)
+        vat_liable = self.get_vat_liable(invoice_id)
 
-        new_id = self.add(
-            invoice_number=self.allocate_next_number(),
-            customer_id=invoice[2],
-            issue_date=invoice[3],
-            due_date=invoice[4],
-            subtotal=invoice[6],
-            discount=invoice[7],
-            vat=invoice[8],
-            total=invoice[9],
-            notes=invoice[10],
-            status="Osnutek",
-            vat_liable=self.get_vat_liable(invoice_id),
-        )
-
-        for item in items:
-            self.add_item(
-                invoice_id=new_id,
-                article_id=item[1],
-                code=item[2],
-                name=item[3],
-                description=item[4],
-                quantity=item[5],
-                unit=item[6],
-                price=item[7],
-                discount=item[8],
-                vat=item[9],
-                total=item[10],
+        with db.transaction(immediate=True) as conn:
+            number = self.allocate_next_number(conn)
+            new_id = self.add(
+                invoice_number=number,
+                customer_id=invoice[2],
+                issue_date=invoice[3],
+                due_date=invoice[4],
+                subtotal=invoice[6],
+                discount=invoice[7],
+                vat=invoice[8],
+                total=invoice[9],
+                notes=invoice[10],
+                status="Osnutek",
+                vat_liable=vat_liable,
+                conn=conn,
             )
+
+            for item in items:
+                self.add_item(
+                    invoice_id=new_id,
+                    article_id=item[1],
+                    code=item[2],
+                    name=item[3],
+                    description=item[4],
+                    quantity=item[5],
+                    unit=item[6],
+                    price=item[7],
+                    discount=item[8],
+                    vat=item[9],
+                    total=item[10],
+                    conn=conn,
+                )
 
         return new_id
 
@@ -616,18 +768,18 @@ class InvoiceRepository:
         conn.commit()
         conn.close()
 
-    def delete_items(self, invoice_id):
-
-        conn = self._connect()
+    def delete_items(self, invoice_id, conn=None):
+        owns = conn is None
+        if owns:
+            conn = self._connect()
         cursor = conn.cursor()
-
         cursor.execute(
             "DELETE FROM invoice_items WHERE invoice_id=?",
             (invoice_id,),
         )
-
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
     def get_items(self, invoice_id):
 

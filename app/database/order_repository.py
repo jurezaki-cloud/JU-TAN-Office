@@ -129,27 +129,78 @@ class OrderRepository:
         conn.close()
         return rows
 
-    def get_next_number(self):
-        """Next order number under a write lock (serialized peeks)."""
-        self.ensure_schema()
-        from app.database.database import db
+    def _next_number_on_conn(self, conn) -> str:
+        """Compute next order number under an open write lock."""
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT number FROM orders
+            WHERE number LIKE 'NAR%'
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return "NAR-0001"
+        try:
+            number = int(str(row[0]).split("-")[-1]) + 1
+        except (TypeError, ValueError):
+            number = 1
+        return f"NAR-{number:04d}"
 
+    def get_next_number(self):
+        """Peek next order number for UI preview; does not consume it."""
+        self.ensure_schema()
         with db.transaction(immediate=True) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT number FROM orders
-                WHERE number LIKE 'NAR%'
-                ORDER BY id DESC
-                LIMIT 1
-            """)
-            row = cursor.fetchone()
-            if row is None:
-                return "NAR-0001"
-            try:
-                number = int(str(row[0]).split("-")[-1]) + 1
-            except (TypeError, ValueError):
-                number = 1
-            return f"NAR-{number:04d}"
+            return self._next_number_on_conn(conn)
+
+    @staticmethod
+    def _validate_create(customer_id, items) -> None:
+        if not customer_id:
+            raise ValueError("Stranka je obvezna.")
+        if not items:
+            raise ValueError("Dokument mora vsebovati vsaj eno postavko.")
+        for item in items:
+            if not str(item.get("name") or "").strip():
+                raise ValueError("Postavka mora imeti naziv.")
+            if float(item.get("quantity") or 0) <= 0:
+                raise ValueError("Količina postavke mora biti večja od 0.")
+
+    def _insert_on_conn(
+        self,
+        conn,
+        number,
+        customer_id,
+        issue_date,
+        delivery_date,
+        status,
+        subtotal,
+        discount,
+        vat,
+        total,
+        notes,
+        vat_liable,
+    ) -> tuple[int, str]:
+        from app.utils.vat import vat_liable_int
+
+        if not number:
+            number = self._next_number_on_conn(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO orders(
+                number, customer_id, issue_date, delivery_date, status,
+                subtotal, discount, vat, total, notes, vat_liable
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                number, customer_id, issue_date, delivery_date, status,
+                subtotal, discount, vat, total, notes, vat_liable_int(vat_liable),
+            ),
+        )
+        return cursor.lastrowid, number
 
     def create(
         self,
@@ -164,28 +215,96 @@ class OrderRepository:
         total,
         notes,
         vat_liable=None,
+        conn=None,
     ):
-        from app.utils.vat import company_vat_liable, vat_liable_int
+        from app.utils.vat import company_vat_liable
 
         self.ensure_schema()
         if vat_liable is None:
             vat_liable = company_vat_liable()
-        conn = self._connect()
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO orders(
-                number, customer_id, issue_date, delivery_date, status,
-                subtotal, discount, vat, total, notes, vat_liable
+
+        def _run(txn):
+            order_id, _ = self._insert_on_conn(
+                txn,
+                number,
+                customer_id,
+                issue_date,
+                delivery_date,
+                status,
+                subtotal,
+                discount,
+                vat,
+                total,
+                notes,
+                vat_liable,
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)
-        """, (
-            number, customer_id, issue_date, delivery_date, status,
-            subtotal, discount, vat, total, notes, vat_liable_int(vat_liable),
-        ))
-        conn.commit()
-        order_id = cursor.lastrowid
-        conn.close()
-        return order_id
+            return order_id
+
+        if conn is not None:
+            return _run(conn)
+        with db.transaction(immediate=True) as txn:
+            return _run(txn)
+
+    def create_with_items(
+        self,
+        number,
+        customer_id,
+        issue_date,
+        delivery_date,
+        status,
+        subtotal,
+        discount,
+        vat,
+        total,
+        notes,
+        items,
+        vat_liable=None,
+    ) -> tuple[int, str]:
+        """Allocate number + insert order header and items in one transaction."""
+        from app.utils.vat import company_vat_liable
+
+        self.ensure_schema()
+        self._validate_create(customer_id, items)
+        if vat_liable is None:
+            vat_liable = company_vat_liable()
+
+        with db.transaction(immediate=True) as conn:
+            order_id, number = self._insert_on_conn(
+                conn,
+                number,
+                customer_id,
+                issue_date,
+                delivery_date,
+                status,
+                subtotal,
+                discount,
+                vat,
+                total,
+                notes,
+                vat_liable,
+            )
+            for item in items:
+                self.add_item(
+                    order_id=order_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    description=item.get("description") or "",
+                    quantity=item.get("quantity"),
+                    unit=item.get("unit") or "",
+                    price=item.get("price"),
+                    discount=item.get("discount") or 0,
+                    vat=item.get("vat") or 0,
+                    total=item.get("total"),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM order_items WHERE order_id=?",
+                (order_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke naročila niso bile shranjene.")
+            return order_id, number
 
     def update(
         self,
@@ -200,13 +319,19 @@ class OrderRepository:
         total,
         notes,
         vat_liable=None,
+        conn=None,
     ):
         from app.utils.vat import vat_liable_int
 
-        self.ensure_schema()
-        if vat_liable is None:
-            vat_liable = self.get_vat_liable(order_id)
-        conn = self._connect()
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            if vat_liable is None:
+                vat_liable = self.get_vat_liable(order_id)
+            conn = self._connect()
+        elif vat_liable is None:
+            raise ValueError("vat_liable je obvezen znotraj zunanje transakcije.")
+
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE orders SET
@@ -225,8 +350,68 @@ class OrderRepository:
             customer_id, issue_date, delivery_date, status,
             subtotal, discount, vat, total, notes, vat_liable_int(vat_liable), order_id,
         ))
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
+
+    def update_with_items(
+        self,
+        order_id,
+        customer_id,
+        issue_date,
+        delivery_date,
+        status,
+        subtotal,
+        discount,
+        vat,
+        total,
+        notes,
+        items,
+        vat_liable=None,
+    ) -> None:
+        """Update header + replace items in one transaction (GOLD-3B)."""
+        self.ensure_schema()
+        self._validate_create(customer_id, items)
+        if vat_liable is None:
+            vat_liable = self.get_vat_liable(order_id)
+
+        with db.transaction(immediate=True) as conn:
+            self.update(
+                order_id,
+                customer_id,
+                issue_date,
+                delivery_date,
+                status,
+                subtotal,
+                discount,
+                vat,
+                total,
+                notes,
+                vat_liable=vat_liable,
+                conn=conn,
+            )
+            self.delete_items(order_id, conn=conn)
+            for item in items:
+                self.add_item(
+                    order_id=order_id,
+                    article_id=item.get("article_id"),
+                    code=item.get("code") or "",
+                    name=item.get("name") or "",
+                    description=item.get("description") or "",
+                    quantity=item.get("quantity"),
+                    unit=item.get("unit") or "",
+                    price=item.get("price"),
+                    discount=item.get("discount") or 0,
+                    vat=item.get("vat") or 0,
+                    total=item.get("total"),
+                    conn=conn,
+                )
+            counted = conn.execute(
+                "SELECT COUNT(*) FROM order_items WHERE order_id=?",
+                (order_id,),
+            ).fetchone()[0]
+            if int(counted) != len(items):
+                raise RuntimeError("Postavke naročila niso bile shranjene.")
 
     def delete(self, order_id):
         self.ensure_schema()
@@ -266,9 +451,12 @@ class OrderRepository:
         discount,
         vat,
         total,
+        conn=None,
     ):
-        self.ensure_schema()
-        conn = self._connect()
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO order_items(
@@ -280,16 +468,20 @@ class OrderRepository:
             order_id, article_id, code, name, description,
             quantity, unit, price, discount, vat, total,
         ))
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
-    def delete_items(self, order_id):
-        self.ensure_schema()
-        conn = self._connect()
+    def delete_items(self, order_id, conn=None):
+        owns = conn is None
+        if owns:
+            self.ensure_schema()
+            conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM order_items WHERE order_id=?", (order_id,))
-        conn.commit()
-        conn.close()
+        if owns:
+            conn.commit()
+            conn.close()
 
 
 order_repository = OrderRepository()

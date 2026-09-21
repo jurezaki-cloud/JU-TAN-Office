@@ -69,8 +69,8 @@ class PurchaseController:
     @gated("write", "edit")
     def save(self, purchase_id: int | None, header: dict, items: list) -> int:
         if purchase_id is None:
-            purchase_id = self.repository.create(
-                number=header["number"],
+            purchase_id, number = self.repository.create_with_items(
+                number=None,
                 supplier_id=header["supplier_id"],
                 issue_date=header["issue_date"],
                 delivery_date=header["delivery_date"],
@@ -79,32 +79,23 @@ class PurchaseController:
                 vat=header["vat"],
                 total=header["total"],
                 notes=header.get("notes") or "",
+                items=items,
             )
-        else:
-            self.repository.update(
-                purchase_id,
-                supplier_id=header["supplier_id"],
-                issue_date=header["issue_date"],
-                delivery_date=header["delivery_date"],
-                status=header["status"],
-                subtotal=header["subtotal"],
-                vat=header["vat"],
-                total=header["total"],
-                notes=header.get("notes") or "",
-            )
-            self.repository.delete_items(purchase_id)
-        for row in items:
-            self.repository.add_item(
-                purchase_id=purchase_id,
-                article_id=row.get("article_id"),
-                code=row.get("code") or "",
-                name=row.get("name") or "",
-                quantity=float(row.get("quantity") or 0),
-                qty_received=float(row.get("qty_received") or 0),
-                price=float(row.get("price") or 0),
-                vat=float(row.get("vat") or 0),
-                total=float(row.get("total") or 0),
-            )
+            header["number"] = number
+            return purchase_id
+
+        self.repository.update_with_items(
+            purchase_id,
+            supplier_id=header["supplier_id"],
+            issue_date=header["issue_date"],
+            delivery_date=header["delivery_date"],
+            status=header["status"],
+            subtotal=header["subtotal"],
+            vat=header["vat"],
+            total=header["total"],
+            notes=header.get("notes") or "",
+            items=items,
+        )
         return purchase_id
 
     @gated("delete", "delete")

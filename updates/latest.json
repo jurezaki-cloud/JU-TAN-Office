@@ -1,1 +1,8 @@
-{"version": "1.0.0", "notes": "Prva produkcijska izdaja.", "url": ""}
+{
+  "version": "1.0.0",
+  "notes": "Prva produkcijska izdaja.",
+  "url": "",
+  "sha256": "",
+  "channel": "GOLD",
+  "signature": ""
+}

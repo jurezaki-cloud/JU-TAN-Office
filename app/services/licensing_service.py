@@ -1,10 +1,12 @@
-"""JU-TAN Office desktop licensing client."""
+﻿"""JU-TAN Office desktop licensing client (online activation + device binding)."""
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import platform
+import ssl
 import subprocess
 import base64
 import ctypes
@@ -16,10 +18,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.core.constants import APP_VERSION
+
 API_BASE = os.getenv("JU_TAN_LICENSE_API", "https://ju-tan.com/api/v1/licenses").rstrip("/")
-APP_VERSION = "1.0.0"
 STATE_DIR = Path(os.getenv("LOCALAPPDATA", str(Path.home()))) / "JU-TAN" / "Office"
 STATE_FILE = STATE_DIR / "license.json"
+_DEVICE_ID_VERSION = 1
 
 
 class _DATA_BLOB(ctypes.Structure):
@@ -33,13 +37,15 @@ def _dpapi_protect(value: str) -> str:
     buf = ctypes.create_string_buffer(raw)
     in_blob = _DATA_BLOB(len(raw), ctypes.cast(buf, ctypes.POINTER(ctypes.c_byte)))
     out_blob = _DATA_BLOB()
-    if not ctypes.windll.crypt32.CryptProtectData(ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)):
+    if not ctypes.windll.crypt32.CryptProtectData(
+        ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)
+    ):
         raise OSError("Windows DPAPI encryption failed")
     try:
         data = ctypes.string_at(out_blob.pbData, out_blob.cbData)
-        return "dpapi:" + base64.b64encode(data).decode("ascii")
     finally:
         ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+    return "dpapi:" + base64.b64encode(data).decode("ascii")
 
 
 def _dpapi_unprotect(value: str) -> str:
@@ -49,7 +55,9 @@ def _dpapi_unprotect(value: str) -> str:
     buf = ctypes.create_string_buffer(raw)
     in_blob = _DATA_BLOB(len(raw), ctypes.cast(buf, ctypes.POINTER(ctypes.c_byte)))
     out_blob = _DATA_BLOB()
-    if not ctypes.windll.crypt32.CryptUnprotectData(ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)):
+    if not ctypes.windll.crypt32.CryptUnprotectData(
+        ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)
+    ):
         raise OSError("Windows DPAPI decryption failed")
     try:
         return ctypes.string_at(out_blob.pbData, out_blob.cbData).decode("utf-8")
@@ -76,9 +84,17 @@ class LicenseState:
     def load(cls) -> "LicenseState | None":
         try:
             data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            raw_token = data["activation_token"]
+            # On Windows, plaintext tokens are not accepted (copy/migration risk).
+            if platform.system() == "Windows" and not str(raw_token).startswith("dpapi:"):
+                clear_license_state()
+                return None
+            token = _dpapi_unprotect(str(raw_token))
+            if not token:
+                return None
             return cls(
-                activation_token=_dpapi_unprotect(data["activation_token"]),
-                device_id=data["device_id"],
+                activation_token=token,
+                device_id=str(data["device_id"]),
                 company_name=data.get("company_name", ""),
                 grace_until=data.get("grace_until", ""),
                 license_id=str(data.get("license_id") or ""),
@@ -93,6 +109,7 @@ class LicenseState:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         data = dict(self.__dict__)
         data["activation_token"] = _dpapi_protect(self.activation_token)
+        data["device_id_version"] = _DEVICE_ID_VERSION
         STATE_FILE.write_text(json.dumps(data), encoding="utf-8")
 
     def apply_server_result(self, result: dict[str, Any]) -> None:
@@ -117,6 +134,14 @@ class LicenseState:
         )
         if not self.device_name:
             self.device_name = platform.node() or ""
+
+
+def clear_license_state() -> None:
+    """Remove local activation state (device mismatch / revoke / deactivate)."""
+    try:
+        STATE_FILE.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def _windows_machine_guid() -> str:
@@ -147,20 +172,65 @@ def device_id() -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def device_bound(state: LicenseState) -> bool:
+    """True when stored device_id matches the fingerprint of this machine."""
+    current = device_id()
+    stored = (state.device_id or "").strip().lower()
+    return bool(stored) and hmac.compare_digest(stored, current)
+
+
+def ensure_api_base(base: str | None = None) -> str:
+    """Require HTTPS for the license API (localhost HTTP only with insecure flag)."""
+    value = (base if base is not None else API_BASE).rstrip("/")
+    lowered = value.lower()
+    if lowered.startswith("https://"):
+        return value
+    allow_insecure = os.getenv("JU_TAN_LICENSE_INSECURE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    if allow_insecure and (
+        lowered.startswith("http://127.0.0.1")
+        or lowered.startswith("http://localhost")
+    ):
+        return value
+    raise LicenseError("Licenčni API mora uporabljati HTTPS.")
+
+
+def _ssl_context() -> ssl.SSLContext:
+    return ssl.create_default_context()
+
+
+def _normalize_license_key(license_key: str) -> str:
+    key = (license_key or "").strip()
+    if len(key) < 8 or len(key) > 128:
+        raise LicenseError("Neveljaven licenčni ključ.")
+    if any(ord(ch) < 32 for ch in key):
+        raise LicenseError("Neveljaven licenčni ključ.")
+    return key
+
+
 def _post(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
+    api = ensure_api_base()
+    body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
-        f"{API_BASE}/{endpoint}",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "User-Agent": "JU-TAN-Office"},
+        f"{api}/{endpoint}",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": f"JU-TAN-Office/{APP_VERSION}",
+            "Accept": "application/json",
+        },
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=10, context=_ssl_context()) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         try:
-            body = json.loads(exc.read().decode("utf-8"))
-            message = body.get("error") or body.get("code") or f"HTTP {exc.code}"
+            err_body = json.loads(exc.read().decode("utf-8"))
+            message = err_body.get("error") or err_body.get("code") or f"HTTP {exc.code}"
         except Exception:
             message = f"HTTP {exc.code}"
         raise LicenseError(str(message)) from exc
@@ -170,40 +240,55 @@ def _post(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 def activate(license_key: str) -> LicenseState:
     did = device_id()
-    result = _post("activate", {
-        "license_key": license_key.strip(),
-        "device_id": did,
-        "app_version": APP_VERSION,
-    })
+    result = _post(
+        "activate",
+        {
+            "license_key": _normalize_license_key(license_key),
+            "device_id": did,
+            "app_version": APP_VERSION,
+            "device_name": platform.node() or "",
+        },
+    )
     token = result.get("activation_token")
     if not token:
         raise LicenseError("Strežnik ni vrnil aktivacijskega žetona.")
     state = LicenseState(
-        activation_token=token,
+        activation_token=str(token),
         device_id=did,
         company_name=result.get("company_name", ""),
         grace_until=result.get("grace_until", ""),
         device_name=platform.node() or "",
     )
     state.apply_server_result(result)
+    state.device_id = did
     state.save()
     return state
 
 
 def validate(state: LicenseState) -> dict[str, Any]:
-    return _post("validate", {
-        "activation_token": state.activation_token,
-        "device_id": state.device_id,
-        "app_version": APP_VERSION,
-    })
+    current = device_id()
+    if not hmac.compare_digest((state.device_id or "").strip().lower(), current):
+        raise LicenseError("Licenca ni veljavna za to napravo.")
+    return _post(
+        "validate",
+        {
+            "activation_token": state.activation_token,
+            "device_id": current,
+            "app_version": APP_VERSION,
+        },
+    )
 
 
 def deactivate(state: LicenseState) -> None:
-    _post("deactivate", {
-        "activation_token": state.activation_token,
-        "device_id": state.device_id,
-    })
-    try:
-        STATE_FILE.unlink()
-    except FileNotFoundError:
-        pass
+    current = device_id()
+    if not hmac.compare_digest((state.device_id or "").strip().lower(), current):
+        clear_license_state()
+        raise LicenseError("Licenca ni veljavna za to napravo.")
+    _post(
+        "deactivate",
+        {
+            "activation_token": state.activation_token,
+            "device_id": current,
+        },
+    )
+    clear_license_state()

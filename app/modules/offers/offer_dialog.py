@@ -273,33 +273,39 @@ class OfferDialog(EnterpriseDialog):
         )
 
         try:
-            if self.offer_id is None:
-                offer_id = offer_repository.create(
-                    number=self.lbl_number.text(),
-                    **payload,
-                )
-            else:
-                offer_repository.update(self.offer_id, **payload)
-                offer_repository.delete_items(self.offer_id)
-                offer_id = self.offer_id
-
+            line_items = []
             for row in self.items_model.items:
                 vat = 0 if not self.vat_liable else row[6]
-                offer_repository.add_item(
-                    offer_id=offer_id,
-                    article_id=row[8],
-                    code=row[0],
-                    name=row[1],
-                    description="",
-                    quantity=row[2],
-                    unit=row[3],
-                    price=row[4],
-                    discount=row[5],
-                    vat=vat,
-                    total=as_float(
+                line_items.append({
+                    "article_id": row[8],
+                    "code": row[0],
+                    "name": row[1],
+                    "description": "",
+                    "quantity": row[2],
+                    "unit": row[3],
+                    "price": row[4],
+                    "discount": row[5],
+                    "vat": vat,
+                    "total": as_float(
                         line_gross(row[2], row[4], vat, row[5], vat_liable=self.vat_liable)
                     ),
+                })
+
+            if self.offer_id is None:
+                offer_id, number = offer_repository.create_with_items(
+                    number=None,
+                    items=line_items,
+                    **payload,
                 )
+                self.lbl_number.setText(number)
+                self.doc_header.set_document_number(number)
+            else:
+                offer_repository.update_with_items(
+                    self.offer_id,
+                    items=line_items,
+                    **payload,
+                )
+                offer_id = self.offer_id
         except ValueError as exc:
             toast(self, str(exc))
             return

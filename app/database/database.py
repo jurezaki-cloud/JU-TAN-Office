@@ -59,10 +59,12 @@ class Database:
 
     @contextmanager
     def transaction(self, *, immediate: bool = False):
-        """Transakcija z rollback ob napaki (obstoječi CRUD ostane nespremenjen).
+        """Own commit/rollback for a unit of work.
 
-        immediate=True uses BEGIN IMMEDIATE so writers serialize before first SELECT
-        (required for atomic document-number allocation).
+        Leaf repository methods must accept an optional ``conn`` and must not
+        call ``commit()`` / ``rollback()`` when joined to this outer transaction.
+        ``immediate=True`` uses BEGIN IMMEDIATE so writers serialize before the
+        first SELECT (required for atomic document-number allocation).
         """
         conn = self.connect()
         raw = object.__getattribute__(conn, "_raw")

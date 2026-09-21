@@ -163,21 +163,20 @@ class PurchaseDialog(EnterpriseDialog):
             base = float(item.get("quantity") or 0) * float(item.get("price") or 0)
             subtotal += base
             vat_amount += base * float(item.get("vat") or 0) / 100
-        self.controller.save(
-            self.purchase_id,
-            {
-                "number": self.lbl_number.text(),
-                "supplier_id": self.supplier.currentData(),
-                "issue_date": self.issue_date.date().toString("yyyy-MM-dd"),
-                "delivery_date": self.delivery_date.date().toString("yyyy-MM-dd"),
-                "status": self.status.currentText(),
-                "subtotal": subtotal,
-                "vat": vat_amount,
-                "total": subtotal + vat_amount,
-                "notes": self.notes.toPlainText(),
-            },
-            self.items_model.items,
-        )
+        header = {
+            "number": self.lbl_number.text(),
+            "supplier_id": self.supplier.currentData(),
+            "issue_date": self.issue_date.date().toString("yyyy-MM-dd"),
+            "delivery_date": self.delivery_date.date().toString("yyyy-MM-dd"),
+            "status": self.status.currentText(),
+            "subtotal": subtotal,
+            "vat": vat_amount,
+            "total": subtotal + vat_amount,
+            "notes": self.notes.toPlainText(),
+        }
+        self.controller.save(self.purchase_id, header, self.items_model.items)
+        if header.get("number"):
+            self.lbl_number.setText(str(header["number"]))
         self.accept()
 
     def _load(self) -> None:

@@ -71,7 +71,14 @@ class TravelOrderDialog(EnterpriseDialog):
         if self.return_at.dateTime() < self.departure.dateTime():
             toast(self,"Prihod ne more biti pred odhodom."); return
         is_new=self.order_id is None
-        self.order_id=travel_order_repository.save(self._data(),self.order_id)
+        data=self._data()
+        if is_new:
+            data["number"]=None
+        self.order_id=travel_order_repository.save(data,self.order_id)
+        if is_new:
+            row=travel_order_repository.get_by_id(self.order_id)
+            if row:
+                self.number.setText(row[1])
         audit("create" if is_new else "edit",f"travel_order:{self.order_id}")
         self.accept()
 
