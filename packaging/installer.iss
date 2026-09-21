@@ -58,12 +58,15 @@ Source: "..\docs\SIGNING.md"; DestDir: "{app}\docs"; Flags: ignoreversion skipif
 Source: "..\updates\latest.json"; DestDir: "{app}\updates"; Flags: ignoreversion
 
 [Dirs]
-Name: "{commonappdata}\JU-TAN Office\Data"; Flags: uninsneveruninstall
-Name: "{commonappdata}\JU-TAN Office\Logs"; Flags: uninsneveruninstall
-Name: "{commonappdata}\JU-TAN Office\Backup"; Flags: uninsneveruninstall
-Name: "{commonappdata}\JU-TAN Office\Temp"; Flags: uninsneveruninstall
-Name: "{commonappdata}\JU-TAN Office\Reports"; Flags: uninsneveruninstall
-Name: "{commonappdata}\JU-TAN Office\Data\documents"; Flags: uninsneveruninstall
+; ProgramData is machine-wide. JU-TAN Office runs unelevated after setup,
+; therefore standard Windows users need modify rights on application data.
+Name: "{commonappdata}\JU-TAN Office"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\JU-TAN Office\Data"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\JU-TAN Office\Logs"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\JU-TAN Office\Backup"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\JU-TAN Office\Temp"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\JU-TAN Office\Reports"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\JU-TAN Office\Data\documents"; Permissions: users-modify; Flags: uninsneveruninstall
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
