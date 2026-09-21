@@ -18,7 +18,6 @@ class EnterpriseCard(QFrame):
 
         self.setObjectName(object_name)
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setAttribute(Qt.WA_OpaquePaintEvent, True)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.body = QVBoxLayout(self)
