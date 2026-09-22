@@ -100,7 +100,7 @@ def load_pdf_options() -> dict:
     if "JU-TAN Office Enterprise" in footer or footer == "Hvala za zaupanje.":
         footer = DOCUMENT_FOOTER_MESSAGE
     return {
-        "show_logo": bool(pdf.get("logo", True)),
+        # `logo` is the visibility toggle only. The actual image path is stored\n        # in company branding and is shared by invoice/offer/order PDFs.\n        "show_logo": bool(pdf.get("logo", True)),
         "show_signature": bool(pdf.get("signature", True)),
         "show_stamp": bool(pdf.get("stamp", True)),
         "show_vat": bool(pdf.get("vat", True)),
