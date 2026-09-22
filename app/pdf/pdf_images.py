@@ -14,7 +14,18 @@ def _existing_image_path(path: str) -> Path | None:
 
     raw = Path(path)
     candidates = [raw]
-    if not raw.is_absolute():
+
+    # A selected branding asset is archived under the active DATA_DIR/branding
+    # directory. Older installs can leave an absolute path pointing at a
+    # previous install/profile, so recover the same archived filename there.
+    if raw.is_absolute():
+        try:
+            from app.core.constants import DATA_DIR
+
+            candidates.append(DATA_DIR / "branding" / raw.name)
+        except Exception:
+            pass
+    else:
         # Source checkout / normal Python execution.
         candidates.append(Path(__file__).resolve().parents[2] / raw)
         # PyInstaller one-folder/one-file extraction root.
