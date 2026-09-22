@@ -22,6 +22,7 @@ from app.database.company_repository import (
     company_repository,
 )
 from app.pdf.pdf_branding import archive_branding_asset, normalize_hex
+from app.utils.flags import parse_bool
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
@@ -30,7 +31,7 @@ def _da_ne(value: bool) -> str:
 
 
 def _is_da(text: str) -> bool:
-    return str(text or "").strip().upper() == "DA"
+    return parse_bool(text, default=False)
 
 
 class PdfCard(QWidget):
@@ -227,16 +228,20 @@ class PdfCard(QWidget):
         }
 
     def set_values(self, pdf: dict) -> None:
-        self.chk_logo.setChecked(bool(pdf.get("logo", True)))
+        self.chk_logo.setChecked(parse_bool(pdf.get("logo", True), default=True))
         self.show_signature.blockSignals(True)
         self.show_stamp.blockSignals(True)
-        self.show_signature.setCurrentText(_da_ne(bool(pdf.get("signature", True))))
-        self.show_stamp.setCurrentText(_da_ne(bool(pdf.get("stamp", True))))
+        self.show_signature.setCurrentText(
+            _da_ne(parse_bool(pdf.get("signature", True), default=True))
+        )
+        self.show_stamp.setCurrentText(
+            _da_ne(parse_bool(pdf.get("stamp", True), default=True))
+        )
         self.show_signature.blockSignals(False)
         self.show_stamp.blockSignals(False)
-        self.chk_vat.setChecked(bool(pdf.get("vat", True)))
-        self.chk_discounts.setChecked(bool(pdf.get("discounts", True)))
-        self.chk_notes.setChecked(bool(pdf.get("notes", True)))
+        self.chk_vat.setChecked(parse_bool(pdf.get("vat", True), default=True))
+        self.chk_discounts.setChecked(parse_bool(pdf.get("discounts", True), default=True))
+        self.chk_notes.setChecked(parse_bool(pdf.get("notes", True), default=True))
         self.folder.setText(str(pdf.get("folder", "")))
         self.footer.setText(str(pdf.get("footer", "")))
         # Prefer DB branding; settings.json remains a fallback for older installs.
@@ -308,10 +313,10 @@ class PdfCard(QWidget):
             self.logo_preview.setText("")
         else:
             # Preview the same bundled fallback that the PDF engine will use.
-            # This avoids Settings saying "ni izbran" while the document uses a
-            # brand fallback, and makes stale archived paths immediately visible.
-            fallback = Path(__file__).resolve().parents[3] / "resources" / "logo.png"
-            pixmap = QPixmap(str(fallback)) if fallback.exists() else QPixmap()
+            from app.pdf.pdf_images import bundled_logo_path
+
+            fallback = bundled_logo_path()
+            pixmap = QPixmap(str(fallback)) if fallback else QPixmap()
             if not pixmap.isNull():
                 self.logo_preview.setPixmap(
                     pixmap.scaled(96, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)

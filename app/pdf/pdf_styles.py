@@ -80,7 +80,7 @@ def styles(options: dict | None = None) -> dict[str, ParagraphStyle]:
             fontName=bold,
             fontSize=12,
             textColor=navy,
-            alignment=TA_LEFT,
+            alignment=TA_RIGHT,
             leading=15,
         ),
         "meta": ParagraphStyle(
@@ -88,7 +88,7 @@ def styles(options: dict | None = None) -> dict[str, ParagraphStyle]:
             fontName=regular,
             fontSize=8.5,
             textColor=muted,
-            alignment=TA_LEFT,
+            alignment=TA_RIGHT,
             leading=11,
         ),
         "label": ParagraphStyle(
