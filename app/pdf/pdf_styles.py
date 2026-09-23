@@ -42,15 +42,18 @@ def ensure_fonts() -> tuple[str, str]:
 
     windir = Path("C:/Windows/Fonts")
     candidates = [
-        # Prefer geometric/modern faces when present.
-        (windir / "segoeui.ttf", windir / "segoeuib.ttf"),
-        (windir / "calibri.ttf", windir / "calibrib.ttf"),
-        (windir / "arial.ttf", windir / "arialbd.ttf"),
+        # Use the same font family on every supported OS whenever possible.
+        # Stable font metrics prevent one-page PDFs from reflowing in Linux CI.
         (Path("assets/fonts/DejaVuSans.ttf"), Path("assets/fonts/DejaVuSans-Bold.ttf")),
         (
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
         ),
+        (windir / "DejaVuSans.ttf", windir / "DejaVuSans-Bold.ttf"),
+        # Last-resort Windows fallbacks for machines without DejaVu.
+        (windir / "segoeui.ttf", windir / "segoeuib.ttf"),
+        (windir / "calibri.ttf", windir / "calibrib.ttf"),
+        (windir / "arial.ttf", windir / "arialbd.ttf"),
     ]
     for regular, bold in candidates:
         if regular.exists() and bold.exists():
