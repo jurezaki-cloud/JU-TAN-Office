@@ -45,7 +45,7 @@ HEADER_TO_SEPARATOR_MM = 9.5
 
 # MASTER footer_top ≈ 0.896 → branded band (~33 mm). Charcoal fills most of it.
 FOOTER_BAND_MM = 33.0
-FOOTER_RESERVED_MM = 33.0
+FOOTER_RESERVED_MM = 46.0
 
 # MASTER logo group ≈ 0.52 × 0.11 of page (preserve asset aspect).
 LOGO_MAX_WIDTH_MM = 126.0
@@ -650,7 +650,7 @@ class SpacedTagline(Flowable):
 
 
 class CustomerCard(Flowable):
-    """MASTER customer card: pale wash, rounded green border, icon + text."""
+    """Premium customer card with layered frame and green identity rail."""
 
     def __init__(self, content: Flowable, width_mm: float, palette: dict, radius: float = 4.5):
         super().__init__()
@@ -674,20 +674,54 @@ class CustomerCard(Flowable):
         from reportlab.lib.colors import Color
 
         c = self.canv
+        primary = self.palette["primary"]
         border = Color(
-            self.palette["primary"].red * 0.40 + 0.60,
-            self.palette["primary"].green * 0.40 + 0.60,
-            self.palette["primary"].blue * 0.40 + 0.60,
+            primary.red * 0.52 + 0.48,
+            primary.green * 0.52 + 0.48,
+            primary.blue * 0.52 + 0.48,
         )
-        wash = Color(
-            self.palette["primary"].red * 0.055 + 0.945,
-            self.palette["primary"].green * 0.055 + 0.945,
-            self.palette["primary"].blue * 0.055 + 0.945,
+        surface = Color(
+            primary.red * 0.025 + 0.975,
+            primary.green * 0.025 + 0.975,
+            primary.blue * 0.025 + 0.975,
         )
+        shadow = Color(0.02, 0.06, 0.08, alpha=0.10)
+
         c.saveState()
-        c.setFillColor(wash)
+        # Restrained depth: a small soft offset, not a heavy floating shadow.
+        c.setFillColor(shadow)
+        c.setStrokeColor(shadow)
+        c.roundRect(
+            1.2,
+            -1.2,
+            self._width,
+            self._height,
+            self.radius,
+            fill=1,
+            stroke=0,
+        )
+
+        # Crisp premium surface and border.
+        c.setFillColor(surface)
         c.setStrokeColor(border)
-        c.setLineWidth(1.05)
+        c.setLineWidth(1.15)
         c.roundRect(0, 0, self._width, self._height, self.radius, fill=1, stroke=1)
+
+        # Strong vertical identity rail gives the card a deliberate left edge.
+        rail_w = 2.2 * mm
+        c.setFillColor(primary)
+        c.setStrokeColor(None)
+        c.roundRect(0, 0, rail_w, self._height, self.radius, fill=1, stroke=0)
+        c.rect(rail_w * 0.55, 0, rail_w * 0.55, self._height, fill=1, stroke=0)
+
+        # Small top-right accent completes the frame without boxing it in.
+        c.setStrokeColor(primary)
+        c.setLineWidth(1.8)
+        c.line(
+            self._width - 22 * mm,
+            self._height,
+            self._width - 5 * mm,
+            self._height,
+        )
         c.restoreState()
         self.content.drawOn(c, self._pad, self._pad)
