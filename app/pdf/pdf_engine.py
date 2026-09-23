@@ -385,36 +385,37 @@ class PdfEngine:
 
         from reportlab.lib.styles import ParagraphStyle as _PS
 
-        # Scale type/leading with the taller MASTER card (no empty lower band).
+        # Compact DL-window typography: the postal name and address remain
+        # inside the first 99 mm fold panel without sacrificing hierarchy.
         detail_style = _PS(
             "PdfCustomerBody",
             parent=look["body"],
-            leading=19.2,
-            fontSize=13.4,
+            leading=14.2,
+            fontSize=10.8,
         )
         name_style = _PS(
             "PdfCustomerName",
             parent=look["body_bold"],
-            leading=21.0,
-            fontSize=16.0,
+            leading=15.8,
+            fontSize=12.6,
         )
         kupec_style = _PS(
             "PdfCustomerKupec",
             parent=look["section"],
-            fontSize=15.4,
-            leading=19.2,
+            fontSize=11.4,
+            leading=14.0,
         )
 
         text_lines = [Paragraph("Kupec", kupec_style)]
-        text_lines.append(Spacer(1, 5.4))
+        text_lines.append(Spacer(1, 1.8))
         text_lines.append(Paragraph(document.customer_name or "—", name_style))
-        text_lines.append(Spacer(1, 3.2))
+        text_lines.append(Spacer(1, 1.0))
         if document.customer_address:
             text_lines.append(Paragraph(document.customer_address, detail_style))
         if city:
             text_lines.append(Paragraph(city, detail_style))
         if document.customer_tax:
-            text_lines.append(Spacer(1, 3.2))
+            text_lines.append(Spacer(1, 1.0))
             text_lines.append(
                 Paragraph(f"Davčna št.: {document.customer_tax}", detail_style)
             )
