@@ -40,16 +40,12 @@ from app.pdf.pdf_branding import (
     THANKS_SUBTITLE,
     TOP_MARGIN_MM,
     TOTALS_TO_PAYMENT_GAP_MM,
-    WATERMARK_HEIGHT_MM,
-    WATERMARK_WIDTH_MM,
     VerticalGreenRule,
     SpacedTagline,
     CustomerCard,
     bank_icon,
     customer_people_icon,
     extract_signer_name,
-    JTWatermark,
-    PaymentWithWatermark,
     resolve_palette,
 )
 from app.pdf.pdf_company import CompanyProfile, existing_path, load_company, load_pdf_options
@@ -582,12 +578,8 @@ class PdfEngine:
             content = Table([cells], colWidths=widths)
             content.setStyle(TableStyle(style_cmds))
 
-        # Watermark behind payment without consuming extra flow height.
-        layered = PaymentWithWatermark(
-            content,
-            JTWatermark(WATERMARK_WIDTH_MM, WATERMARK_HEIGHT_MM, palette),
-        )
-        return [Spacer(1, 1), layered]
+        # Keep the payment area clean and unobstructed.
+        return [Spacer(1, 1), content]
 
     def _qr_flowable(
         self,
