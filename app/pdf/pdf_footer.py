@@ -35,8 +35,18 @@ def draw_footer(
     palette = resolve_palette(options)
     canvas.saveState()
 
-    page_w, _page_h = A4
+    page_w, page_h = A4
     band_h = FOOTER_BAND_MM * mm
+
+    # Two discreet A4 tri-fold guides for a DL window envelope. Their
+    # positions are measured from the top edge: 99 mm and 198 mm.
+    canvas.setStrokeColor(palette["primary"])
+    canvas.setLineWidth(0.85)
+    mark_x1 = 2.5 * mm
+    mark_x2 = 7.5 * mm
+    for fold_from_top_mm in (99.0, 198.0):
+        y = page_h - fold_from_top_mm * mm
+        canvas.line(mark_x1, y, mark_x2, y)
 
     # One continuous full-bleed charcoal foundation. Keeping the top edge
     # horizontal makes the page feel complete and avoids unfinished wedges.
