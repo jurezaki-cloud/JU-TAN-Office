@@ -190,7 +190,7 @@ class PdfEngine:
         # Keep payment+thanks together so the closing never orphans onto page 2.
         story.extend(closing)
 
-        lower = [Spacer(1, (TOTALS_TO_PAYMENT_GAP_MM - 2.0) * mm)]
+        lower = [Spacer(1, (TOTALS_TO_PAYMENT_GAP_MM - 6.5) * mm)]
         lower.extend(self._payment_block(document, company, options))
         if document.doc_type != "invoice":
             lower.extend(self._signature_block(options))
