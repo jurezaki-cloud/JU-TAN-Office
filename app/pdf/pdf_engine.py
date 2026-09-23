@@ -188,14 +188,14 @@ class PdfEngine:
             closing.append(Paragraph(ARTICLE_94_NOTICE, look["art94"]))
         # Totals stay with the table flow. Payment+thanks follow MASTER gap.
         # Keep payment+thanks together so the closing never orphans onto page 2.
-        story.append(KeepTogether(closing))
+        story.extend(closing)
 
         lower = [Spacer(1, (TOTALS_TO_PAYMENT_GAP_MM - 2.0) * mm)]
         lower.extend(self._payment_block(document, company, options))
         if document.doc_type != "invoice":
             lower.extend(self._signature_block(options))
         lower.extend(self._thanks_block(company, options))
-        story.append(KeepTogether(lower))
+        story.extend(lower)
 
         if options.get("show_notes") and document.notes:
             look = styles(options)
