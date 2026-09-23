@@ -194,7 +194,8 @@ class PdfEngine:
         lower.extend(self._payment_block(document, company, options))
         if document.doc_type != "invoice":
             lower.extend(self._signature_block(options))
-        lower.extend(self._thanks_block(company, options))
+        # The closing thanks/brand rail is anchored to the footer on the
+        # final page so it cannot drift with invoice row count.
         story.extend(lower)
 
         if options.get("show_notes") and document.notes:
