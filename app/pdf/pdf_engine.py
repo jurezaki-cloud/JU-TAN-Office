@@ -550,8 +550,6 @@ class PdfEngine:
         )
 
         qr = self._qr_flowable(document, company, options, module_mm=_QR_MODULE_MM)
-        # Production invoices: PAYMENT | QR only. Never signature/stamp/placeholder.
-        # Do NOT call _inline_signature here — that path draws Tanja Hrup / Direktorica.
 
         rule_w = 1.6 * mm
         qr_w = (QR_SIDE_MM + 4) * mm
@@ -564,7 +562,16 @@ class PdfEngine:
             cells.extend([rule, qr])
             widths.extend([rule_w, qr_w])
             if residual > 0.5 * mm:
-                cells.append(Spacer(residual, 1))
+                if document.doc_type == "invoice":
+                    cells.append(
+                        self._invoice_signature_block(
+                            company,
+                            options,
+                            residual / mm,
+                        )
+                    )
+                else:
+                    cells.append(Spacer(residual, 1))
                 widths.append(residual)
 
         if len(cells) == 1:
@@ -584,6 +591,60 @@ class PdfEngine:
 
         # Keep the payment area clean and unobstructed.
         return [Spacer(1, 1), content]
+
+    def _invoice_signature_block(
+        self,
+        company: CompanyProfile,
+        options: dict,
+        width_mm: float,
+    ):
+        """Compact invoice signature: role, signature, rule, and signer name."""
+        look = styles(options)
+        palette = resolve_palette(options)
+        signature_path = existing_path(options.get("signature_path", ""))
+        signer = extract_signer_name(company.name) or "Tanja Hrup"
+
+        role = Paragraph("Direktor", look["caption"])
+        if signature_path:
+            signature = image_or_space(
+                signature_path,
+                min(SIGNATURE_WIDTH_MM, max(width_mm - 8, 30)),
+                SIGNATURE_HEIGHT_MM,
+            )
+        else:
+            signature = Spacer(1, SIGNATURE_HEIGHT_MM * mm)
+
+        line_w = min(max(width_mm - 10, 34), 48)
+        line = Table([[""]], colWidths=[line_w * mm], rowHeights=[2.5])
+        line.setStyle(
+            TableStyle(
+                [
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.8, palette["charcoal"]),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        name = Paragraph(f"<b>{signer}</b>", look["caption"])
+        block = Table(
+            [[role], [signature], [line], [name]],
+            colWidths=[width_mm * mm],
+        )
+        block.setStyle(
+            TableStyle(
+                [
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1.0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.0),
+                ]
+            )
+        )
+        return block
 
     def _qr_flowable(
         self,
