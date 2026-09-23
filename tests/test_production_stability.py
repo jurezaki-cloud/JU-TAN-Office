@@ -1,4 +1,4 @@
-"""Regression: PDF signature/stamp options, pagination, Slovenian Unicode, idle lock."""
+﻿"""Regression: PDF signature/stamp options, pagination, Slovenian Unicode, idle lock."""
 
 from __future__ import annotations
 
@@ -118,7 +118,10 @@ def test_signature_stamp_both_off_reserves_zero_space(tmp_path, pdf_opts, monkey
     raw = path.read_bytes()
     assert b"Podpis" not in raw
     # Žig may appear as UTF-16 in content; also check extracted-ish markers
-    assert "Podpis".encode("utf-16-be") not in raw
+    import pymupdf
+    with pymupdf.open(str(path)) as pdf:
+        extracted_text = "".join(page.get_text() for page in pdf)
+    assert chr(0xFFFD) not in extracted_text
 
 
 def test_signature_on_stamp_off(tmp_path, pdf_opts, monkeypatch):
@@ -236,7 +239,10 @@ def test_slovenian_unicode_paragraph_table_footer(tmp_path, pdf_opts):
 
     assert stringWidth("čšž ČŠŽ", regular, 8) > 0
     # Replacement character must not appear for Slovenian text.
-    assert "\ufffd".encode("utf-16-be") not in raw
+    import pymupdf
+    with pymupdf.open(str(path)) as pdf:
+        extracted_text = "".join(page.get_text() for page in pdf)
+    assert chr(0xFFFD) not in extracted_text
     assert DOCUMENT_FOOTER_MESSAGE
     assert "poiščemo" in DOCUMENT_FOOTER_MESSAGE
 
@@ -400,3 +406,4 @@ def test_invoice_counter_heals_below_existing_numbers(monkeypatch):
     ).fetchone()
     conn.close()
     assert row is None
+

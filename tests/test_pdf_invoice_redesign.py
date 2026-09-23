@@ -1,4 +1,4 @@
-"""Regression tests for the approved JU-TAN invoice PDF redesign."""
+﻿"""Regression tests for the approved JU-TAN invoice PDF redesign."""
 
 from __future__ import annotations
 
@@ -474,8 +474,10 @@ def test_show_logo_false_hides_logo(pdf_opts):
 
 def test_content_widths_inside_a4(tmp_path, pdf_opts):
     path = pdf_engine.render(_sample_invoice(), tmp_path / "width.pdf")
-    pages = len(re.findall(rb"/Type\s*/Page[^s]", path.read_bytes()))
-    assert pages == 1
+    import pymupdf
+
+    with pymupdf.open(str(path)) as pdf:
+        assert len(pdf) == 1
 
 
 def test_multipage_invoice(tmp_path, pdf_opts):
@@ -508,3 +510,4 @@ def test_qr_recovers_from_invalid_reference(pdf_opts):
     doc = _sample_invoice(reference="SI00 RAC-0002")
     qr = pdf_engine._qr_flowable(doc, company, pdf_opts)
     assert qr is not None
+
