@@ -317,7 +317,7 @@ class PdfEngine:
                 [
                     ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
                     ("ALIGN", (0, 2), (0, 2), "LEFT"),
-                    ("ALIGN", (0, 4), (0, 4), "LEFT"),
+                    ("ALIGN", (0, 4), (0, 4), "RIGHT"),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                     ("TOPPADDING", (0, 0), (-1, -1), 0),
