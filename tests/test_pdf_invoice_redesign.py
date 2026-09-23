@@ -371,8 +371,8 @@ def test_invoice_renders_without_company_stamp(tmp_path, pdf_opts):
     assert "Žig".encode("utf-16-be") not in raw
 
 
-def test_invoice_never_renders_signature_or_stamp(tmp_path, pdf_opts):
-    """Production invoices omit signature/stamp entirely (intentional vs MASTER)."""
+def test_invoice_renders_director_signature_without_stamp(tmp_path, pdf_opts):
+    """Invoices render the approved director signature block but never a stamp."""
     from PIL import Image as PILImage
 
     sig = tmp_path / "sig.png"
@@ -386,8 +386,9 @@ def test_invoice_never_renders_signature_or_stamp(tmp_path, pdf_opts):
         iban="SI56 0237 9205 8132 832",
     )
     labels = _labels(pdf_engine._payment_block(_sample_invoice(), company, pdf_opts))
+    assert "Direktor" in labels
+    assert "Tanja Hrup" in labels
     assert "Direktorica" not in labels
-    assert "Tanja Hrup" not in labels
     assert "Žig" not in labels
     assert "Podpis" not in labels
 
@@ -401,11 +402,12 @@ def test_invoice_never_renders_signature_or_stamp(tmp_path, pdf_opts):
     import fitz
 
     page_text = fitz.open(str(path))[0].get_text()
+    assert "Direktor" in page_text
     assert "Direktorica" not in page_text
     assert "Podpis" not in page_text
     assert "Žig" not in page_text
-    # Signer name must not appear as a standalone signature label (only in company header).
-    assert page_text.count("Tanja Hrup") == 1
+    # The signer appears in both the company identity and signature block.
+    assert page_text.count("Tanja Hrup") >= 2
     assert "JU-TAN studio, Tanja Hrup s.p." in page_text
 
 
