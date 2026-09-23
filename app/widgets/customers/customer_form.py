@@ -1,6 +1,7 @@
-from PySide6.QtWidgets import QComboBox, QLineEdit, QTextEdit, QWidget
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QTextEdit, QWidget
 
 from app.core.ui.form_grid import FormGrid
+from app.modules.customers.services.company_lookup import CompanyLookupError, lookup_company
 
 COUNTRIES = (
     "Slovenija",
@@ -31,6 +32,8 @@ class CustomerForm(QWidget):
         self.country.setEditable(True)
         self.country.addItems(COUNTRIES)
         self.tax_number = QLineEdit()
+        self.lookup_button = QPushButton("Poišči podjetje")
+        self.lookup_button.setToolTip("Poišči slovensko podjetje po davčni številki")
         self.email = QLineEdit()
         self.phone = QLineEdit()
 
@@ -46,10 +49,39 @@ class CustomerForm(QWidget):
         grid.add("Podjetje", self.company, "Kontakt", self.contact)
         grid.add_full("Naslov", self.address)
         grid.add("Poštna št.", self.postal_code, "Kraj", self.city)
-        grid.add("Država", self.country, "Davčna št.", self.tax_number)
+        tax_lookup = QWidget()
+        tax_layout = QHBoxLayout(tax_lookup)
+        tax_layout.setContentsMargins(0, 0, 0, 0)
+        tax_layout.setSpacing(8)
+        tax_layout.addWidget(self.tax_number, 1)
+        tax_layout.addWidget(self.lookup_button)
+        grid.add("Država", self.country, "Davčna št.", tax_lookup)
         grid.add("E-pošta", self.email, "Telefon", self.phone)
         grid.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(grid.layout)
+        self.lookup_button.clicked.connect(self._lookup_company)
+        self.tax_number.returnPressed.connect(self._lookup_company)
+
+
+    def _lookup_company(self) -> None:
+        self.lookup_button.setEnabled(False)
+        self.lookup_button.setText("Iščem …")
+        try:
+            result = lookup_company(self.tax_number.text())
+        except CompanyLookupError as exc:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Iskanje podjetja", str(exc))
+            return
+        finally:
+            self.lookup_button.setEnabled(True)
+            self.lookup_button.setText("Poišči podjetje")
+
+        self.company.setText(result.company)
+        self.address.setPlainText(result.address)
+        self.postal_code.setText(result.postal_code)
+        self.city.setText(result.city)
+        self.country.setCurrentText(result.country)
+        self.tax_number.setText(result.tax_number)
 
     def load(self, customer: dict | None) -> None:
         if not customer:
