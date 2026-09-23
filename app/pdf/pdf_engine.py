@@ -651,7 +651,20 @@ class PdfEngine:
         modules = len(matrix)
         size = (modules + 2 * border) * module
         drawing = Drawing(size, size)
-        from reportlab.lib.colors import black
+        from reportlab.lib.colors import black, white
+
+        # UPN QR must have an opaque white background and a clean 4-module
+        # quiet zone. The payment watermark must never show through the code.
+        drawing.add(
+            Rect(
+                0,
+                0,
+                size,
+                size,
+                strokeWidth=0,
+                fillColor=white,
+            )
+        )
 
         for y, row in enumerate(matrix):
             for x, dark in enumerate(row):
