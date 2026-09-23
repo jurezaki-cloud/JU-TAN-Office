@@ -72,6 +72,10 @@ TITLES = {
 # UPN QR side from MASTER image measurement (V15 + 4-module quiet zone = 85 modules).
 _QR_MODULE_MM = QR_SIDE_MM / 85.0
 
+# ReportLab Frame adds 6 pt on both horizontal sides. Offset the document
+# margins so the actual flowable content lands on the intended 10 mm grid.
+_FRAME_SIDE_PADDING_PT = 6.0
+
 
 class _PagedCanvas(pdf_canvas.Canvas):
     """Two-pass canvas so footer can show ``page / total`` like the MASTER."""
@@ -156,8 +160,8 @@ class PdfEngine:
         doc = SimpleDocTemplate(
             str(output),
             pagesize=A4,
-            leftMargin=LEFT_MARGIN_MM * mm,
-            rightMargin=RIGHT_MARGIN_MM * mm,
+            leftMargin=LEFT_MARGIN_MM * mm - _FRAME_SIDE_PADDING_PT,
+            rightMargin=RIGHT_MARGIN_MM * mm - _FRAME_SIDE_PADDING_PT,
             topMargin=TOP_MARGIN_MM * mm,
             bottomMargin=bottom * mm,
             title=f"{document.title} {document.number}",
