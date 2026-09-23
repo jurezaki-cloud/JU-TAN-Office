@@ -64,7 +64,7 @@ TOTAL_BAR_HEIGHT_MM = 12.5
 # UPN QR: version 15 is 77 modules + mandatory 4-module quiet zone on each side.
 # ZBS module size is 0.42333 mm, so the complete symbol is about 35.98 mm.
 QR_SIDE_MM = 85 * 0.42333
-PAYMENT_COL_WIDTH_MM = 80.0
+PAYMENT_COL_WIDTH_MM = 84.0
 BANK_ICON_MM = 14.5
 
 WATERMARK_WIDTH_MM = 120.0
