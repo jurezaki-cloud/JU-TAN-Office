@@ -477,8 +477,7 @@ def test_content_widths_inside_a4(tmp_path, pdf_opts):
     import pymupdf
 
     with pymupdf.open(str(path)) as pdf:
-        page_texts = [page.get_text() for page in pdf]
-        assert len(pdf) == 1, f"PDF has {len(pdf)} pages. PAGE TEXTS: {page_texts!r}"
+        assert len(pdf) == 1
 
 
 def test_multipage_invoice(tmp_path, pdf_opts):
@@ -511,5 +510,4 @@ def test_qr_recovers_from_invalid_reference(pdf_opts):
     doc = _sample_invoice(reference="SI00 RAC-0002")
     qr = pdf_engine._qr_flowable(doc, company, pdf_opts)
     assert qr is not None
-
 
