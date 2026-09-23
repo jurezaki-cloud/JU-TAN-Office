@@ -236,6 +236,7 @@ class PdfEngine:
             [[customer, Spacer(gap, 1), title]],
             colWidths=[customer_w, gap, title_w],
         )
+        row.hAlign = "LEFT"
         row.setStyle(
             TableStyle(
                 [
