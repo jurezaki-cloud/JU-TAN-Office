@@ -88,8 +88,8 @@ def build_items_table(items: list[dict], options: dict):
         ("LEFTPADDING", (0, 0), (-1, -1), 7.5),
         ("RIGHTPADDING", (0, 0), (-1, -1), 7.5),
         # MASTER table footprint is taller — grow row/header padding only.
-        ("TOPPADDING", (0, 0), (-1, 0), 1.0),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 1.0),
+        ("TOPPADDING", (0, 0), (-1, 0), 0.8),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 0.8),
         ("TOPPADDING", (0, 1), (-1, -1), 1.2),
         ("BOTTOMPADDING", (0, 1), (-1, -1), 1.2),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
