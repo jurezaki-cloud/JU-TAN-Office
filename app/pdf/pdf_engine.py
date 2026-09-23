@@ -512,7 +512,9 @@ class PdfEngine:
                 ]
             )
 
-        details = Table(detail_rows, colWidths=[22 * mm, 60 * mm])
+        # Keep the nested payment table inside PAYMENT_COL_WIDTH_MM exactly.
+        # The wider value column keeps IBAN + bank on one line on Linux too.
+        details = Table(detail_rows, colWidths=[12 * mm, 68 * mm])
         details.setStyle(
             TableStyle(
                 [
