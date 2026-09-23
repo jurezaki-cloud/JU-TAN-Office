@@ -75,7 +75,7 @@ RACUN_TOP_INSET_MM = 2.8
 # Keep table top near MASTER after taller customer card.
 IDENTITY_TO_TABLE_MM = 0.8
 # Shrink when upper content grows so UPN/payment Y stays frozen (~0.70).
-TOTALS_TO_PAYMENT_GAP_MM = 8.0
+TOTALS_TO_PAYMENT_GAP_MM = 2.5
 THANKS_BEFORE_MM = 1.2
 
 SIGNATURE_WIDTH_MM = 50.0
