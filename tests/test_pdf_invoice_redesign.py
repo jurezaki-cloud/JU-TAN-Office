@@ -345,7 +345,7 @@ def test_linux_invoice_layout_budget(pdf_opts):
             total += h
         heights[name] = total
     used = sum(heights.values()) + TOTALS_TO_PAYMENT_GAP_MM * mm
-    print("LAYOUT_DIAG_PT", {k: round(v, 2) for k, v in heights.items()}, "gap", round(TOTALS_TO_PAYMENT_GAP_MM * mm, 2), "used", round(used, 2), "available", round(avail_h, 2), "overflow", round(used-avail_h, 2))
+    assert False, f"LAYOUT_DIAG_PT heights={ {k: round(v, 2) for k, v in heights.items()} } gap={round(TOTALS_TO_PAYMENT_GAP_MM * mm, 2)} used={round(used, 2)} available={round(avail_h, 2)} overflow={round(used-avail_h, 2)}"
 
 
 def test_invoice_page_number_format(tmp_path, pdf_opts):
