@@ -377,42 +377,57 @@ def contact_web_icon(palette: dict, size: float = 9.5) -> Drawing:
     return d
 
 def customer_people_icon(palette: dict, size: float = 32) -> Drawing:
-    """Green tile with thin white OUTLINE two-person icon (MASTER — not filled)."""
+    """Single green customer/user icon for the customer card."""
     d = Drawing(size, size)
+    green = palette["primary"]
+    stroke = max(size * 0.075, 1.15)
+
+    # Soft circular badge keeps the icon readable without the old solid tile.
     d.add(
-        Rect(
-            0,
-            0,
-            size,
-            size,
-            fillColor=palette["primary"],
+        Circle(
+            size / 2,
+            size / 2,
+            size * 0.44,
+            fillColor=palette["light_green"],
             strokeColor=None,
-            rx=2.6,
-            ry=2.6,
         )
     )
-    ink = palette["white"]
-    # MASTER: delicate outline strokes (never filled heads/bodies).
-    sw = max(size * 0.055, 0.95)
-
-    def _bust(cx: float, scale: float = 1.0):
-        hr = size * 0.118 * scale
-        hy = size * 0.66
-        d.add(Circle(cx, hy, hr, fillColor=None, strokeColor=ink, strokeWidth=sw))
-        bw = size * 0.32 * scale
-        by = size * 0.16
-        top = size * 0.46
-        path = RlPath(fillColor=None, strokeColor=ink, strokeWidth=sw)
-        path.moveTo(cx - bw * 0.55, by)
-        path.curveTo(cx - bw * 0.55, top * 0.72, cx - bw * 0.18, top, cx, top)
-        path.curveTo(cx + bw * 0.18, top, cx + bw * 0.55, top * 0.72, cx + bw * 0.55, by)
-        d.add(path)
-
-    # Rear figure slightly smaller / left-back (MASTER group glyph).
-    _bust(size * 0.35, 0.88)
-    _bust(size * 0.63, 1.00)
+    # Customer head.
+    d.add(
+        Circle(
+            size / 2,
+            size * 0.64,
+            size * 0.135,
+            fillColor=None,
+            strokeColor=green,
+            strokeWidth=stroke,
+        )
+    )
+    # Customer shoulders / torso.
+    bust = RlPath(
+        fillColor=None,
+        strokeColor=green,
+        strokeWidth=stroke,
+    )
+    bust.moveTo(size * 0.27, size * 0.22)
+    bust.curveTo(
+        size * 0.28,
+        size * 0.43,
+        size * 0.39,
+        size * 0.49,
+        size * 0.50,
+        size * 0.49,
+    )
+    bust.curveTo(
+        size * 0.61,
+        size * 0.49,
+        size * 0.72,
+        size * 0.43,
+        size * 0.73,
+        size * 0.22,
+    )
+    d.add(bust)
     return d
-
 
 def bank_icon(palette: dict, size: float = 38) -> Drawing:
     """Pale-green rounded square with green bank/building glyph (~13–14 mm)."""
