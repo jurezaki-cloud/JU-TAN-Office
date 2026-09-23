@@ -1,4 +1,4 @@
-"""Commercial PDF document assembly (invoice / offer / order / delivery)."""
+﻿"""Commercial PDF document assembly (invoice / offer / order / delivery)."""
 
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ class PdfEngine:
         if document.doc_type != "invoice":
             lower.extend(self._signature_block(options))
         lower.extend(self._thanks_block(company, options))
-        story.append(KeepTogether(lower))
+        story.extend(lower)
 
         if options.get("show_notes") and document.notes:
             look = styles(options)
@@ -905,3 +905,4 @@ class PdfEngine:
 
 
 pdf_engine = PdfEngine()
+
