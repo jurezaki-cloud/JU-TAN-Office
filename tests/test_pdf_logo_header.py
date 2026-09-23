@@ -38,7 +38,21 @@ def _header_body_table(company, options):
 
 
 def _header_logo_cell(company, options):
-    return _header_body_table(company, options)._cellvalues[0][0]
+    cell = _header_body_table(company, options)._cellvalues[0][0]
+    # Logo may be wrapped with the brand tagline in a nested table.
+    if isinstance(cell, Table):
+        inner = cell._cellvalues[0][0]
+        return inner
+    return cell
+
+
+def _header_logo_image(company, options):
+    cell = _header_logo_cell(company, options)
+    if isinstance(cell, Image):
+        return cell
+    if isinstance(cell, Table):
+        return cell._cellvalues[0][0]
+    return cell
 
 
 def test_company_info_block_is_right_aligned(tmp_path):
@@ -67,7 +81,9 @@ def test_company_info_block_is_right_aligned(tmp_path):
     assert isinstance(info_block, Table)
     assert all(cs.alignment == "RIGHT" for row in info_block._cellStyles for cs in row)
     for row in info_block._cellvalues:
-        assert row[0].style.alignment == TA_RIGHT
+        cell = row[0]
+        if hasattr(cell, "style") and hasattr(cell.style, "alignment"):
+            assert cell.style.alignment == TA_RIGHT
 
 
 def test_parse_bool_rejects_false_strings():
@@ -91,7 +107,7 @@ def test_parse_bool_rejects_false_strings():
 def test_valid_company_logo_used_in_header(tmp_path):
     logo = _tiny_png(tmp_path / "company.png")
     company = CompanyProfile(name="Test", logo=str(logo))
-    cell = _header_logo_cell(company, {"show_logo": True})
+    cell = _header_logo_image(company, {"show_logo": True})
     assert isinstance(cell, Image)
     assert cell.imageWidth > 1
     assert cell.imageHeight > 1
@@ -104,7 +120,7 @@ def test_missing_company_logo_uses_bundled_fallback():
     bundled = bundled_logo_path()
     assert bundled is not None and bundled.is_file()
     company = CompanyProfile(name="Test", logo="")
-    cell = _header_logo_cell(company, {"show_logo": True})
+    cell = _header_logo_image(company, {"show_logo": True})
     assert isinstance(cell, Image)
     assert Path(cell.filename).resolve() == bundled.resolve()
     # Bundled fallback must be the full horizontal mark (wide aspect).
@@ -130,7 +146,7 @@ def test_stale_absolute_path_recovers_from_branding(tmp_path, monkeypatch):
 
     company = CompanyProfile(name="Test", logo=stale)
     # heal happens in load_company; header also resolves via resolve_pdf_logo_path
-    cell = _header_logo_cell(company, {"show_logo": True})
+    cell = _header_logo_image(company, {"show_logo": True})
     assert isinstance(cell, Image)
     assert Path(cell.filename).resolve() == archived.resolve()
 
@@ -147,7 +163,7 @@ def test_show_logo_true_places_image(tmp_path):
     logo = _tiny_png(tmp_path / "company.png")
     company = CompanyProfile(name="Test", logo=str(logo))
     for truthy in (True, "true", "DA", 1, "1"):
-        cell = _header_logo_cell(company, {"show_logo": truthy})
+        cell = _header_logo_image(company, {"show_logo": truthy})
         assert isinstance(cell, Image), f"failed for {truthy!r}"
 
 

@@ -62,8 +62,19 @@ def _due(value: str) -> str:
 
 
 def format_reference(invoice_number: str) -> str:
+    """Build a compact SI00 reference for UPN QR (no spaces)."""
     digits = re.sub(r"\D", "", invoice_number or "") or "0"
     return f"SI00{digits}"
+
+
+def format_reference_display(reference: str) -> str:
+    """Human-readable Sklic: ``SI00 0002`` (matches MASTER spacing)."""
+    ref = re.sub(r"\s+", "", str(reference or "")).upper()
+    if ref.startswith("SI") and len(ref) > 4:
+        return f"{ref[:4]} {ref[4:]}"
+    if ref.startswith("RF") and len(ref) > 4:
+        return f"{ref[:4]} {ref[4:]}"
+    return str(reference or "")
 
 
 def build_upn_qr(

@@ -368,7 +368,7 @@ def test_rac0006_short_invoice_one_page_with_qr_and_signature(tmp_path, pdf_opts
     pdf_opts["show_signature"] = True
     pdf_opts["show_stamp"] = True
 
-    def _fake_qr(self, document, company, *, module_mm=0.65):
+    def _fake_qr(self, document, company, options=None, *, module_mm=0.65):
         return RLSpacer(1, 40)
 
     monkeypatch.setattr(PdfEngine, "_qr_flowable", _fake_qr)

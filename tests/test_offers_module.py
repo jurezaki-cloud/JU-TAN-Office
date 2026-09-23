@@ -184,6 +184,8 @@ def test_offer_pdf_uses_validity_label_invoice_keeps_due_date(tmp_path, monkeypa
                 return
             if hasattr(obj, "text") and isinstance(obj.text, str):
                 texts.append(obj.text)
+            if hasattr(obj, "content"):
+                walk(getattr(obj, "content"))
             if hasattr(obj, "_cellvalues"):
                 for row in obj._cellvalues:
                     for cell in row:
@@ -211,8 +213,10 @@ def test_offer_pdf_uses_validity_label_invoice_keeps_due_date(tmp_path, monkeypa
     assert "Velja do" in offer_pay
     assert "Rok plačila" not in offer_pay
     assert "Sklic" not in offer_pay
-    assert "Rok plačila" in invoice_pay
+    # Invoice due date lives in the title/meta block; payment shows Sklic + Namen.
+    assert "Rok plačila" not in invoice_pay
     assert "Sklic" in invoice_pay
+    assert "Namen" in invoice_pay
 
     # Full export still produces files (QR optional; do not require segno here)
     monkeypatch.setattr(pdf_engine, "_qr_flowable", lambda *a, **k: None)

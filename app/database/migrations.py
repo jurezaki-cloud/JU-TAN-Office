@@ -8,7 +8,7 @@ from app.core.logger import logger
 
 # Document branding defaults (ERP navy + JU-TAN green).
 DEFAULT_PRIMARY = "#0F172A"
-DEFAULT_ACCENT = "#059669"
+DEFAULT_ACCENT = "#00C96B"
 DEFAULT_TABLE_HEADER = "#F1F5F9"
 
 _BRANDING_COLUMNS = {
