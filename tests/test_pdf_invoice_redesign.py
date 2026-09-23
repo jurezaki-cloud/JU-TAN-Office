@@ -351,9 +351,10 @@ def test_multipage_invoice_repeats_header(tmp_path, pdf_opts):
     assert "Šifra" in pdf[0].get_text()
     assert "Šifra" in pdf[1].get_text()
     assert f"{len(pdf)} / {len(pdf)}" in pdf[-1].get_text() or f"1 / {len(pdf)}" in pdf[0].get_text()
-    # Footer slogan present; no signature labels.
-    assert "Direktorica" not in pdf[0].get_text()
-    assert "Podpis" not in pdf[0].get_text()
+    # The professional invoice signature appears once with the payment
+    # section on the final page; no generic "Podpis" placeholder is rendered.
+    assert "Direktor" in pdf[-1].get_text()
+    assert "Podpis" not in pdf[-1].get_text()
 
 
 def test_invoice_renders_without_company_stamp(tmp_path, pdf_opts):
