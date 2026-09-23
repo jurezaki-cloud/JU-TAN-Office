@@ -134,7 +134,7 @@ class Database:
             signature_path TEXT,
             stamp_path TEXT,
             doc_primary_color TEXT DEFAULT '#0F172A',
-            doc_accent_color TEXT DEFAULT '#059669',
+            doc_accent_color TEXT DEFAULT '#00C96B',
             doc_table_header_color TEXT DEFAULT '#F1F5F9',
 
             created_at TEXT DEFAULT CURRENT_TIMESTAMP

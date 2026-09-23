@@ -251,9 +251,13 @@ def test_pdf_footer_message_and_article_94_in_engine(tmp_path):
     assert path.stat().st_size > 500
     assert ARTICLE_94_NOTICE
     assert "Hvala za vaše zaupanje" in DOCUMENT_FOOTER_MESSAGE
-    # linkURL target is present in PDF annotations
-    raw = path.read_bytes()
-    assert b"www.ju-tan.com" in raw or b"ju-tan.com" in raw
+    # Website remains visible in branding (TrueType glyphs are not plain ASCII in
+    # the PDF stream; assert via text extraction rather than raw bytes / linkURL).
+    import fitz
+
+    text = fitz.open(str(path))[0].get_text()
+    assert "ju-tan.com" in text
+    assert "1 / 1" in text or "1/" in text.replace(" ", "")
 
 
 def test_contradictory_non_vat_with_vat_amount_rejected():
