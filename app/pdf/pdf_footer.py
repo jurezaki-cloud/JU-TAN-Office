@@ -42,8 +42,9 @@ def draw_footer(
     # positions are measured from the top edge: 99 mm and 198 mm.
     canvas.setStrokeColor(palette["primary"])
     canvas.setLineWidth(0.85)
-    mark_x1 = 2.5 * mm
-    mark_x2 = 7.5 * mm
+    # Keep marks inside the printable region of common office printers.
+    mark_x1 = 4.0 * mm
+    mark_x2 = 9.0 * mm
     for fold_from_top_mm in (99.0, 198.0):
         y = page_h - fold_from_top_mm * mm
         canvas.line(mark_x1, y, mark_x2, y)
