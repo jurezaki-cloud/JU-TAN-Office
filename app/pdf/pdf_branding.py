@@ -476,7 +476,7 @@ def extract_signer_name(company_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 class HeaderSeparator(Flowable):
-    """Thin grey rule with a short green left accent and a finishing tip on the right."""
+    """Thin grey rule with a short green accent on the left."""
 
     def __init__(self, width_mm: float, palette: dict, accent_mm: float = 22):
         super().__init__()
@@ -492,16 +492,12 @@ class HeaderSeparator(Flowable):
     def draw(self):
         y = self.height / 2
         accent_w = self.accent_mm * mm
-        tip = 2.4 * mm
         self.canv.setStrokeColor(self.palette["primary"])
         self.canv.setLineWidth(1.45)
         self.canv.line(0, y, accent_w, y)
         self.canv.setStrokeColor(self.palette["light_border"])
         self.canv.setLineWidth(0.60)
-        self.canv.line(accent_w, y, self.width - tip, y)
-        self.canv.setStrokeColor(self.palette["primary"])
-        self.canv.setLineWidth(1.25)
-        self.canv.line(self.width - tip, y, self.width, y)
+        self.canv.line(accent_w, y, self.width, y)
 
 
 class JTWatermark(Flowable):
