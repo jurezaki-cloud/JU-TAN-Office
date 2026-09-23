@@ -328,7 +328,7 @@ def test_linux_invoice_layout_budget(pdf_opts):
     doc = _sample_invoice()
     company = load_company()
     avail_w = CONTENT_WIDTH_MM * mm
-    avail_h = A4[1] - TOP_MARGIN_MM * mm - max(FOOTER_RESERVED_MM, FOOTER_BAND_MM) * mm
+    avail_h = A4[1] - TOP_MARGIN_MM * mm - max(FOOTER_RESERVED_MM, FOOTER_BAND_MM) * mm - 12
     blocks = {
         "header": build_header(company, pdf_opts),
         "identity": pdf_engine._identity_block(doc, pdf_opts),
