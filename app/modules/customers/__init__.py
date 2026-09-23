@@ -1,1 +1,1 @@
-from .customer_page import CustomerPage
+"""Customer module package."""
