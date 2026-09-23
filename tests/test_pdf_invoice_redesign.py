@@ -226,8 +226,9 @@ def test_upn_qr_included_and_scannable_size(pdf_opts):
     qr = pdf_engine._qr_flowable(doc, company, pdf_opts, module_mm=_QR_MODULE_MM)
     assert qr is not None
     side_mm = _QR_MODULE_MM * 85
-    # MASTER-measured QR (~24 mm), still large enough for reliable UPN scanning.
-    assert 20 <= side_mm <= 28
+    # Official Slovenian UPN QR: 85 modules including the 4-module quiet
+    # zone on each side, at 0.42333 mm per module.
+    assert side_mm == pytest.approx(85 * 0.42333)
     text = _labels(qr)
     assert "Plačilo z UPN QR" in text
 
