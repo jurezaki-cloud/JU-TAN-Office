@@ -239,6 +239,7 @@ def build_header(company, options: dict):
     )
 
     separator = HeaderSeparator(CONTENT_WIDTH_MM, palette, accent_mm=34)
+    separator.hAlign = "LEFT"
     # MASTER separator ≈ 0.202 — keep logo/company block fixed; only air below body.
     return [
         body,
