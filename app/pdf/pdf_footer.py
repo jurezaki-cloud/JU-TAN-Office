@@ -10,7 +10,10 @@ from app.pdf.pdf_branding import (
     FOOTER_BAND_MM,
     FOOTER_SLOGAN_HIGHLIGHT,
     FOOTER_SLOGAN_PREFIX,
+    LEFT_MARGIN_MM,
     RIGHT_MARGIN_MM,
+    TAGLINE,
+    THANKS_SUBTITLE,
     resolve_palette,
 )
 from app.pdf.pdf_styles import ensure_fonts
@@ -108,6 +111,34 @@ def draw_footer(
     canvas.setFillColor(palette["primary"])
     canvas.rect(0, band_h - green_h, page_w, green_h, fill=1, stroke=0)
 
+    # Final-page brand rail sits immediately above the green footer edge.
+    # It is canvas-anchored so invoice row count cannot make it drift.
+    page_no = page_number if page_number is not None else getattr(doc, "page", 1)
+    total = page_count if page_count is not None else None
+    is_last_page = total is None or page_no == total
+    if is_last_page:
+        left_x = LEFT_MARGIN_MM * mm
+        right_x = page_w - RIGHT_MARGIN_MM * mm
+
+        canvas.setFillColor(palette["charcoal"])
+        canvas.setFont(bold, 15.5)
+        canvas.drawString(left_x, band_h + 6.3 * mm, "Hvala za zaupanje!")
+
+        canvas.setFillColor(palette["muted"])
+        canvas.setFont(font_name, 8.8)
+        canvas.drawString(left_x, band_h + 1.8 * mm, THANKS_SUBTITLE)
+
+        canvas.setFillColor(palette["muted"])
+        canvas.setFont(font_name, 8.2)
+        canvas.drawRightString(right_x, band_h + 6.0 * mm, TAGLINE)
+
+        display_url = (website_url or "").strip()
+        display_url = display_url.replace("https://", "").replace("http://", "").rstrip("/")
+        if display_url:
+            canvas.setFillColor(palette["primary"])
+            canvas.setFont(bold, 9.4)
+            canvas.drawRightString(right_x, band_h + 1.6 * mm, display_url)
+
     # Centered brand promise.
     prefix = FOOTER_SLOGAN_PREFIX
     highlight = FOOTER_SLOGAN_HIGHLIGHT
@@ -127,8 +158,6 @@ def draw_footer(
     )
 
     # Quiet, consistently inset page number.
-    page_no = page_number if page_number is not None else getattr(doc, "page", 1)
-    total = page_count if page_count is not None else None
     label = f"{page_no} / {total}" if total else str(page_no)
     canvas.setFillColorRGB(0.80, 0.84, 0.86)
     canvas.setFont(font_name, 7.4)
