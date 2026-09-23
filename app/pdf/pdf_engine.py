@@ -40,16 +40,12 @@ from app.pdf.pdf_branding import (
     THANKS_SUBTITLE,
     TOP_MARGIN_MM,
     TOTALS_TO_PAYMENT_GAP_MM,
-    WATERMARK_HEIGHT_MM,
-    WATERMARK_WIDTH_MM,
     VerticalGreenRule,
     SpacedTagline,
     CustomerCard,
     bank_icon,
     customer_people_icon,
     extract_signer_name,
-    JTWatermark,
-    PaymentWithWatermark,
     resolve_palette,
 )
 from app.pdf.pdf_company import CompanyProfile, existing_path, load_company, load_pdf_options
@@ -71,6 +67,10 @@ TITLES = {
 
 # UPN QR side from MASTER image measurement (V15 + 4-module quiet zone = 85 modules).
 _QR_MODULE_MM = QR_SIDE_MM / 85.0
+
+# ReportLab Frame adds 6 pt on both horizontal sides. Offset the document
+# margins so the actual flowable content lands on the intended 10 mm grid.
+_FRAME_SIDE_PADDING_PT = 6.0
 
 
 class _PagedCanvas(pdf_canvas.Canvas):
@@ -156,8 +156,8 @@ class PdfEngine:
         doc = SimpleDocTemplate(
             str(output),
             pagesize=A4,
-            leftMargin=LEFT_MARGIN_MM * mm,
-            rightMargin=RIGHT_MARGIN_MM * mm,
+            leftMargin=LEFT_MARGIN_MM * mm - _FRAME_SIDE_PADDING_PT,
+            rightMargin=RIGHT_MARGIN_MM * mm - _FRAME_SIDE_PADDING_PT,
             topMargin=TOP_MARGIN_MM * mm,
             bottomMargin=bottom * mm,
             title=f"{document.title} {document.number}",
@@ -194,7 +194,8 @@ class PdfEngine:
         lower.extend(self._payment_block(document, company, options))
         if document.doc_type != "invoice":
             lower.extend(self._signature_block(options))
-        lower.extend(self._thanks_block(company, options))
+        # The closing thanks/brand rail is anchored to the footer on the
+        # final page so it cannot drift with invoice row count.
         story.extend(lower)
 
         if options.get("show_notes") and document.notes:
@@ -232,6 +233,7 @@ class PdfEngine:
             [[customer, Spacer(gap, 1), title]],
             colWidths=[customer_w, gap, title_w],
         )
+        row.hAlign = "LEFT"
         row.setStyle(
             TableStyle(
                 [
@@ -316,8 +318,8 @@ class PdfEngine:
             TableStyle(
                 [
                     ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                    ("ALIGN", (0, 2), (0, 2), "LEFT"),
-                    ("ALIGN", (0, 4), (0, 4), "LEFT"),
+                    ("ALIGN", (0, 2), (0, 2), "RIGHT"),
+                    ("ALIGN", (0, 4), (0, 4), "RIGHT"),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                     ("TOPPADDING", (0, 0), (-1, -1), 0),
@@ -383,36 +385,37 @@ class PdfEngine:
 
         from reportlab.lib.styles import ParagraphStyle as _PS
 
-        # Scale type/leading with the taller MASTER card (no empty lower band).
+        # Compact DL-window typography: the postal name and address remain
+        # inside the first 99 mm fold panel without sacrificing hierarchy.
         detail_style = _PS(
             "PdfCustomerBody",
             parent=look["body"],
-            leading=19.2,
-            fontSize=13.4,
+            leading=14.2,
+            fontSize=10.8,
         )
         name_style = _PS(
             "PdfCustomerName",
             parent=look["body_bold"],
-            leading=21.0,
-            fontSize=16.0,
+            leading=15.8,
+            fontSize=12.6,
         )
         kupec_style = _PS(
             "PdfCustomerKupec",
             parent=look["section"],
-            fontSize=15.4,
-            leading=19.2,
+            fontSize=11.4,
+            leading=14.0,
         )
 
         text_lines = [Paragraph("Kupec", kupec_style)]
-        text_lines.append(Spacer(1, 5.4))
+        text_lines.append(Spacer(1, 1.8))
         text_lines.append(Paragraph(document.customer_name or "—", name_style))
-        text_lines.append(Spacer(1, 3.2))
+        text_lines.append(Spacer(1, 1.0))
         if document.customer_address:
             text_lines.append(Paragraph(document.customer_address, detail_style))
         if city:
             text_lines.append(Paragraph(city, detail_style))
         if document.customer_tax:
-            text_lines.append(Spacer(1, 3.2))
+            text_lines.append(Spacer(1, 1.0))
             text_lines.append(
                 Paragraph(f"Davčna št.: {document.customer_tax}", detail_style)
             )
@@ -512,9 +515,12 @@ class PdfEngine:
                 ]
             )
 
-        # Keep the nested payment table inside PAYMENT_COL_WIDTH_MM exactly.
-        # The wider value column keeps IBAN + bank on one line on Linux too.
-        details = Table(detail_rows, colWidths=[12 * mm, 68 * mm])
+        # Keep labels such as "Namen:" on one line while preserving the
+        # 68 mm value column for the full IBAN and bank name.
+        details = Table(
+            detail_rows,
+            colWidths=[16 * mm, (PAYMENT_COL_WIDTH_MM - 16) * mm],
+        )
         details.setStyle(
             TableStyle(
                 [
@@ -545,8 +551,6 @@ class PdfEngine:
         )
 
         qr = self._qr_flowable(document, company, options, module_mm=_QR_MODULE_MM)
-        # Production invoices: PAYMENT | QR only. Never signature/stamp/placeholder.
-        # Do NOT call _inline_signature here — that path draws Tanja Hrup / Direktorica.
 
         rule_w = 1.6 * mm
         qr_w = (QR_SIDE_MM + 4) * mm
@@ -559,7 +563,16 @@ class PdfEngine:
             cells.extend([rule, qr])
             widths.extend([rule_w, qr_w])
             if residual > 0.5 * mm:
-                cells.append(Spacer(residual, 1))
+                if document.doc_type == "invoice":
+                    cells.append(
+                        self._invoice_signature_block(
+                            company,
+                            options,
+                            residual / mm,
+                        )
+                    )
+                else:
+                    cells.append(Spacer(residual, 1))
                 widths.append(residual)
 
         if len(cells) == 1:
@@ -577,12 +590,62 @@ class PdfEngine:
             content = Table([cells], colWidths=widths)
             content.setStyle(TableStyle(style_cmds))
 
-        # Watermark behind payment without consuming extra flow height.
-        layered = PaymentWithWatermark(
-            content,
-            JTWatermark(WATERMARK_WIDTH_MM, WATERMARK_HEIGHT_MM, palette),
+        # Keep the payment area clean and unobstructed.
+        return [Spacer(1, 1), content]
+
+    def _invoice_signature_block(
+        self,
+        company: CompanyProfile,
+        options: dict,
+        width_mm: float,
+    ):
+        """Compact invoice signature: role, signature, rule, and signer name."""
+        look = styles(options)
+        palette = resolve_palette(options)
+        signature_path = existing_path(options.get("signature_path", ""))
+        signer = extract_signer_name(company.name) or "Tanja Hrup"
+
+        role = Paragraph("Direktor", look["caption"])
+        if signature_path:
+            signature = image_or_space(
+                signature_path,
+                min(SIGNATURE_WIDTH_MM, max(width_mm - 8, 30)),
+                SIGNATURE_HEIGHT_MM,
+            )
+        else:
+            signature = Spacer(1, SIGNATURE_HEIGHT_MM * mm)
+
+        line_w = min(max(width_mm - 10, 34), 48)
+        line = Table([[""]], colWidths=[line_w * mm], rowHeights=[2.5])
+        line.setStyle(
+            TableStyle(
+                [
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.8, palette["charcoal"]),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
         )
-        return [Spacer(1, 1), layered]
+        name = Paragraph(f"<b>{signer}</b>", look["caption"])
+        block = Table(
+            [[role], [signature], [line], [name]],
+            colWidths=[width_mm * mm],
+        )
+        block.setStyle(
+            TableStyle(
+                [
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1.0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.0),
+                ]
+            )
+        )
+        return block
 
     def _qr_flowable(
         self,
@@ -651,7 +714,20 @@ class PdfEngine:
         modules = len(matrix)
         size = (modules + 2 * border) * module
         drawing = Drawing(size, size)
-        from reportlab.lib.colors import black
+        from reportlab.lib.colors import black, white
+
+        # UPN QR must have an opaque white background and a clean 4-module
+        # quiet zone. The payment watermark must never show through the code.
+        drawing.add(
+            Rect(
+                0,
+                0,
+                size,
+                size,
+                strokeWidth=0,
+                fillColor=white,
+            )
+        )
 
         for y, row in enumerate(matrix):
             for x, dark in enumerate(row):

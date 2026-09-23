@@ -89,7 +89,7 @@ def styles(options: dict | None = None) -> dict[str, ParagraphStyle]:
             fontName=bold,
             fontSize=14.8,
             textColor=accent,
-            alignment=TA_LEFT,
+            alignment=TA_RIGHT,
             leading=17.5,
         ),
         "company": ParagraphStyle(
@@ -113,7 +113,7 @@ def styles(options: dict | None = None) -> dict[str, ParagraphStyle]:
             fontName=regular,
             fontSize=10.0,
             textColor=muted,
-            alignment=TA_LEFT,
+            alignment=TA_RIGHT,
             leading=12.2,
         ),
         "meta_label": ParagraphStyle(

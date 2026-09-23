@@ -174,13 +174,13 @@ def build_header(company, options: dict):
         trr_w = stringWidth(iban_line, regular, 10.0)
     info_width = max(name_w, trr_w, 76 * mm) + 4
 
-    # Contact group: hug longest contact line, then RIGHT-pack with spacer.
+    # Right-pack each contact independently so every value shares the same
+    # right edge while its icon remains directly beside the text.
     if contact_entries:
-        max_tw = max(stringWidth(txt, regular, 10.0) for _icon, txt, _p in contact_entries)
-        text_w = max_tw + 2
-        inner_w = 13.5 + text_w
-        spacer_w = max(info_width - inner_w, 1)
-        for icon, _txt, para in contact_entries:
+        for icon, text, para in contact_entries:
+            text_w = stringWidth(text, regular, 10.0) + 2
+            inner_w = 13.5 + text_w
+            spacer_w = max(info_width - inner_w, 1)
             row = _contact_row(icon, para, text_w)
             wrap = Table([[Spacer(spacer_w, 1), row]], colWidths=[spacer_w, inner_w])
             wrap.setStyle(
@@ -239,6 +239,7 @@ def build_header(company, options: dict):
     )
 
     separator = HeaderSeparator(CONTENT_WIDTH_MM, palette, accent_mm=34)
+    separator.hAlign = "LEFT"
     # MASTER separator ≈ 0.202 — keep logo/company block fixed; only air below body.
     return [
         body,

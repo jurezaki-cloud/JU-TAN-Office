@@ -177,8 +177,11 @@ def test_customer_and_metadata_present(pdf_opts):
 def test_customer_card_is_compact_not_full_width(pdf_opts):
     card = pdf_engine._customer_card(_sample_invoice(), pdf_opts)
     assert isinstance(card, CustomerCard)
-    w, _h = card.wrap(CONTENT_WIDTH_MM * mm, 200 * mm)
+    w, h = card.wrap(CONTENT_WIDTH_MM * mm, 200 * mm)
     assert w <= (CUSTOMER_CARD_WIDTH_MM + 2) * mm
+    # Keep the complete postal identity safely inside a standard 45 mm
+    # DL-window band on the first A4 fold panel.
+    assert h <= 40 * mm
     assert "Kupec" in _labels(card.content)
 
 
@@ -226,8 +229,9 @@ def test_upn_qr_included_and_scannable_size(pdf_opts):
     qr = pdf_engine._qr_flowable(doc, company, pdf_opts, module_mm=_QR_MODULE_MM)
     assert qr is not None
     side_mm = _QR_MODULE_MM * 85
-    # MASTER-measured QR (~24 mm), still large enough for reliable UPN scanning.
-    assert 20 <= side_mm <= 28
+    # Official Slovenian UPN QR: 85 modules including the 4-module quiet
+    # zone on each side, at 0.42333 mm per module.
+    assert side_mm == pytest.approx(85 * 0.42333)
     text = _labels(qr)
     assert "Plačilo z UPN QR" in text
 
@@ -350,9 +354,10 @@ def test_multipage_invoice_repeats_header(tmp_path, pdf_opts):
     assert "Šifra" in pdf[0].get_text()
     assert "Šifra" in pdf[1].get_text()
     assert f"{len(pdf)} / {len(pdf)}" in pdf[-1].get_text() or f"1 / {len(pdf)}" in pdf[0].get_text()
-    # Footer slogan present; no signature labels.
-    assert "Direktorica" not in pdf[0].get_text()
-    assert "Podpis" not in pdf[0].get_text()
+    # The professional invoice signature appears once with the payment
+    # section on the final page; no generic "Podpis" placeholder is rendered.
+    assert "Direktor" in pdf[-1].get_text()
+    assert "Podpis" not in pdf[-1].get_text()
 
 
 def test_invoice_renders_without_company_stamp(tmp_path, pdf_opts):
@@ -369,8 +374,8 @@ def test_invoice_renders_without_company_stamp(tmp_path, pdf_opts):
     assert "Žig".encode("utf-16-be") not in raw
 
 
-def test_invoice_never_renders_signature_or_stamp(tmp_path, pdf_opts):
-    """Production invoices omit signature/stamp entirely (intentional vs MASTER)."""
+def test_invoice_renders_director_signature_without_stamp(tmp_path, pdf_opts):
+    """Invoices render the approved director signature block but never a stamp."""
     from PIL import Image as PILImage
 
     sig = tmp_path / "sig.png"
@@ -384,8 +389,9 @@ def test_invoice_never_renders_signature_or_stamp(tmp_path, pdf_opts):
         iban="SI56 0237 9205 8132 832",
     )
     labels = _labels(pdf_engine._payment_block(_sample_invoice(), company, pdf_opts))
+    assert "Direktor" in labels
+    assert "Tanja Hrup" in labels
     assert "Direktorica" not in labels
-    assert "Tanja Hrup" not in labels
     assert "Žig" not in labels
     assert "Podpis" not in labels
 
@@ -399,11 +405,12 @@ def test_invoice_never_renders_signature_or_stamp(tmp_path, pdf_opts):
     import fitz
 
     page_text = fitz.open(str(path))[0].get_text()
+    assert "Direktor" in page_text
     assert "Direktorica" not in page_text
     assert "Podpis" not in page_text
     assert "Žig" not in page_text
-    # Signer name must not appear as a standalone signature label (only in company header).
-    assert page_text.count("Tanja Hrup") == 1
+    # The signer appears in both the company identity and signature block.
+    assert page_text.count("Tanja Hrup") >= 2
     assert "JU-TAN studio, Tanja Hrup s.p." in page_text
 
 

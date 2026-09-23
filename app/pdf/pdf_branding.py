@@ -45,7 +45,7 @@ HEADER_TO_SEPARATOR_MM = 9.5
 
 # MASTER footer_top ≈ 0.896 → branded band (~33 mm). Charcoal fills most of it.
 FOOTER_BAND_MM = 33.0
-FOOTER_RESERVED_MM = 33.0
+FOOTER_RESERVED_MM = 46.0
 
 # MASTER logo group ≈ 0.52 × 0.11 of page (preserve asset aspect).
 LOGO_MAX_WIDTH_MM = 126.0
@@ -53,16 +53,18 @@ LOGO_MAX_HEIGHT_MM = 36.0
 
 # MASTER customer card ≈ 0.46–0.52 wide; scale with content (no empty lower band).
 CUSTOMER_CARD_WIDTH_MM = 99.0
-CUSTOMER_ICON_MM = 22.0
-CUSTOMER_CARD_PAD_PT = 10.5
+CUSTOMER_ICON_MM = 16.0
+CUSTOMER_CARD_PAD_PT = 8.0
 
 TOTALS_WIDTH_MM = 80.0
 TOTAL_BAR_WIDTH_MM = 76.0
 TOTAL_BAR_HEIGHT_MM = 12.5
 
 # MASTER QR side ≈ 0.13 of page width; keep quiet zone / scannable UPN modules.
-QR_SIDE_MM = 25.0
-PAYMENT_COL_WIDTH_MM = 80.0
+# UPN QR: version 15 is 77 modules + mandatory 4-module quiet zone on each side.
+# ZBS module size is 0.42333 mm, so the complete symbol is about 35.98 mm.
+QR_SIDE_MM = 85 * 0.42333
+PAYMENT_COL_WIDTH_MM = 84.0
 BANK_ICON_MM = 14.5
 
 WATERMARK_WIDTH_MM = 120.0
@@ -219,146 +221,213 @@ def archive_branding_asset(source: str, kind: str) -> str:
 # Vector icons
 # ---------------------------------------------------------------------------
 
-def contact_phone_icon(palette: dict, size: float = 9.5) -> Drawing:
-    """Solid white handset on green circle (MASTER contact glyph)."""
-    d = Drawing(size, size)
-    d.add(Circle(size / 2, size / 2, size / 2, fillColor=palette["primary"], strokeColor=None))
-    # Classic filled handset (circle + stem).
-    d.add(
-        Rect(
-            size * 0.28,
-            size * 0.18,
-            size * 0.22,
-            size * 0.62,
-            fillColor=palette["white"],
+def _contact_icon_base(palette: dict, size: float) -> Drawing:
+    """Green circular contact badge shared by the header icons."""
+    drawing = Drawing(size, size)
+    drawing.add(
+        Circle(
+            size / 2,
+            size / 2,
+            size / 2,
+            fillColor=palette["primary"],
             strokeColor=None,
-            rx=1.4,
-            ry=1.4,
+        )
+    )
+    return drawing
+
+
+def contact_phone_icon(palette: dict, size: float = 9.5) -> Drawing:
+    """Recognisable white telephone handset on a green circle."""
+    d = _contact_icon_base(palette, size)
+    handset = RlPath(
+        fillColor=None,
+        strokeColor=palette["white"],
+        strokeWidth=max(size * 0.12, 1.1),
+    )
+    handset.moveTo(size * 0.28, size * 0.72)
+    handset.curveTo(
+        size * 0.18,
+        size * 0.57,
+        size * 0.34,
+        size * 0.33,
+        size * 0.52,
+        size * 0.27,
+    )
+    handset.curveTo(
+        size * 0.61,
+        size * 0.24,
+        size * 0.70,
+        size * 0.25,
+        size * 0.76,
+        size * 0.32,
+    )
+    d.add(handset)
+    d.add(
+        Line(
+            size * 0.24,
+            size * 0.76,
+            size * 0.34,
+            size * 0.66,
+            strokeColor=palette["white"],
+            strokeWidth=max(size * 0.16, 1.4),
         )
     )
     d.add(
-        Rect(
-            size * 0.28,
-            size * 0.56,
-            size * 0.44,
-            size * 0.22,
-            fillColor=palette["white"],
-            strokeColor=None,
-            rx=1.4,
-            ry=1.4,
+        Line(
+            size * 0.70,
+            size * 0.38,
+            size * 0.79,
+            size * 0.29,
+            strokeColor=palette["white"],
+            strokeWidth=max(size * 0.16, 1.4),
         )
     )
     return d
 
 
 def contact_email_icon(palette: dict, size: float = 9.5) -> Drawing:
-    """Solid white envelope on green circle (MASTER contact glyph)."""
-    d = Drawing(size, size)
-    d.add(Circle(size / 2, size / 2, size / 2, fillColor=palette["primary"], strokeColor=None))
+    """Clear white envelope outline on a green circle."""
+    d = _contact_icon_base(palette, size)
+    left = size * 0.20
+    bottom = size * 0.29
+    width = size * 0.60
+    height = size * 0.42
+    stroke = max(size * 0.075, 0.8)
     d.add(
         Rect(
-            size * 0.20,
-            size * 0.28,
-            size * 0.60,
-            size * 0.42,
-            fillColor=palette["white"],
-            strokeColor=None,
-            rx=0.6,
-            ry=0.6,
+            left,
+            bottom,
+            width,
+            height,
+            fillColor=None,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+            rx=size * 0.035,
+            ry=size * 0.035,
         )
     )
-    path = RlPath(fillColor=palette["primary"], strokeColor=None)
-    path.moveTo(size * 0.20, size * 0.70)
-    path.lineTo(size * 0.50, size * 0.46)
-    path.lineTo(size * 0.80, size * 0.70)
-    path.closePath()
-    d.add(path)
+    d.add(
+        Line(
+            left,
+            bottom + height,
+            size * 0.50,
+            size * 0.46,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+        )
+    )
+    d.add(
+        Line(
+            left + width,
+            bottom + height,
+            size * 0.50,
+            size * 0.46,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+        )
+    )
     return d
 
 
 def contact_web_icon(palette: dict, size: float = 9.5) -> Drawing:
-    """Solid white globe on green circle (MASTER contact glyph)."""
-    d = Drawing(size, size)
-    d.add(Circle(size / 2, size / 2, size / 2, fillColor=palette["primary"], strokeColor=None))
+    """Conventional white globe icon on a green circle."""
+    d = _contact_icon_base(palette, size)
+    stroke = max(size * 0.07, 0.75)
+    radius = size * 0.29
     d.add(
         Circle(
             size / 2,
             size / 2,
-            size * 0.28,
-            fillColor=palette["white"],
-            strokeColor=None,
-        )
-    )
-    d.add(
-        Circle(
-            size / 2,
-            size / 2,
-            size * 0.28,
+            radius,
             fillColor=None,
-            strokeColor=palette["primary"],
-            strokeWidth=0.9,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
         )
     )
     d.add(
         Line(
-            size * 0.22,
+            size * 0.21,
             size / 2,
-            size * 0.78,
+            size * 0.79,
             size / 2,
-            strokeColor=palette["primary"],
-            strokeWidth=0.8,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
         )
     )
     d.add(
         Line(
             size / 2,
-            size * 0.22,
+            size * 0.21,
             size / 2,
-            size * 0.78,
-            strokeColor=palette["primary"],
-            strokeWidth=0.8,
+            size * 0.79,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+        )
+    )
+    d.add(
+        Circle(
+            size / 2,
+            size / 2,
+            size * 0.15,
+            fillColor=None,
+            strokeColor=palette["white"],
+            strokeWidth=stroke * 0.8,
         )
     )
     return d
-
 
 def customer_people_icon(palette: dict, size: float = 32) -> Drawing:
-    """Green tile with thin white OUTLINE two-person icon (MASTER — not filled)."""
+    """Single green customer/user icon for the customer card."""
     d = Drawing(size, size)
+    green = palette["primary"]
+    stroke = max(size * 0.075, 1.15)
+
+    # Soft circular badge keeps the icon readable without the old solid tile.
     d.add(
-        Rect(
-            0,
-            0,
-            size,
-            size,
-            fillColor=palette["primary"],
+        Circle(
+            size / 2,
+            size / 2,
+            size * 0.44,
+            fillColor=palette["light_green"],
             strokeColor=None,
-            rx=2.6,
-            ry=2.6,
         )
     )
-    ink = palette["white"]
-    # MASTER: delicate outline strokes (never filled heads/bodies).
-    sw = max(size * 0.055, 0.95)
-
-    def _bust(cx: float, scale: float = 1.0):
-        hr = size * 0.118 * scale
-        hy = size * 0.66
-        d.add(Circle(cx, hy, hr, fillColor=None, strokeColor=ink, strokeWidth=sw))
-        bw = size * 0.32 * scale
-        by = size * 0.16
-        top = size * 0.46
-        path = RlPath(fillColor=None, strokeColor=ink, strokeWidth=sw)
-        path.moveTo(cx - bw * 0.55, by)
-        path.curveTo(cx - bw * 0.55, top * 0.72, cx - bw * 0.18, top, cx, top)
-        path.curveTo(cx + bw * 0.18, top, cx + bw * 0.55, top * 0.72, cx + bw * 0.55, by)
-        d.add(path)
-
-    # Rear figure slightly smaller / left-back (MASTER group glyph).
-    _bust(size * 0.35, 0.88)
-    _bust(size * 0.63, 1.00)
+    # Customer head.
+    d.add(
+        Circle(
+            size / 2,
+            size * 0.64,
+            size * 0.135,
+            fillColor=None,
+            strokeColor=green,
+            strokeWidth=stroke,
+        )
+    )
+    # Customer shoulders / torso.
+    bust = RlPath(
+        fillColor=None,
+        strokeColor=green,
+        strokeWidth=stroke,
+    )
+    bust.moveTo(size * 0.27, size * 0.22)
+    bust.curveTo(
+        size * 0.28,
+        size * 0.43,
+        size * 0.39,
+        size * 0.49,
+        size * 0.50,
+        size * 0.49,
+    )
+    bust.curveTo(
+        size * 0.61,
+        size * 0.49,
+        size * 0.72,
+        size * 0.43,
+        size * 0.73,
+        size * 0.22,
+    )
+    d.add(bust)
     return d
-
 
 def bank_icon(palette: dict, size: float = 38) -> Drawing:
     """Pale-green rounded square with green bank/building glyph (~13–14 mm)."""
@@ -407,7 +476,7 @@ def extract_signer_name(company_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 class HeaderSeparator(Flowable):
-    """Thin grey rule with a short green left accent and a finishing tip on the right."""
+    """Thin grey rule with a short green accent on the left."""
 
     def __init__(self, width_mm: float, palette: dict, accent_mm: float = 22):
         super().__init__()
@@ -423,16 +492,12 @@ class HeaderSeparator(Flowable):
     def draw(self):
         y = self.height / 2
         accent_w = self.accent_mm * mm
-        tip = 2.4 * mm
         self.canv.setStrokeColor(self.palette["primary"])
         self.canv.setLineWidth(1.45)
         self.canv.line(0, y, accent_w, y)
         self.canv.setStrokeColor(self.palette["light_border"])
         self.canv.setLineWidth(0.60)
-        self.canv.line(accent_w, y, self.width - tip, y)
-        self.canv.setStrokeColor(self.palette["primary"])
-        self.canv.setLineWidth(1.25)
-        self.canv.line(self.width - tip, y, self.width, y)
+        self.canv.line(accent_w, y, self.width, y)
 
 
 class JTWatermark(Flowable):
@@ -585,7 +650,7 @@ class SpacedTagline(Flowable):
 
 
 class CustomerCard(Flowable):
-    """MASTER customer card: pale wash, rounded green border, icon + text."""
+    """Premium customer card with layered frame and green identity rail."""
 
     def __init__(self, content: Flowable, width_mm: float, palette: dict, radius: float = 4.5):
         super().__init__()
@@ -609,20 +674,53 @@ class CustomerCard(Flowable):
         from reportlab.lib.colors import Color
 
         c = self.canv
+        primary = self.palette["primary"]
         border = Color(
-            self.palette["primary"].red * 0.40 + 0.60,
-            self.palette["primary"].green * 0.40 + 0.60,
-            self.palette["primary"].blue * 0.40 + 0.60,
+            primary.red * 0.52 + 0.48,
+            primary.green * 0.52 + 0.48,
+            primary.blue * 0.52 + 0.48,
         )
-        wash = Color(
-            self.palette["primary"].red * 0.055 + 0.945,
-            self.palette["primary"].green * 0.055 + 0.945,
-            self.palette["primary"].blue * 0.055 + 0.945,
+        surface = Color(
+            primary.red * 0.025 + 0.975,
+            primary.green * 0.025 + 0.975,
+            primary.blue * 0.025 + 0.975,
         )
+        shadow = Color(0.02, 0.06, 0.08, alpha=0.10)
+
         c.saveState()
-        c.setFillColor(wash)
+        # Restrained depth: a small soft offset, not a heavy floating shadow.
+        c.setFillColor(shadow)
+        c.setStrokeColor(shadow)
+        c.roundRect(
+            1.2,
+            -1.2,
+            self._width,
+            self._height,
+            self.radius,
+            fill=1,
+            stroke=0,
+        )
+
+        # Crisp premium surface and border.
+        c.setFillColor(surface)
         c.setStrokeColor(border)
-        c.setLineWidth(1.05)
+        c.setLineWidth(1.15)
         c.roundRect(0, 0, self._width, self._height, self.radius, fill=1, stroke=1)
+
+        # Strong vertical identity rail gives the card a deliberate left edge.
+        rail_w = 2.2 * mm
+        c.setFillColor(primary)
+        c.roundRect(0, 0, rail_w, self._height, self.radius, fill=1, stroke=0)
+        c.rect(rail_w * 0.55, 0, rail_w * 0.55, self._height, fill=1, stroke=0)
+
+        # Small top-right accent completes the frame without boxing it in.
+        c.setStrokeColor(primary)
+        c.setLineWidth(1.8)
+        c.line(
+            self._width - 22 * mm,
+            self._height,
+            self._width - 5 * mm,
+            self._height,
+        )
         c.restoreState()
         self.content.drawOn(c, self._pad, self._pad)

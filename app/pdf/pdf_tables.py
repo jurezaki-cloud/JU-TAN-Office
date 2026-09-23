@@ -80,22 +80,31 @@ def build_items_table(items: list[dict], options: dict):
 
     table = Table(data, colWidths=widths, repeatRows=1)
     style_cmds = [
+        # Strong premium header with a focused green total column.
         ("BACKGROUND", (0, 0), (-1, 0), palette["charcoal"]),
+        ("BACKGROUND", (-1, 0), (-1, 0), palette["primary"]),
         ("TEXTCOLOR", (0, 0), (-1, 0), palette["white"]),
         ("FONTNAME", (0, 0), (-1, 0), bold),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.40, palette["light_border"]),
-        ("LINEAFTER", (0, 0), (-2, -1), 0.45, palette["light_border"]),
-        ("LEFTPADDING", (0, 0), (-1, -1), 7.5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 7.5),
-        # MASTER table footprint is taller — grow row/header padding only.
-        ("TOPPADDING", (0, 0), (-1, 0), 0.8),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 0.8),
-        ("TOPPADDING", (0, 1), (-1, -1), 1.2),
-        ("BOTTOMPADDING", (0, 1), (-1, -1), 1.2),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.15, palette["primary"]),
+
+        # Calm body hierarchy: airy rows, restrained grid, emphasised article
+        # names and totals, and a light brand wash in the final column.
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [palette["white"], palette["row_alt"]]),
-        ("BOX", (0, 0), (-1, -1), 0.40, palette["light_border"]),
-        ("ROUNDEDCORNERS", [2.5, 2.5, 0, 0]),
+        ("BACKGROUND", (-1, 1), (-1, -1), palette["light_green"]),
+        ("FONTNAME", (1, 1), (1, -1), bold),
+        ("FONTNAME", (-1, 1), (-1, -1), bold),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.38, palette["light_border"]),
+        ("LINEAFTER", (0, 0), (-2, -1), 0.38, palette["light_border"]),
+        ("BOX", (0, 0), (-1, -1), 0.55, palette["light_border"]),
+
+        ("LEFTPADDING", (0, 0), (-1, -1), 8.0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8.0),
+        ("TOPPADDING", (0, 0), (-1, 0), 4.2),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 4.2),
+        ("TOPPADDING", (0, 1), (-1, -1), 3.0),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 3.0),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROUNDEDCORNERS", [4.5, 4.5, 0, 0]),
     ]
     table.setStyle(TableStyle(style_cmds))
     return _TableWithAccent(table, palette)
@@ -117,8 +126,15 @@ class _TableWithAccent(Flowable):
 
     def draw(self):
         self.table.drawOn(self.canv, 0, 0)
-        size = 4.4 * mm
         header_top = self._height
+
+        # Full-width green hairline locks the table to the document grid.
+        self.canv.setStrokeColor(self.palette["primary"])
+        self.canv.setLineWidth(1.35)
+        self.canv.line(0, header_top, self._width, header_top)
+
+        # Compact diagonal corner signature keeps the JU-TAN visual language.
+        size = 4.8 * mm
         self.canv.setFillColor(self.palette["primary"])
         path = self.canv.beginPath()
         path.moveTo(0, header_top)
