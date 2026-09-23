@@ -177,8 +177,11 @@ def test_customer_and_metadata_present(pdf_opts):
 def test_customer_card_is_compact_not_full_width(pdf_opts):
     card = pdf_engine._customer_card(_sample_invoice(), pdf_opts)
     assert isinstance(card, CustomerCard)
-    w, _h = card.wrap(CONTENT_WIDTH_MM * mm, 200 * mm)
+    w, h = card.wrap(CONTENT_WIDTH_MM * mm, 200 * mm)
     assert w <= (CUSTOMER_CARD_WIDTH_MM + 2) * mm
+    # Keep the complete postal identity safely inside a standard 45 mm
+    # DL-window band on the first A4 fold panel.
+    assert h <= 40 * mm
     assert "Kupec" in _labels(card.content)
 
 
