@@ -64,12 +64,21 @@ def draw_footer(
         canvas.drawPath(path, fill=1, stroke=0)
 
     _polygon(
-        facet_light,
+        facet_dark,
         [
             (0, 0),
-            (page_w * 0.26, 0),
-            (page_w * 0.17, band_h),
+            (page_w * 0.22, 0),
+            (page_w * 0.31, band_h),
             (0, band_h),
+        ],
+    )
+    _polygon(
+        facet_light,
+        [
+            (page_w * 0.22, 0),
+            (page_w * 0.50, 0),
+            (page_w * 0.43, band_h),
+            (page_w * 0.31, band_h),
         ],
     )
     _polygon(
@@ -82,8 +91,20 @@ def draw_footer(
         ],
     )
 
-    # A single straight green rule provides a precise, finished top boundary.
+    # A precise light-grey vector ribbon introduces the document's third brand
+    # colour without turning the footer into a collection of loose wedges.
     green_h = 2.2 * mm
+    grey_depth = 7.0 * mm
+    canvas.setFillColor(palette["footer_grey"])
+    grey_ribbon = canvas.beginPath()
+    grey_ribbon.moveTo(0, band_h - green_h)
+    grey_ribbon.lineTo(page_w * 0.35, band_h - green_h)
+    grey_ribbon.lineTo(page_w * 0.29, band_h - green_h - grey_depth)
+    grey_ribbon.lineTo(0, band_h - green_h - grey_depth)
+    grey_ribbon.close()
+    canvas.drawPath(grey_ribbon, fill=1, stroke=0)
+
+    # The uninterrupted green rule locks the whole footer to a clean top edge.
     canvas.setFillColor(palette["primary"])
     canvas.rect(0, band_h - green_h, page_w, green_h, fill=1, stroke=0)
 
