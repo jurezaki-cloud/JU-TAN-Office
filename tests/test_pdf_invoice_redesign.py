@@ -319,37 +319,6 @@ def test_company_block_includes_required_fields(pdf_opts):
         assert expected in text
 
 
-def test_linux_invoice_layout_budget(pdf_opts):
-    """Expose exact flowable heights when Linux layout exceeds one page."""
-    from reportlab.lib.pagesizes import A4
-    from app.pdf.pdf_branding import TOP_MARGIN_MM, FOOTER_RESERVED_MM, FOOTER_BAND_MM, TOTALS_TO_PAYMENT_GAP_MM
-    from app.pdf.pdf_company import load_company
-
-    doc = _sample_invoice()
-    company = load_company()
-    avail_w = CONTENT_WIDTH_MM * mm
-    avail_h = A4[1] - TOP_MARGIN_MM * mm - max(FOOTER_RESERVED_MM, FOOTER_BAND_MM) * mm - 12
-    blocks = {
-        "header": build_header(company, pdf_opts),
-        "identity": pdf_engine._identity_block(doc, pdf_opts),
-        "items": [build_items_table(doc.items, pdf_opts)],
-        "summary": build_summary(doc.subtotal, doc.discount, doc.vat, doc.total, pdf_opts, items=doc.items),
-        "payment": pdf_engine._payment_block(doc, company, pdf_opts),
-        "thanks": pdf_engine._thanks_block(company, pdf_opts),
-    }
-    heights = {}
-    for name, flowables in blocks.items():
-        total = 0.0
-        for flowable in flowables:
-            _w, h = flowable.wrap(avail_w, avail_h)
-            total += h
-        heights[name] = total
-    used = sum(heights.values()) + TOTALS_TO_PAYMENT_GAP_MM * mm
-    items_flow = blocks["items"][0]
-    row_heights = [round(v, 2) for v in getattr(getattr(items_flow, "table", None), "_rowHeights", [])]
-    assert False, f"LAYOUT_DIAG_PT heights={ {k: round(v, 2) for k, v in heights.items()} } item_rows={row_heights} gap={round(TOTALS_TO_PAYMENT_GAP_MM * mm, 2)} used={round(used, 2)} available={round(avail_h, 2)} overflow={round(used-avail_h, 2)}"
-
-
 def test_invoice_page_number_format(tmp_path, pdf_opts):
     path = pdf_engine.render(_sample_invoice(), tmp_path / "paged.pdf")
     import fitz
