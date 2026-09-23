@@ -221,108 +221,160 @@ def archive_branding_asset(source: str, kind: str) -> str:
 # Vector icons
 # ---------------------------------------------------------------------------
 
-def contact_phone_icon(palette: dict, size: float = 9.5) -> Drawing:
-    """Solid white handset on green circle (MASTER contact glyph)."""
-    d = Drawing(size, size)
-    d.add(Circle(size / 2, size / 2, size / 2, fillColor=palette["primary"], strokeColor=None))
-    # Classic filled handset (circle + stem).
-    d.add(
-        Rect(
-            size * 0.28,
-            size * 0.18,
-            size * 0.22,
-            size * 0.62,
-            fillColor=palette["white"],
+def _contact_icon_base(palette: dict, size: float) -> Drawing:
+    """Green circular contact badge shared by the header icons."""
+    drawing = Drawing(size, size)
+    drawing.add(
+        Circle(
+            size / 2,
+            size / 2,
+            size / 2,
+            fillColor=palette["primary"],
             strokeColor=None,
-            rx=1.4,
-            ry=1.4,
+        )
+    )
+    return drawing
+
+
+def contact_phone_icon(palette: dict, size: float = 9.5) -> Drawing:
+    """Recognisable white telephone handset on a green circle."""
+    d = _contact_icon_base(palette, size)
+    handset = RlPath(
+        fillColor=None,
+        strokeColor=palette["white"],
+        strokeWidth=max(size * 0.12, 1.1),
+    )
+    handset.moveTo(size * 0.28, size * 0.72)
+    handset.curveTo(
+        size * 0.18,
+        size * 0.57,
+        size * 0.34,
+        size * 0.33,
+        size * 0.52,
+        size * 0.27,
+    )
+    handset.curveTo(
+        size * 0.61,
+        size * 0.24,
+        size * 0.70,
+        size * 0.25,
+        size * 0.76,
+        size * 0.32,
+    )
+    d.add(handset)
+    d.add(
+        Line(
+            size * 0.24,
+            size * 0.76,
+            size * 0.34,
+            size * 0.66,
+            strokeColor=palette["white"],
+            strokeWidth=max(size * 0.16, 1.4),
         )
     )
     d.add(
-        Rect(
-            size * 0.28,
-            size * 0.56,
-            size * 0.44,
-            size * 0.22,
-            fillColor=palette["white"],
-            strokeColor=None,
-            rx=1.4,
-            ry=1.4,
+        Line(
+            size * 0.70,
+            size * 0.38,
+            size * 0.79,
+            size * 0.29,
+            strokeColor=palette["white"],
+            strokeWidth=max(size * 0.16, 1.4),
         )
     )
     return d
 
 
 def contact_email_icon(palette: dict, size: float = 9.5) -> Drawing:
-    """Solid white envelope on green circle (MASTER contact glyph)."""
-    d = Drawing(size, size)
-    d.add(Circle(size / 2, size / 2, size / 2, fillColor=palette["primary"], strokeColor=None))
+    """Clear white envelope outline on a green circle."""
+    d = _contact_icon_base(palette, size)
+    left = size * 0.20
+    bottom = size * 0.29
+    width = size * 0.60
+    height = size * 0.42
+    stroke = max(size * 0.075, 0.8)
     d.add(
         Rect(
-            size * 0.20,
-            size * 0.28,
-            size * 0.60,
-            size * 0.42,
-            fillColor=palette["white"],
-            strokeColor=None,
-            rx=0.6,
-            ry=0.6,
+            left,
+            bottom,
+            width,
+            height,
+            fillColor=None,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+            rx=size * 0.035,
+            ry=size * 0.035,
         )
     )
-    path = RlPath(fillColor=palette["primary"], strokeColor=None)
-    path.moveTo(size * 0.20, size * 0.70)
-    path.lineTo(size * 0.50, size * 0.46)
-    path.lineTo(size * 0.80, size * 0.70)
-    path.closePath()
-    d.add(path)
+    d.add(
+        Line(
+            left,
+            bottom + height,
+            size * 0.50,
+            size * 0.46,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+        )
+    )
+    d.add(
+        Line(
+            left + width,
+            bottom + height,
+            size * 0.50,
+            size * 0.46,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+        )
+    )
     return d
 
 
 def contact_web_icon(palette: dict, size: float = 9.5) -> Drawing:
-    """Solid white globe on green circle (MASTER contact glyph)."""
-    d = Drawing(size, size)
-    d.add(Circle(size / 2, size / 2, size / 2, fillColor=palette["primary"], strokeColor=None))
+    """Conventional white globe icon on a green circle."""
+    d = _contact_icon_base(palette, size)
+    stroke = max(size * 0.07, 0.75)
+    radius = size * 0.29
     d.add(
         Circle(
             size / 2,
             size / 2,
-            size * 0.28,
-            fillColor=palette["white"],
-            strokeColor=None,
-        )
-    )
-    d.add(
-        Circle(
-            size / 2,
-            size / 2,
-            size * 0.28,
+            radius,
             fillColor=None,
-            strokeColor=palette["primary"],
-            strokeWidth=0.9,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
         )
     )
     d.add(
         Line(
-            size * 0.22,
+            size * 0.21,
             size / 2,
-            size * 0.78,
+            size * 0.79,
             size / 2,
-            strokeColor=palette["primary"],
-            strokeWidth=0.8,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
         )
     )
     d.add(
         Line(
             size / 2,
-            size * 0.22,
+            size * 0.21,
             size / 2,
-            size * 0.78,
-            strokeColor=palette["primary"],
-            strokeWidth=0.8,
+            size * 0.79,
+            strokeColor=palette["white"],
+            strokeWidth=stroke,
+        )
+    )
+    d.add(
+        Circle(
+            size / 2,
+            size / 2,
+            size * 0.15,
+            fillColor=None,
+            strokeColor=palette["white"],
+            strokeWidth=stroke * 0.8,
         )
     )
     return d
-
 
 def customer_people_icon(palette: dict, size: float = 32) -> Drawing:
     """Green tile with thin white OUTLINE two-person icon (MASTER — not filled)."""
