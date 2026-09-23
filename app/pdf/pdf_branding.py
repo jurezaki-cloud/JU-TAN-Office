@@ -710,7 +710,6 @@ class CustomerCard(Flowable):
         # Strong vertical identity rail gives the card a deliberate left edge.
         rail_w = 2.2 * mm
         c.setFillColor(primary)
-        c.setStrokeColor(None)
         c.roundRect(0, 0, rail_w, self._height, self.radius, fill=1, stroke=0)
         c.rect(rail_w * 0.55, 0, rail_w * 0.55, self._height, fill=1, stroke=0)
 
