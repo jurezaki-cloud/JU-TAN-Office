@@ -3,6 +3,12 @@ import pytest
 from app.modules.customers.services.company_lookup import CompanyLookupError, normalize_tax_number
 
 
+def test_customer_page_is_available_to_main_window():
+    from app.modules.customers import CustomerPage
+
+    assert CustomerPage.__name__ == "CustomerPage"
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
