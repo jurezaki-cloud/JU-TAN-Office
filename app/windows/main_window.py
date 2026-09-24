@@ -319,7 +319,7 @@ def _page_invoices():
 
 
 def _page_customers():
-    from app.modules.customers import CustomerPage
+    from app.modules.customers.customer_page import CustomerPage
     return CustomerPage()
 
 
