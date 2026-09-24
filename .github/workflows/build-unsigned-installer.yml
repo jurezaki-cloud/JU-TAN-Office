@@ -1,11 +1,21 @@
 name: Windows installer build (unsigned)
-# Rebuild on merge of the direct Customers import fix.
+# Rebuild whenever app code or installer inputs change.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - .github/workflows/build-unsigned-installer.yml
+      - app/**
+      - packaging/**
+      - scripts/build_release.ps1
+      - scripts/build_portable.ps1
+      - scripts/sync_release_metadata.py
+      - requirements.txt
+      - resources/**
+      - updates/**
+      - docs/**
+      - tests/test_company_lookup.py
 
 permissions:
   contents: read
