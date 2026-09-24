@@ -1,4 +1,5 @@
 name: Windows installer build (unsigned)
+# Rebuild on merge of the direct Customers import fix.
 on:
   workflow_dispatch:
   push:
