@@ -114,7 +114,9 @@ if ($LASTEXITCODE -ne 0) { throw "sync_release_metadata.py failed (exit $LASTEXI
 python -m pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw "pip install failed (exit $LASTEXITCODE)." }
 
-python -m PyInstaller --noconfirm --clean packaging/ju-tan-office.spec
+# Pipe through Write-Host so PowerShell (admin) does not treat PyInstaller
+# stderr deprecation warnings as terminating NativeCommandError.
+cmd /c "python -m PyInstaller --noconfirm --clean packaging/ju-tan-office.spec"
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed (exit $LASTEXITCODE)." }
 
 $appExe = "dist/JU-TAN-Office/JU-TAN-Office.exe"
@@ -130,7 +132,8 @@ $docSources = @(
     "docs/USER_GUIDE.md",
     "docs/ADMIN_GUIDE.md",
     "docs/RELEASE_NOTES.md",
-    "docs/SECURITY.md"
+    "docs/SECURITY.md",
+    "docs/DATA_LOCATIONS.md"
 )
 foreach ($rel in $docSources) {
     if (-not (Test-Path -LiteralPath $rel)) {
@@ -158,6 +161,7 @@ Copy-Item "docs/USER_GUIDE.md" "$portable/docs/USER_GUIDE.md" -Force
 Copy-Item "docs/ADMIN_GUIDE.md" "$portable/docs/ADMIN_GUIDE.md" -Force
 Copy-Item "docs/RELEASE_NOTES.md" "$portable/docs/RELEASE_NOTES.md" -Force
 Copy-Item "docs/SECURITY.md" "$portable/docs/SECURITY.md" -Force
+Copy-Item "docs/DATA_LOCATIONS.md" "$portable/docs/DATA_LOCATIONS.md" -Force
 Copy-Item "docs/SIGNING.md" "$portable/docs/SIGNING.md" -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "$portable/config" | Out-Null
 Copy-Item "config/app.example.json" "$portable/config/app.example.json" -Force -ErrorAction SilentlyContinue

@@ -161,7 +161,7 @@ end;
 procedure CopyIfExists(const Src, Dst: String);
 begin
   if FileExists(Src) then
-    FileCopy(Src, Dst, False);
+    CopyFile(Src, Dst, False);
 end;
 
 function InitializeSetup(): Boolean;
@@ -291,7 +291,7 @@ begin
 
   if FileExists(DataDir + '\ju_tan.db') then
   begin
-    if not FileCopy(DataDir + '\ju_tan.db', Target + '\ju_tan.db', False) then
+    if not CopyFile(DataDir + '\ju_tan.db', Target + '\ju_tan.db', False) then
     begin
       MsgBox('Varnostne kopije baze ni bilo mogoče ustvariti. Podatki niso bili izbrisani.', mbError, MB_OK);
       Exit;
