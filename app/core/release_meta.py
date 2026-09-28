@@ -25,7 +25,7 @@ APP_SUPPORT_URL = "https://www.ju-tan.com"
 APP_UPDATES_URL = "https://www.ju-tan.com"
 APP_SUPPORT_EMAIL = "support@ju-tan.com"
 APP_ARCHITECTURE = "x64"
-APP_RELEASE_DATE = "2026-09-12"
+APP_RELEASE_DATE = "2026-09-28"
 
 __all__ = [
     "APP_ARCHITECTURE",

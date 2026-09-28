@@ -1,4 +1,13 @@
-# Release Notes — JU-TAN Office Enterprise 1.0.0 GOLD
+# Release Notes — JU-TAN Office Enterprise 1.0.1 GOLD
+
+Datum: 2026-09-28
+
+## Popravek 1.0.1
+
+- Odpravljen napačen uvoz ob odprtju modula Stranke; pogled se zdaj pravilno naloži.
+- Posodobljena različica programa in namestitvenega paketa. Podatkovna shema ostaja 3; obstoječi podatki se ohranijo.
+
+## Izdaja 1.0.0
 
 Datum: 2026-09-12  
 Status: **GOLD RELEASE**  

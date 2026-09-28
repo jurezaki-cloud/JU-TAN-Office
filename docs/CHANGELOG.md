@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 GOLD — 2026-09-28
+
+- Popravljen uvoz pogleda Stranke pri prvem odpiranju modula v nameščeni aplikaciji.
+- Posodobljeni metapodatki programa in namestitvenega paketa. Shema baze ostaja 3.
+
 ## 1.0.0 GOLD — 2026-09-12 (production hardening through 2026-09-19)
 
 Uradna produkcijska izdaja JU-TAN Office Enterprise. `APP_VERSION` = **1.0.0** / kanal **GOLD**.

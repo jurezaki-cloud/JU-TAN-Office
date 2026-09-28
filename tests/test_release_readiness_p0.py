@@ -118,7 +118,6 @@ def test_no_stale_packaging_sha256sums():
 def test_changelog_aligned_with_app_version():
     text = (ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
     assert f"## {APP_VERSION}" in text or f"## {APP_VERSION} GOLD" in text
-    assert "## 1.0.1" not in text
     report = (ROOT / "docs" / "RELEASE_REPORT.md").read_text(encoding="utf-8")
     assert APP_VERSION in report
     assert f"SCHEMA_VERSION` = **{SCHEMA_VERSION}**" in report or f"SCHEMA {SCHEMA_VERSION}" in report

@@ -7,7 +7,7 @@ from app.database.company_repository import company_repository
 
 
 def test_versioning_major_minor_build():
-    assert APP_VERSION == "1.0.0"
+    assert APP_VERSION == "1.0.1"
     assert APP_CHANNEL == "GOLD"
     assert parse_version("1.0.1") == (1, 0, 1)
     assert parse_version("1.1.0") > parse_version("1.0.2")
@@ -47,7 +47,7 @@ def test_check_for_update_local_json(tmp_path):
     assert found is not None
     assert found["version"] == "9.9.9"
     none = tmp_path / "same.json"
-    none.write_text('{"version": "1.0.0"}', encoding="utf-8")
+    none.write_text(f'{{"version": "{APP_VERSION}"}}', encoding="utf-8")
     assert check_for_update(none) is None
 
 

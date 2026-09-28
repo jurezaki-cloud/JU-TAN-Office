@@ -1,5 +1,7 @@
 # TASK-033 / Release Report — JU-TAN Office Enterprise 1.0.0 GOLD
 
+Posodobitev 2026-09-28: popravek **1.0.1 GOLD** odpravlja uvoz modula Stranke. Spodnje poročilo opisuje prvotno izdajo 1.0.0.
+
 Datum: 2026-09-21  
 Različica: **1.0.0** (`APP_VERSION`) / kanal **GOLD** / `SCHEMA_VERSION` = **3**  
 Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb poslovne logike.
