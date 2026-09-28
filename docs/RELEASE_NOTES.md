@@ -1,6 +1,12 @@
-# Release Notes — JU-TAN Office Enterprise 1.0.2 GOLD
+# Release Notes — JU-TAN Office Enterprise 1.0.3 GOLD
 
 Datum: 2026-09-28
+
+## Popravek 1.0.3
+
+- Dokumentni urejevalnik: primarni gumb »Dodaj postavko« je spet jasno viden; prazen stan postavk in usklajene kartice.
+- PDF računov/ponudb: poravnane ikone kontakta, odstranjena kratka zelena ločilna črta in odvečni poudarek pri stranki, podpis »Tanja Hrup« / Direktor, premaknjen blok Podatki za plačilo.
+- Temni način in hierarhija gumbov utrjena v urednikih dokumentov.
 
 ## Popravek 1.0.2
 

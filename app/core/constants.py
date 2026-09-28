@@ -6,7 +6,7 @@ from pathlib import Path
 from app.core.deploy_paths import data_folder_name, resolve_dir
 
 APP_NAME = "JU-TAN Office Enterprise"
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 APP_CHANNEL = "GOLD"
 APP_BUILD = "RELEASE"
 APP_AUTHOR = "JU-TAN Studio"

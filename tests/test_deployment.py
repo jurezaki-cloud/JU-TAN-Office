@@ -7,13 +7,13 @@ from app.database.company_repository import company_repository
 
 
 def test_versioning_major_minor_build():
-    assert APP_VERSION == "1.0.2"
+    assert APP_VERSION == "1.0.3"
     assert APP_CHANNEL == "GOLD"
-    assert parse_version("1.0.2") == (1, 0, 2)
-    assert parse_version("1.1.0") > parse_version("1.0.2")
-    assert is_newer("1.0.2", "1.0.1")
+    assert parse_version("1.0.3") == (1, 0, 3)
+    assert parse_version("1.1.0") > parse_version("1.0.3")
+    assert is_newer("1.0.3", "1.0.2")
     assert not is_newer("1.0.0", "1.0.0")
-    assert not is_newer("1.0.1", "1.0.2")
+    assert not is_newer("1.0.2", "1.0.3")
 
 
 def test_schema_version_constant():

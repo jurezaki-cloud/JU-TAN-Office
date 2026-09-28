@@ -1,12 +1,16 @@
 # Changelog
 
+## 1.0.3 GOLD — 2026-09-28
+
+- Dokumentni urejevalnik: vidni primarni gumb »Dodaj postavko«, prazen stan postavk, usklajene kartice in tipografija.
+- PDF: poravnane ikone kontakta, odstranjeni odvečni zeleni poudarki pri stranki, podpis »Tanja Hrup«, premaknjen blok Podatki za plačilo.
+- Temni način in hierarhija gumbov (Primary / Secondary / Danger) utrjena za urednike dokumentov.
+
 ## 1.0.2 GOLD — 2026-09-28
 
 - Ponudbe uporabljajo blok s podpisom direktorja, enako kot računi.
 - Podpis direktorja ostane na računu tudi, kadar podatki za UPN QR niso veljavni.
 - UPN QR na računih ostaja vezan na veljavne plačilne podatke; sliko lastnoročnega podpisa je treba nastaviti posebej.
-- Dokumentni urejevalnik: vidni primarni gumb »Dodaj postavko«, prazen stan postavk, usklajene kartice in tipografija.
-- PDF: poravnane ikone kontakta, odstranjeni odvečni zeleni poudarki pri stranki, podpis »Tanja Hrup«, premaknjen blok Podatki za plačilo.
 
 ## 1.0.1 GOLD — 2026-09-28
 
