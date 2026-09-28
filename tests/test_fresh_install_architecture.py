@@ -58,6 +58,10 @@ def test_installer_fresh_and_uninstall_contracts():
     assert "DATA_LOCATIONS.md" in ISS
     # Silent paths must not auto-wipe
     assert "FreshInstallChosen := False" in ISS
+    # Official Slovenian Inno Setup language pack (not hand-hacked button strings)
+    assert "[Languages]" in ISS
+    assert r'compiler:Languages\Slovenian.isl' in ISS
+    assert "č" in ISS and "š" in ISS and "ž" in ISS
 
 
 def test_data_locations_inventory_covers_programdata_and_license():

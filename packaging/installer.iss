@@ -50,8 +50,12 @@ CloseApplicationsFilter=*.exe
 RestartApplications=no
 ; Must match app.core.app_mutex.APP_MUTEX_NAME
 AppMutex=JU-TANOfficeMutex
-; User-facing custom pages / dialogs are Slovenian (see [Code]).
+; Official Slovenian Inno Setup language pack (compiler:Languages\Slovenian.isl).
+; Custom Fresh Install / Complete Uninstall pages remain Slovenian in [Code].
 ShowLanguageDialog=no
+
+[Languages]
+Name: "slovenian"; MessagesFile: "compiler:Languages\Slovenian.isl"
 
 [Files]
 Source: "..\dist\JU-TAN-Office\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
@@ -325,9 +329,46 @@ begin
 end;
 
 procedure DeleteFileIfExists(const Path: String);
+{ Rename/move-then-delete with retries. Windows Search/AV can briefly lock ju_tan.db;
+  moving removes it from the live data path even if the final delete lags. }
+var
+  I: Integer;
+  Tmp: String;
+  ResultCode: Integer;
 begin
+  if not FileExists(Path) then
+    Exit;
+  Tmp := Path + '.jutan-delete';
+  if FileExists(Tmp) then
+    DeleteFile(Tmp);
+  if not RenameFile(Path, Tmp) then
+  begin
+    { cmd move often succeeds when Pascal RenameFile fails under shared locks }
+    Exec('cmd.exe', '/C move /Y "' + Path + '" "' + Tmp + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+  if FileExists(Tmp) then
+  begin
+    for I := 1 to 20 do
+    begin
+      if DeleteFile(Tmp) then
+        Exit;
+      if not FileExists(Tmp) then
+        Exit;
+      Sleep(150);
+    end;
+    Exit;
+  end;
   if FileExists(Path) then
-    DeleteFile(Path);
+  begin
+    for I := 1 to 20 do
+    begin
+      if DeleteFile(Path) then
+        Exit;
+      if not FileExists(Path) then
+        Exit;
+      Sleep(150);
+    end;
+  end;
 end;
 
 procedure WipeBusinessDataKeepBackups;
@@ -335,12 +376,21 @@ procedure WipeBusinessDataKeepBackups;
   Does NOT delete Backup\ (caller decides). Does NOT touch LocalAppData license. }
 var
   DataDir: String;
+  ResultCode: Integer;
 begin
   DataDir := AppDataDir;
 
-  DeleteFileIfExists(DataDir + '\ju_tan.db');
+  { WAL/SHM first, then main DB — reduces lock races on Windows. }
   DeleteFileIfExists(DataDir + '\ju_tan.db-wal');
   DeleteFileIfExists(DataDir + '\ju_tan.db-shm');
+  DeleteFileIfExists(DataDir + '\ju_tan.db');
+  { Force-delete any leftovers (including .jutan-delete renames). }
+  Exec('cmd.exe',
+    '/C del /F /Q "' + DataDir + '\ju_tan.db" "' + DataDir + '\ju_tan.db-wal" "' +
+    DataDir + '\ju_tan.db-shm" "' + DataDir + '\ju_tan.db.jutan-delete" "' +
+    DataDir + '\ju_tan.db-wal.jutan-delete" "' + DataDir + '\ju_tan.db-shm.jutan-delete"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
   DeleteFileIfExists(DataDir + '\settings.json');
   DeleteFileIfExists(DataDir + '\warehouse.json');
   DeleteFileIfExists(DataDir + '\audit.jsonl');
