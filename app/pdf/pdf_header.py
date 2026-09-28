@@ -88,7 +88,7 @@ def _contact_row(icon: Flowable, text: Paragraph, text_w: float) -> Table:
             [
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("ALIGN", (0, 0), (0, 0), "CENTER"),
-                ("ALIGN", (1, 0), (1, 0), "LEFT"),
+                ("ALIGN", (1, 0), (1, 0), "RIGHT"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
                 ("RIGHTPADDING", (0, 0), (0, 0), 3.2),
                 ("RIGHTPADDING", (1, 0), (1, 0), 0),
@@ -172,16 +172,16 @@ def build_header(company, options: dict):
         if bank:
             iban_line = f"{iban_line} ({bank})"
         trr_w = stringWidth(iban_line, regular, 10.0)
-    info_width = max(name_w, trr_w, 76 * mm) + 4
+    contact_text_w = max((stringWidth(text, regular, 10.0) for _, text, _ in contact_entries), default=0) + 4
+    info_width = max(name_w, trr_w, 13.5 + contact_text_w, 76 * mm) + 4
 
     # Right-pack each contact independently so every value shares the same
     # right edge while its icon remains directly beside the text.
     if contact_entries:
         for icon, text, para in contact_entries:
-            text_w = stringWidth(text, regular, 10.0) + 2
-            inner_w = 13.5 + text_w
+            inner_w = 13.5 + contact_text_w
             spacer_w = max(info_width - inner_w, 1)
-            row = _contact_row(icon, para, text_w)
+            row = _contact_row(icon, para, contact_text_w)
             wrap = Table([[Spacer(spacer_w, 1), row]], colWidths=[spacer_w, inner_w])
             wrap.setStyle(
                 TableStyle(
@@ -238,7 +238,7 @@ def build_header(company, options: dict):
         )
     )
 
-    separator = HeaderSeparator(CONTENT_WIDTH_MM, palette, accent_mm=34)
+    separator = HeaderSeparator(CONTENT_WIDTH_MM, palette, accent_mm=0)
     separator.hAlign = "LEFT"
     # MASTER separator ≈ 0.202 — keep logo/company block fixed; only air below body.
     return [

@@ -112,6 +112,7 @@ class OrderDialog(EnterpriseDialog):
             self.load_order()
         else:
             self.update_total()
+        self._sync_items_actions()
 
     def _apply_vat_ui(self):
         from app.utils.vat import ARTICLE_94_NOTICE, parse_vat_liable
@@ -135,8 +136,15 @@ class OrderDialog(EnterpriseDialog):
         self.doc_header.set_customer_name(name if customer_id is not None else None)
         if customer_id is None:
             self.customer_panel.set_customer_record(None)
+        else:
+            self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        self._sync_items_actions()
+
+    def _sync_items_actions(self) -> None:
+        if self.customer.currentData() is None:
+            self.items_panel.set_add_enabled(False, reason="Najprej izberite stranko.")
             return
-        self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        self.items_panel.set_add_enabled(True)
 
     def _on_more_action(self, action: str) -> None:
         if action == "refresh_totals":
@@ -167,6 +175,12 @@ class OrderDialog(EnterpriseDialog):
         self._on_customer_changed()
 
     def add_item(self):
+        if self.customer.currentData() is None:
+            from app.core.ui.notify import toast
+
+            toast(self, "Najprej izberite stranko.")
+            self._sync_items_actions()
+            return
         dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
         if dialog.exec():
             self.items_model.add_item(dialog.get_data())

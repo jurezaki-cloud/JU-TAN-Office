@@ -463,11 +463,17 @@ def bank_icon(palette: dict, size: float = 38) -> Drawing:
 def extract_signer_name(company_name: str) -> str:
     """Best-effort person name from 'JU-TAN studio, Tanja Hrup s.p.'."""
     raw = (company_name or "").strip()
+    if not raw:
+        return ""
     if "," in raw:
         tail = raw.split(",", 1)[1].strip()
         tail = re.sub(r"\s+s\.?\s*p\.?\s*$", "", tail, flags=re.IGNORECASE).strip()
         if tail:
             return tail
+    # Never print a brand/studio label as the director signature.
+    lowered = raw.casefold()
+    if "studio" in lowered or lowered in {"ju-tan", "ju tan", "jutan"}:
+        return ""
     return raw
 
 
@@ -713,14 +719,5 @@ class CustomerCard(Flowable):
         c.roundRect(0, 0, rail_w, self._height, self.radius, fill=1, stroke=0)
         c.rect(rail_w * 0.55, 0, rail_w * 0.55, self._height, fill=1, stroke=0)
 
-        # Small top-right accent completes the frame without boxing it in.
-        c.setStrokeColor(primary)
-        c.setLineWidth(1.8)
-        c.line(
-            self._width - 22 * mm,
-            self._height,
-            self._width - 5 * mm,
-            self._height,
-        )
         c.restoreState()
         self.content.drawOn(c, self._pad, self._pad)

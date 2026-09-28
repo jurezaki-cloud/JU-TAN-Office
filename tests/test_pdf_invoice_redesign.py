@@ -427,7 +427,8 @@ def test_inline_signature_helper_still_builds_for_other_docs(tmp_path, pdf_opts)
     assert block is not None
     labels = _labels(block)
     assert "Tanja Hrup" in labels
-    assert "Direktorica" in labels
+    assert "Direktor" in labels
+    assert "Direktorica" not in labels
 
 
 def test_signature_missing_does_not_crash(pdf_opts):

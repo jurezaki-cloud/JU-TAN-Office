@@ -74,8 +74,15 @@ def standard_icon(name: str, *, color: str | None = None) -> QIcon:
 
 
 def apply_button_icon(button: QPushButton, name: str) -> None:
-    on_primary = button.objectName() in {"PrimaryButton", "DangerButton", "SuccessButton"}
-    color = "#FFFFFF" if on_primary else semantic_color("TEXT", "#0F172A")
+    """Apply a brand icon whose color matches the button variant fill."""
+    object_name = button.objectName() or ""
+    if object_name in {"PrimaryButton", "SuccessButton"}:
+        color = "#FFFFFF"
+    elif object_name == "DangerButton":
+        # Danger is outline-by-default — use the danger stroke, not white-on-transparent.
+        color = semantic_color("DANGER", "#DC2626")
+    else:
+        color = semantic_color("TEXT", "#0F172A")
     icon = standard_icon(name, color=color)
     if not icon.isNull():
         button.setIcon(icon)

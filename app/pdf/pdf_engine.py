@@ -32,7 +32,6 @@ from app.pdf.pdf_branding import (
     RACUN_TOP_INSET_MM,
     RIGHT_MARGIN_MM,
     SIGNATURE_HEIGHT_MM,
-    SIGNATURE_ROLE_DEFAULT,
     SIGNATURE_WIDTH_MM,
     TAGLINE,
     TAGLINE_CHAR_SPACE,
@@ -190,7 +189,10 @@ class PdfEngine:
         # Keep payment+thanks together so the closing never orphans onto page 2.
         story.extend(closing)
 
-        lower = [Spacer(1, (TOTALS_TO_PAYMENT_GAP_MM - 6.5) * mm)]
+        # Pull payment ~four text lines closer to the totals bar while keeping
+        # a hard positive clearance so "Direktor" never paints into Za plačilo.
+        payment_gap_mm = max(2.0, TOTALS_TO_PAYMENT_GAP_MM - 14.5)
+        lower = [Spacer(1, payment_gap_mm * mm)]
         lower.extend(self._payment_block(document, company, options))
         if document.doc_type not in ("invoice", "offer"):
             lower.extend(self._signature_block(options))
@@ -564,27 +566,29 @@ class PdfEngine:
             widths.extend([rule_w, qr_w])
             if residual > 0.5 * mm:
                 if document.doc_type == "invoice":
-                    cells.append(
-                        self._invoice_signature_block(
-                            company,
-                            options,
-                            residual / mm,
-                        )
-                    )
+                    # Centre the director beneath the right-hand total bar.
+                    trailing_w = min(10 * mm, residual / 5)
+                    signature_w = residual - trailing_w
+                    cells.extend([
+                        self._invoice_signature_block(company, options, signature_w / mm),
+                        Spacer(trailing_w, 1),
+                    ])
+                    widths.extend([signature_w, trailing_w])
                 else:
                     cells.append(Spacer(residual, 1))
-                widths.append(residual)
+                    widths.append(residual)
 
         if qr is None and document.doc_type in ("invoice", "offer"):
+            gap_w = 33 * mm
             signature_w = 70 * mm
-            cells.append(self._invoice_signature_block(company, options, 70))
-            widths.append(signature_w)
+            cells.extend([Spacer(gap_w, 1), self._invoice_signature_block(company, options, 70)])
+            widths.extend([gap_w, signature_w])
 
         if len(cells) == 1:
             content = pay_col
         else:
             style_cmds = [
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                 ("TOPPADDING", (0, 0), (-1, -1), 0),
@@ -596,7 +600,7 @@ class PdfEngine:
             content.setStyle(TableStyle(style_cmds))
 
         # Keep the payment area clean and unobstructed.
-        return [Spacer(1, 1), content]
+        return [content]
 
     def _invoice_signature_block(
         self,
@@ -608,7 +612,7 @@ class PdfEngine:
         look = styles(options)
         palette = resolve_palette(options)
         signature_path = existing_path(options.get("signature_path", ""))
-        signer = extract_signer_name(company.name) or "Tanja Hrup"
+        signer = "Tanja Hrup"
 
         role = Paragraph("Direktor", look["caption"])
         if signature_path:
@@ -794,8 +798,9 @@ class PdfEngine:
         signer = ""
         if company is not None:
             signer = extract_signer_name(company.name or "")
-        name_para = Paragraph(signer or " ", look["sign_name"]) if signer else Paragraph(" ", look["caption"])
-        role_para = Paragraph(SIGNATURE_ROLE_DEFAULT if signer else "Podpis", look["sign_role"])
+        signer = signer or "Tanja Hrup"
+        name_para = Paragraph(f"<b>{signer}</b>", look["sign_name"])
+        role_para = Paragraph("Direktor", look["sign_role"])
 
         rows = [[graphic], [line], [Spacer(1, 1.5)], [name_para], [role_para]]
         block = Table(rows, colWidths=[(sig_w + 2) * mm])

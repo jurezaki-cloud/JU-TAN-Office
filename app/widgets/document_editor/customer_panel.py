@@ -140,7 +140,7 @@ class DocumentCustomerPanel(EnterpriseCard):
         """Populate hierarchy from customer_repository.get_by_id row."""
         if not row:
             self.lbl_company.setText("—")
-            self.lbl_contact.setText("Kontakt ni na voljo")
+            self.lbl_contact.setText("Izberite stranko za prikaz podatkov")
             self.tile_tax.set_value(None)
             self.tile_city.set_value(None)
             self.tile_email.set_value(None)
@@ -149,22 +149,36 @@ class DocumentCustomerPanel(EnterpriseCard):
 
         company = row[1] if len(row) > 1 else ""
         contact = row[2] if len(row) > 2 else ""
-        city_parts = []
-        if len(row) > 4 and row[4]:
-            city_parts.append(str(row[4]))
-        if len(row) > 5 and row[5]:
-            city_parts.append(str(row[5]))
+        address = row[3] if len(row) > 3 else ""
+        postal = row[4] if len(row) > 4 else ""
+        city = row[5] if len(row) > 5 else ""
         country = row[6] if len(row) > 6 else ""
         tax = row[7] if len(row) > 7 else ""
         email = row[8] if len(row) > 8 else ""
         phone = row[9] if len(row) > 9 else ""
 
         self.lbl_company.setText((company or "").strip() or "—")
+
+        details = []
         contact_line = (contact or "").strip()
-        if country:
-            contact_line = f"{contact_line} · {country}" if contact_line else str(country)
-        self.lbl_contact.setText(contact_line or "Kontakt ni na voljo")
+        if contact_line:
+            details.append(contact_line)
+        address_line = (address or "").strip()
+        if address_line:
+            details.append(address_line)
+        city_parts = []
+        if postal:
+            city_parts.append(str(postal).strip())
+        if city:
+            city_parts.append(str(city).strip())
+        city_line = " ".join(p for p in city_parts if p)
+        if city_line:
+            details.append(city_line)
+        if country and str(country).strip().casefold() not in {"slovenija", "slovenia", "si"}:
+            details.append(str(country).strip())
+
+        self.lbl_contact.setText(" · ".join(details) if details else "Kontaktni podatki niso vneseni")
         self.tile_tax.set_value(tax)
-        self.tile_city.set_value(" ".join(city_parts) if city_parts else None)
+        self.tile_city.set_value(city_line or None)
         self.tile_email.set_value(email)
         self.tile_phone.set_value(phone)

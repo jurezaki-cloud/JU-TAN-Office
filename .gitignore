@@ -32,6 +32,7 @@ Thumbs.db
 
 # Generated / local artifacts (never for release)
 reports/
+Temp/
 .audit-tmp/
 .rc-qa-tmp/
 tmp_ui2.xml

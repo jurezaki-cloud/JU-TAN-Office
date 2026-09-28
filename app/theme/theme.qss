@@ -189,22 +189,48 @@ QPushButton:focus {
     border-color: {{FOCUS}};
 }
 
-/* Pripravljene variante — aktivne šele z objectName; obstoječi gumbi ostanejo privzeti QPushButton. */
-QPushButton#PrimaryButton {
+/* Pripravljene variante — aktivne šele z objectName; obstoječi gumbi ostanejo privzeti QPushButton.
+   Document-editor selectors are explicit so splitter/page BACKGROUND rules cannot wash out CTAs. */
+QPushButton#PrimaryButton,
+#DocumentWorkspace QPushButton#PrimaryButton,
+#DocumentEditorSplitter QPushButton#PrimaryButton,
+#DocumentItemsPanel QPushButton#PrimaryButton {
     background: {{PRIMARY}};
+    background-color: {{PRIMARY}};
     color: {{ON_PRIMARY}};
     border: 1px solid {{PRIMARY}};
+    font-weight: 700;
 }
 
 QPushButton#PrimaryButton:hover,
-QPushButton#PrimaryButton:pressed {
+QPushButton#PrimaryButton:pressed,
+#DocumentWorkspace QPushButton#PrimaryButton:hover,
+#DocumentWorkspace QPushButton#PrimaryButton:pressed,
+#DocumentEditorSplitter QPushButton#PrimaryButton:hover,
+#DocumentEditorSplitter QPushButton#PrimaryButton:pressed,
+#DocumentItemsPanel QPushButton#PrimaryButton:hover,
+#DocumentItemsPanel QPushButton#PrimaryButton:pressed {
     background: {{PRIMARY_HOVER}};
+    background-color: {{PRIMARY_HOVER}};
     border-color: {{PRIMARY_HOVER}};
+    color: {{ON_PRIMARY}};
 }
 
-QPushButton#PrimaryButton:disabled {
-    background: {{BORDER}};
-    color: {{SECONDARY}};
+QPushButton#PrimaryButton:focus,
+#DocumentWorkspace QPushButton#PrimaryButton:focus,
+#DocumentEditorSplitter QPushButton#PrimaryButton:focus,
+#DocumentItemsPanel QPushButton#PrimaryButton:focus {
+    border-color: {{FOCUS}};
+    outline: none;
+}
+
+QPushButton#PrimaryButton:disabled,
+#DocumentWorkspace QPushButton#PrimaryButton:disabled,
+#DocumentEditorSplitter QPushButton#PrimaryButton:disabled,
+#DocumentItemsPanel QPushButton#PrimaryButton:disabled {
+    background: {{TABLE_HEADER}};
+    background-color: {{TABLE_HEADER}};
+    color: {{DISABLED}};
     border-color: {{BORDER}};
 }
 
@@ -217,6 +243,17 @@ QPushButton#SecondaryButton {
 QPushButton#SecondaryButton:hover,
 QPushButton#SecondaryButton:pressed {
     background: {{TABLE_HEADER}};
+    border-color: {{PRIMARY}};
+}
+
+QPushButton#SecondaryButton:focus {
+    border-color: {{FOCUS}};
+}
+
+QPushButton#SecondaryButton:disabled {
+    background: {{TABLE_HEADER}};
+    color: {{DISABLED}};
+    border-color: {{BORDER}};
 }
 
 QPushButton#GhostButton {
@@ -230,7 +267,7 @@ QPushButton#GhostButton:hover {
 }
 
 QPushButton#DangerButton {
-    background: transparent;
+    background: {{SURFACE}};
     color: {{DANGER}};
     border: 1px solid {{BORDER}};
 }
@@ -239,6 +276,16 @@ QPushButton#DangerButton:hover,
 QPushButton#DangerButton:pressed {
     background: {{DANGER}};
     color: {{ON_PRIMARY}};
+    border-color: {{DANGER}};
+}
+
+QPushButton#DangerButton:disabled {
+    background: {{TABLE_HEADER}};
+    color: {{DISABLED}};
+    border-color: {{BORDER}};
+}
+
+QPushButton#DangerButton:focus {
     border-color: {{DANGER}};
 }
 
@@ -411,7 +458,10 @@ QFrame#StatCard,
 QFrame#KpiCard,
 QFrame#DashboardCard,
 QFrame#DashboardWelcomeCard,
-QFrame#DocumentEditorCard {
+QFrame#DocumentEditorCard,
+QFrame#DocumentItemsPanel,
+QFrame#DocumentCustomerPanel,
+QFrame#DocumentTotalsPanel {
     background: {{SURFACE}};
     border: 1px solid {{BORDER}};
     border-radius: {{CARD_RADIUS}};
@@ -420,7 +470,10 @@ QFrame#DocumentEditorCard {
 QFrame#KpiCard:hover,
 QFrame#DashboardCard:hover,
 QFrame#DashboardWelcomeCard:hover,
-QFrame#DocumentEditorCard:hover {
+QFrame#DocumentEditorCard:hover,
+QFrame#DocumentItemsPanel:hover,
+QFrame#DocumentCustomerPanel:hover,
+QFrame#DocumentTotalsPanel:hover {
     /* Keep identical border width; only elevate fill to avoid layout flicker. */
     border-color: {{BORDER}};
     background: {{SURFACE_ELEVATED}};
@@ -615,9 +668,15 @@ QScrollArea > QWidget > QWidget {
     background: {{BACKGROUND}};
 }
 
-#DocumentEditorSplitter,
-#DocumentEditorSplitter QWidget {
+/* Only shell/handle transparency — never paint QPushButton (or other
+   interactive controls) transparent or Primary CTAs become white-on-ghost. */
+#DocumentEditorSplitter {
     background: transparent;
+}
+
+#DocumentEditorLeft,
+#DocumentEditorRight {
+    background: {{BACKGROUND}};
 }
 
 #DocumentEditorSplitter::handle {
@@ -928,6 +987,12 @@ NavigationButton:checked,
     border-left: 3px solid {{PRIMARY}};
     font-weight: 600;
     color: {{SIDEBAR_TEXT}};
+}
+
+NavigationButton:focus,
+#Sidebar NavigationButton:focus {
+    border-left: 3px solid {{SIDEBAR_ACTIVE_EDGE}};
+    background: {{SIDEBAR_HOVER}};
 }
 
 /* Collapsed: same left accent, no fill plate — icon-only selection
@@ -1750,9 +1815,18 @@ QTableView#DocumentItemsTable {
 }
 
 QTableView#DocumentItemsTable::item {
-    padding: 10px 12px;
+    padding: 8px 10px;
     border: none;
-    min-height: 28px;
+    min-height: 24px;
+}
+
+QTableView#DocumentItemsTable::item:hover {
+    background: {{HOVER}};
+}
+
+QTableView#DocumentItemsTable::item:selected {
+    background: {{SELECTED}};
+    color: {{TEXT}};
 }
 
 QTableView#DocumentItemsTable QHeaderView::section {
@@ -1764,6 +1838,40 @@ QTableView#DocumentItemsTable QHeaderView::section {
     padding: 10px 12px;
     border: none;
     border-bottom: 1px solid {{BORDER}};
+}
+
+QLabel#DocumentItemsHint {
+    font-size: 12px;
+    font-weight: 600;
+    color: {{WARNING}};
+    padding: 6px 10px;
+    border: 1px solid {{BORDER}};
+    border-left: 3px solid {{WARNING}};
+    border-radius: 8px;
+    background: {{TABLE_HEADER}};
+}
+
+QFrame#DocumentItemsEmpty {
+    background: {{SURFACE_ELEVATED}};
+    border: 1px dashed {{BORDER}};
+    border-radius: 10px;
+    min-height: 200px;
+}
+
+QLabel#DocumentItemsEmptyTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: {{TEXT}};
+}
+
+QLabel#DocumentItemsEmptySubtitle {
+    font-size: 12px;
+    color: {{TEXT_MUTED}};
+}
+
+QLabel#DocumentItemsEmptyIcon {
+    background: transparent;
+    min-height: 28px;
 }
 
 QTextEdit#DocumentNotes {
