@@ -36,6 +36,8 @@ PRESERVED_BRAND_NAMES = frozenset(
 )
 
 # Managed state files under DATA_DIR that Fresh may remove.
+# Offline legacy license.json under DATA_DIR is business/local metadata.
+# Online device activation lives in LocalAppData and is NEVER touched here.
 MANAGED_STATE_FILES = (
     "settings.json",
     "warehouse.json",
@@ -44,6 +46,8 @@ MANAGED_STATE_FILES = (
     "crash.flag",
     "app_version.txt",
     "last_vacuum.txt",
+    "license.json",
+    "ui_layout.json",
     ".machine_key",
 )
 

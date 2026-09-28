@@ -22,6 +22,7 @@ a = Analysis(
         (str(ROOT / "docs" / "RELEASE_NOTES.md"), "docs"),
         (str(ROOT / "docs" / "SECURITY.md"), "docs"),
         (str(ROOT / "docs" / "SIGNING.md"), "docs"),
+        (str(ROOT / "docs" / "DATA_LOCATIONS.md"), "docs"),
         (str(ROOT / "updates" / "latest.json"), "updates"),
     ],
     hiddenimports=[

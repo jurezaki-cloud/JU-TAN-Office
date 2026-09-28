@@ -44,7 +44,13 @@ Assert-True ($iss -match 'CloseApplications=yes') "installer.iss missing CloseAp
 Assert-True ($iss -match 'pre-upgrade\.db-wal') "installer.iss missing WAL pre-upgrade backup"
 Assert-True ($iss -match 'PRIVACY\.md') "installer.iss missing PRIVACY.md"
 Assert-True ($iss -match 'SECURITY\.md') "installer.iss missing SECURITY.md"
+Assert-True ($iss -match 'DATA_LOCATIONS\.md') "installer.iss missing DATA_LOCATIONS.md"
+Assert-True ($iss -match 'Nova čista namestitev') "installer.iss missing fresh-install option"
+Assert-True ($iss -match 'Popolnoma odstrani') "installer.iss missing complete uninstall option"
+Assert-True ($iss -match 'WipeBusinessDataKeepBackups') "installer.iss missing safe wipe helper"
+Assert-True ($iss -match 'license_preserved') "installer.iss must document license preservation"
 Assert-True ($iss -match 'updates\\latest\.json' -or $iss -match 'updates/latest\.json') "installer.iss must pack updates/latest.json"
+Assert-True (Test-Path "docs/DATA_LOCATIONS.md") "Missing docs/DATA_LOCATIONS.md"
 
 # --- Signing readiness
 Assert-True (Test-Path "scripts/AuthenticodeSigning.ps1") "Missing AuthenticodeSigning.ps1"

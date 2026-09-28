@@ -145,6 +145,8 @@ class Database:
         INSERT OR IGNORE INTO company(id)
         VALUES (1)
         """)
+        # Singleton scaffold only (blank name). Not demo/business data.
+        # First-run wizard collects the real company profile.
 
         # =====================================================
         # CUSTOMERS

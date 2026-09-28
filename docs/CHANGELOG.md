@@ -5,6 +5,7 @@
 - Dokumentni urejevalnik: vidni primarni gumb »Dodaj postavko«, prazen stan postavk, usklajene kartice in tipografija.
 - PDF: poravnane ikone kontakta, odstranjeni odvečni zeleni poudarki pri stranki, podpis »Tanja Hrup«, premaknjen blok Podatki za plačilo.
 - Temni način in hierarhija gumbov (Primary / Secondary / Danger) utrjena za urednike dokumentov.
+- Namestitev / odstranitev: nadgradnja ohrani podatke; izrecna čista namestitev; standardna vs. popolna odstranitev z varnostnimi kopijami in ohranitvijo aktivacije naprave (`docs/DATA_LOCATIONS.md`).
 
 ## 1.0.2 GOLD — 2026-09-28
 

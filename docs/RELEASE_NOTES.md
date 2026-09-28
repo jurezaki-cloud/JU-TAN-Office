@@ -7,6 +7,9 @@ Datum: 2026-09-28
 - Dokumentni urejevalnik: primarni gumb »Dodaj postavko« je spet jasno viden; prazen stan postavk in usklajene kartice.
 - PDF računov/ponudb: poravnane ikone kontakta, odstranjena kratka zelena ločilna črta in odvečni poudarek pri stranki, podpis »Tanja Hrup« / Direktor, premaknjen blok Podatki za plačilo.
 - Temni način in hierarhija gumbov utrjena v urednikih dokumentov.
+- Namestitev: obstoječi podatki → izbira med ohranitvijo in čisto namestitvijo (z varnostno kopijo).
+- Odstranitev: »Odstrani program« ohrani podatke; »Popolna odstranitev« zahteva potrditev; varnostne kopije le po izrecni izbiri.
+- Aktivacija naprave v LocalAppData se ohrani (brez novega sedeža ob ponovni namestitvi). Glej `docs/DATA_LOCATIONS.md`.
 
 ## Popravek 1.0.2
 
@@ -47,4 +50,12 @@ Windows 10/11 x64. SQLite vgrajen. Ni .NET / SQL Server.
 
 ## Odstranitev
 
-Program se odstrani; baza, backupi in dokumenti ostanejo v ProgramData.
+Ob odstranitvi izberete:
+
+1. **Odstrani program** — program in bližnjice; poslovni podatki v `%ProgramData%\JU-TAN Office` ostanejo za morebitno ponovno namestitev.
+2. **Popolnoma odstrani JU-TAN Office in vse podatke** — po močni potrditvi zbriše lokalne poslovne podatke. Lokalne varnostne kopije se brišejo le, če to izrecno potrdite.
+
+Aktivacija naprave v `%LocalAppData%\JU-TAN\Office` se ohrani (da ponovna namestitev ne porabi novega sedeža).
+
+Podrobnosti: `docs/DATA_LOCATIONS.md`.
+
