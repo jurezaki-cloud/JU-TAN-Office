@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 GOLD — 2026-09-28
+
+- Ponudbe uporabljajo blok s podpisom direktorja, enako kot računi.
+- Podpis direktorja ostane na računu tudi, kadar podatki za UPN QR niso veljavni.
+- UPN QR na računih ostaja vezan na veljavne plačilne podatke; sliko lastnoročnega podpisa je treba nastaviti posebej.
+
 ## 1.0.1 GOLD — 2026-09-28
 
 - Popravljen uvoz pogleda Stranke pri prvem odpiranju modula v nameščeni aplikaciji.

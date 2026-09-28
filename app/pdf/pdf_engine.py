@@ -192,7 +192,7 @@ class PdfEngine:
 
         lower = [Spacer(1, (TOTALS_TO_PAYMENT_GAP_MM - 6.5) * mm)]
         lower.extend(self._payment_block(document, company, options))
-        if document.doc_type != "invoice":
+        if document.doc_type not in ("invoice", "offer"):
             lower.extend(self._signature_block(options))
         # The closing thanks/brand rail is anchored to the footer on the
         # final page so it cannot drift with invoice row count.
@@ -574,6 +574,11 @@ class PdfEngine:
                 else:
                     cells.append(Spacer(residual, 1))
                 widths.append(residual)
+
+        if qr is None and document.doc_type in ("invoice", "offer"):
+            signature_w = 70 * mm
+            cells.append(self._invoice_signature_block(company, options, 70))
+            widths.append(signature_w)
 
         if len(cells) == 1:
             content = pay_col

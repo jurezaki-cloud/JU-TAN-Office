@@ -1,6 +1,11 @@
-# Release Notes — JU-TAN Office Enterprise 1.0.1 GOLD
+# Release Notes — JU-TAN Office Enterprise 1.0.2 GOLD
 
 Datum: 2026-09-28
+
+## Popravek 1.0.2
+
+- Računi in ponudbe prikazujejo blok direktorjevega podpisa. Na računu ostane tudi, če UPN QR zaradi nepopolnih plačilnih podatkov ni mogoč.
+- Veljavni računi še vedno vsebujejo UPN QR; slika lastnoročnega podpisa se doda v Nastavitve → PDF, če je na voljo.
 
 ## Popravek 1.0.1
 

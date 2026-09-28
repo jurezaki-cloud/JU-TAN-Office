@@ -452,6 +452,32 @@ def test_thanks_uses_approved_subtitle(pdf_opts):
     assert THANKS_SUBTITLE in text
 
 
+def test_invoice_without_qr_still_has_director_signature(tmp_path, pdf_opts, monkeypatch):
+    import fitz
+    import sys
+
+    engine_mod = sys.modules["app.pdf.pdf_engine"]
+    company = CompanyProfile(name="JU-TAN studio, Tanja Hrup s.p.", iban="")
+    monkeypatch.setattr(engine_mod, "load_company", lambda: company)
+    path = pdf_engine.render(_sample_invoice(), tmp_path / "without_qr.pdf")
+    text = fitz.open(str(path))[0].get_text()
+    assert "Direktor" in text
+    assert "Tanja Hrup" in text
+    assert "Plačilo z UPN QR" not in text
+
+
+def test_offer_uses_director_signature(tmp_path, pdf_opts):
+    import fitz
+
+    offer = _sample_invoice(doc_type="offer", number="PON-0001")
+    path = pdf_engine.render(offer, tmp_path / "offer.pdf")
+    text = fitz.open(str(path))[0].get_text()
+    assert "PONUDBA" in text
+    assert "Direktor" in text
+    assert "Tanja Hrup" in text
+    assert "Plačilo z UPN QR" not in text
+
+
 def test_offer_document_identity_preserved(pdf_opts):
     offer = _sample_invoice(doc_type="offer", number="PON-0001")
     text = _labels(pdf_engine._title_block(offer, pdf_opts))
