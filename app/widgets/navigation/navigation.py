@@ -21,6 +21,7 @@ PAGE_INDEX = {
     "reports": 15,
     "automation": 16,
     "travel_orders": 17,
+    "proformas": 18,
 }
 
 # Grouped navigation in business-workflow order (not stack-creation order).
@@ -36,6 +37,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, int]]]] = [
         [
             ("Računi", 1),
             ("Ponudbe", 3),
+            ("Predračuni", 18),
             ("Naročila", 9),
             ("Stranke", 2),
         ],

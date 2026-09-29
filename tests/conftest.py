@@ -10,6 +10,8 @@ os.environ["JU_TAN_REPORT_DIR"] = str(_ROOT / "reports")
 os.environ["JU_TAN_BACKUP_DIR"] = str(_ROOT / "backups")
 os.environ["JU_TAN_LOG_DIR"] = str(_ROOT / "logs")
 os.environ["JU_TAN_DATABASE"] = str(_ROOT / "data" / "test.db")
+# License activation state lives under LOCALAPPDATA: never read or rewrite the real one.
+os.environ["LOCALAPPDATA"] = str(_ROOT / "localappdata")
 # Default to Qt's headless backend locally, but respect an explicit backend
 # supplied by CI (Xvfb uses xcb). Overwriting xcb here caused QApplication
 # to abort on Linux before GUI tests could start.
@@ -38,3 +40,19 @@ def qt_app():
 
     app = QApplication.instance() or QApplication([])
     yield app
+    _dispose_top_level_widgets(app)
+
+
+def _dispose_top_level_widgets(app) -> None:
+    """Delete leftover windows while Qt and their Python slots are still alive.
+
+    Parentless dialogs left for the cyclic GC get destroyed mid-collection at
+    session end, which crashes the interpreter on Windows (0xC0000409/0xC0000374).
+    """
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    for widget in app.topLevelWidgets():
+        widget.close()
+        widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()

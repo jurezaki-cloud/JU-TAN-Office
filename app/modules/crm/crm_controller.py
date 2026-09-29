@@ -37,6 +37,9 @@ class CrmController:
     def set_stage(self, deal_id: int, stage: str) -> None:
         self.service.set_stage(deal_id, stage)
 
+    def update_deal(self, deal_id: int, data: dict) -> None:
+        self.repository.update_deal(deal_id, **data)
+
     def salespeople(self) -> list[str]:
         owner = self.service.default_owner()
         people = list(self.repository.salespeople())

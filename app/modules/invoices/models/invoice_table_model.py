@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSize
 
 from app.widgets.invoices.status_badge import invoice_badge
+from app.core.date_format import format_date
 
 
 class InvoiceTableModel(QAbstractTableModel):
@@ -46,6 +47,9 @@ class InvoiceTableModel(QAbstractTableModel):
         value = row[index.column()]
 
         if role == Qt.DisplayRole:
+
+            if index.column() == 2:
+                return format_date(value, fallback="")
 
             if index.column() == 4:
                 try:

@@ -23,4 +23,4 @@ class EnterpriseCard(QFrame):
         self.body = QVBoxLayout(self)
         self.body.setContentsMargins(20, 20, 20, 20)
         self.body.setSpacing(12)
-
+

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from app.core.constants import BACKUP_DIR, DATABASE_PATH
@@ -78,56 +78,60 @@ class SettingsHealthCard(QWidget):
         self.kpi_backup = KpiCard("Varnostne kopije", "—", "Mapa Backup")
         self.kpi_session = KpiCard("Seja", "—", "Uporabnik")
 
-        self._tiles.addWidget(self.kpi_license, 0, 0)
-        self._tiles.addWidget(self.kpi_database, 0, 1)
-        self._tiles.addWidget(self.kpi_backup, 0, 2)
-        self._tiles.addWidget(self.kpi_session, 0, 3)
-        for col in range(4):
-            self._tiles.setColumnStretch(col, 1)
+        self._cards = (self.kpi_license, self.kpi_database, self.kpi_backup, self.kpi_session)
+        self._columns = 0
+        self._available: int | None = None
+        self._refit_pending = False
+        self._apply_columns(4)
         root.addWidget(tiles)
 
-        self._breakpoint = None
+    def fit_columns(self, available: int) -> None:
+        """Lay the tiles out in as many columns (4, 2 or 1) as *available* pixels allow.
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._layout_tiles(self.width())
-
-    def _layout_tiles(self, width: int) -> None:
-        mode = "wide" if width >= 900 else ("medium" if width >= 560 else "narrow")
-        if mode == self._breakpoint:
-            return
-        self._breakpoint = mode
-
-        while self._tiles.count():
-            item = self._tiles.takeAt(0)
-            if item.widget():
-                item.widget().setParent(self._tiles.parentWidget())
-
-        cards = (
-            self.kpi_license,
-            self.kpi_database,
-            self.kpi_backup,
-            self.kpi_session,
-        )
-        if mode == "wide":
-            for col, card in enumerate(cards):
-                self._tiles.addWidget(card, 0, col)
-                self._tiles.setColumnStretch(col, 1)
-        elif mode == "medium":
-            self._tiles.addWidget(self.kpi_license, 0, 0)
-            self._tiles.addWidget(self.kpi_database, 0, 1)
-            self._tiles.addWidget(self.kpi_backup, 1, 0)
-            self._tiles.addWidget(self.kpi_session, 1, 1)
-            self._tiles.setColumnStretch(0, 1)
-            self._tiles.setColumnStretch(1, 1)
-            self._tiles.setColumnStretch(2, 0)
-            self._tiles.setColumnStretch(3, 0)
+        The owner passes the width it can offer (the Settings viewport). Deciding from
+        this card's own width locks the widest layout in place: inside a scroll area the
+        tiles' minimum widths keep the card, and the whole canvas, wider than the view.
+        """
+        self._available = max(0, int(available))
+        widths = [card.minimumSizeHint().width() for card in self._cards]
+        spacing = self._tiles.horizontalSpacing()
+        if sum(widths) + 3 * spacing <= self._available:
+            columns = 4
+        elif max(widths[0], widths[2]) + max(widths[1], widths[3]) + spacing <= self._available:
+            columns = 2
         else:
-            for row, card in enumerate(cards):
-                self._tiles.addWidget(card, row, 0)
-            self._tiles.setColumnStretch(0, 1)
-            for col in range(1, 4):
-                self._tiles.setColumnStretch(col, 0)
+            columns = 1
+        self._apply_columns(columns)
+
+    def _apply_columns(self, columns: int) -> None:
+        if columns == self._columns:
+            return
+        self._columns = columns
+        for card in self._cards:
+            self._tiles.removeWidget(card)
+        for index, card in enumerate(self._cards):
+            self._tiles.addWidget(card, index // columns, index % columns)
+        for col in range(4):
+            self._tiles.setColumnStretch(col, 1 if col < columns else 0)
+        self.updateGeometry()
+
+    def _schedule_refit(self) -> None:
+        # Tile texts and fonts change the minimum widths; re-fit once they settled.
+        if self._available is None or self._refit_pending:
+            return
+        self._refit_pending = True
+
+        def refit() -> None:
+            self._refit_pending = False
+            if self._available is not None:
+                self.fit_columns(self._available)
+
+        QTimer.singleShot(0, self, refit)
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.FontChange, QEvent.StyleChange):
+            self._schedule_refit()
 
     def refresh(self, *, about: dict | None = None, appearance: dict | None = None) -> None:
         about = about or {}
@@ -201,3 +205,7 @@ class SettingsHealthCard(QWidget):
             style.unpolish(self.lbl_summary)
             style.polish(self.lbl_summary)
         self.lbl_summary.update()
+        # New texts change the tiles' minimum widths at once. Re-fit synchronously so the
+        # page height is final when refresh() returns (section jumps are computed from it).
+        if self._available is not None:
+            self.fit_columns(self._available)

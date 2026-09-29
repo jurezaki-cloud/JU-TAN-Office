@@ -48,7 +48,8 @@ def recover_after_crash() -> bool:
         if not verify_backup(backup):
             continue
         logger.warning("Rollback baze iz %s", backup)
-        db.dispose()
+        from app.core.db_lifecycle import shutdown_database
+        shutdown_database(database=db)
         dest = sqlite3.connect(DATABASE_PATH)
         src = sqlite3.connect(backup)
         try:

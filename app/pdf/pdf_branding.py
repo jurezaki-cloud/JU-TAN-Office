@@ -64,8 +64,9 @@ TOTAL_BAR_HEIGHT_MM = 12.5
 # UPN QR: version 15 is 77 modules + mandatory 4-module quiet zone on each side.
 # ZBS module size is 0.42333 mm, so the complete symbol is about 35.98 mm.
 QR_SIDE_MM = 85 * 0.42333
-PAYMENT_COL_WIDTH_MM = 84.0
 BANK_ICON_MM = 14.5
+# Payment details + QR sit left of the totals column, separated by this gutter.
+PAYMENT_TO_TOTALS_GUTTER_MM = 4.0
 
 WATERMARK_WIDTH_MM = 120.0
 WATERMARK_HEIGHT_MM = 55.0
@@ -76,8 +77,10 @@ THANKS_RESERVE_MM = 20.0
 RACUN_TOP_INSET_MM = 2.8
 # Keep table top near MASTER after taller customer card.
 IDENTITY_TO_TABLE_MM = 0.8
-# Shrink when upper content grows so UPN/payment Y stays frozen (~0.70).
-TOTALS_TO_PAYMENT_GAP_MM = 10.5
+# Documents without a payment block: gap between totals and signature/notes.
+TOTALS_TO_CLOSING_MM = 2.0
+# Gap between the 'Za plačilo' bar (or Art. 94 notice) and the director signature.
+TOTALS_TO_SIGNATURE_MM = 4.0
 THANKS_BEFORE_MM = 1.2
 
 SIGNATURE_WIDTH_MM = 50.0
@@ -460,21 +463,34 @@ def bank_icon(palette: dict, size: float = 38) -> Drawing:
     return d
 
 
+_SOLE_TRADER_SUFFIX = re.compile(r"\s+s\.?\s*p\.?\s*$", re.IGNORECASE)
+_LEGAL_ENTITY_SUFFIX = re.compile(
+    r"\b(?:d\.?\s*o\.?\s*o|d\.?\s*d|k\.?\s*d\.?\s*d|k\.?\s*d|d\.?\s*n\.?\s*o)\.?\s*$",
+    re.IGNORECASE,
+)
+
+
 def extract_signer_name(company_name: str) -> str:
     """Best-effort person name from 'JU-TAN studio, Tanja Hrup s.p.'."""
     raw = (company_name or "").strip()
     if not raw:
         return ""
     if "," in raw:
-        tail = raw.split(",", 1)[1].strip()
-        tail = re.sub(r"\s+s\.?\s*p\.?\s*$", "", tail, flags=re.IGNORECASE).strip()
-        if tail:
+        tail = _SOLE_TRADER_SUFFIX.sub("", raw.split(",", 1)[1]).strip()
+        if tail and not _LEGAL_ENTITY_SUFFIX.search(tail):
             return tail
-    # Never print a brand/studio label as the director signature.
+    # Never print a brand/studio label or a company as the director signature.
     lowered = raw.casefold()
     if "studio" in lowered or lowered in {"ju-tan", "ju tan", "jutan"}:
         return ""
-    return raw
+    if _LEGAL_ENTITY_SUFFIX.search(raw):
+        return ""
+    return _SOLE_TRADER_SUFFIX.sub("", raw).strip()
+
+
+def resolve_signer_name(company_name: str, configured: str = "") -> str:
+    """The configured signer wins; otherwise a person derived from the company name."""
+    return str(configured or "").strip() or extract_signer_name(company_name)
 
 
 # ---------------------------------------------------------------------------
@@ -482,7 +498,7 @@ def extract_signer_name(company_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 class HeaderSeparator(Flowable):
-    """Thin grey rule with a short green accent on the left."""
+    """Thin grey rule, optionally with a short green accent on the left."""
 
     def __init__(self, width_mm: float, palette: dict, accent_mm: float = 22):
         super().__init__()
@@ -497,10 +513,12 @@ class HeaderSeparator(Flowable):
 
     def draw(self):
         y = self.height / 2
-        accent_w = self.accent_mm * mm
-        self.canv.setStrokeColor(self.palette["primary"])
-        self.canv.setLineWidth(1.45)
-        self.canv.line(0, y, accent_w, y)
+        accent_w = max(0.0, self.accent_mm * mm)
+        # A zero-length stroke still lands in the PDF, and some renderers paint it as a dot.
+        if accent_w > 0:
+            self.canv.setStrokeColor(self.palette["primary"])
+            self.canv.setLineWidth(1.45)
+            self.canv.line(0, y, accent_w, y)
         self.canv.setStrokeColor(self.palette["light_border"])
         self.canv.setLineWidth(0.60)
         self.canv.line(accent_w, y, self.width, y)

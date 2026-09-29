@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QInputDialog,
     QSplitter,
     QStackedWidget,
     QVBoxLayout,
@@ -9,7 +10,11 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.invoice_repository import invoice_repository
+from app.database.customer_repository import customer_repository
+from app.pdf.pdf_export import pdf_export
+from app.widgets.mail_center_dialog import MailCenterDialog
 from app.database.payment_repository import payment_repository
+from app.database.reminder_repository import reminder_repository
 from app.modules.invoices.invoice_dialog import InvoiceDialog
 from app.modules.payments.models.payment_table_model import PaymentTableModel
 from app.modules.payments.payment_details import PaymentDetails
@@ -22,6 +27,7 @@ from app.widgets.payments.payment_actions import PaymentActions
 from app.widgets.payments.payment_table import PaymentTable
 from app.widgets.payments.search_field import PaymentSearch
 from app.widgets.payments.status_bar import PaymentStatusBar
+from app.services.print_center import print_center
 
 
 class PaymentPage(QWidget):
@@ -72,6 +78,9 @@ class PaymentPage(QWidget):
         layout.addWidget(toolbar)
 
         self.table = PaymentTable()
+        # Below the KPI row a short window (150 % at the default size) leaves the splitter about
+        # 220 px: keep the header and three 44 px rows, and scroll the rest inside the card.
+        self.table.setMinimumHeight(176)
         self.model = PaymentTableModel()
         self.table.setModel(self.model)
         self.table.setItemDelegateForColumn(5, StatusBadgeDelegate(self.table))
@@ -107,6 +116,8 @@ class PaymentPage(QWidget):
         self.btn_unpaid.clicked.connect(self.mark_unpaid)
         self.btn_invoice.clicked.connect(self.open_invoice)
         self.btn_refresh.clicked.connect(self.refresh)
+        self.actions.print_clicked.connect(self.print_payments)
+        self.actions.reminder_clicked.connect(self.send_reminder)
         self.search.textChanged.connect(self.search_changed)
         self.actions.filter_changed.connect(self._apply_view)
         self.table.clicked.connect(self.show_details)
@@ -158,6 +169,64 @@ class PaymentPage(QWidget):
         self.refresh()
         self._reload_details(invoice_id)
 
+    def send_reminder(self):
+        invoice_id = self.selected_invoice()
+        if invoice_id is None:
+            QMessageBox.information(self, "Payment Center", "Najprej izberi račun.")
+            return
+        invoice = invoice_repository.get_by_id(invoice_id)
+        if invoice is None:
+            QMessageBox.warning(self, "Payment Center", "Račun ne obstaja.")
+            return
+        badge = invoice_badge(invoice[5], invoice[4])
+        if badge == "Plačano":
+            QMessageBox.information(self, "Payment Center", "Račun je že plačan.")
+            return
+        if badge == "Stornirano":
+            QMessageBox.information(self, "Payment Center", "Za storniran račun opomina ni mogoče poslati.")
+            return
+        customer = customer_repository.get_by_id(invoice[2]) if invoice[2] else None
+        recipient = str(customer[8] or "") if customer else ""
+        number = str(invoice[1] or "")
+        suggested = reminder_repository.suggested_level(invoice_id, invoice[4])
+        labels = ["1. opomin", "2. opomin", "3. opomin"]
+        allowed_labels = [labels[suggested - 1]]
+        selected, ok = QInputDialog.getItem(
+            self, "Payment Center", "Stopnja opomina", allowed_labels, 0, False
+        )
+        if not ok:
+            return
+        level = labels.index(selected) + 1
+        remaining = payment_repository.remaining(invoice_id, invoice[9] or 0)
+        if remaining <= 0:
+            QMessageBox.information(self, "Payment Center", "Račun nima odprtega zneska za opomin.")
+            return
+        try:
+            path = pdf_export.export_invoice(invoice_id)
+            subject = f"{level}. opomin za plačilo — račun {number}"
+            urgency = {
+                1: "Prosimo, da odprti znesek poravnate v najkrajšem možnem času.",
+                2: "Račun kljub prvemu opominu ostaja odprt. Prosimo za čimprejšnje plačilo.",
+                3: "Gre za tretji opomin. Prosimo za takojšnjo ureditev odprte obveznosti.",
+            }[level]
+            body = (
+                f"Spoštovani,\n\nobveščamo vas, da račun {number} še ni v celoti poravnan. "
+                f"Odprti znesek znaša {self._money(remaining)}.\n\n{urgency}\n\n"
+                f"Če ste račun medtem že poravnali, prosimo prezrite to sporočilo.\n\n"
+                f"Lep pozdrav,\nJU-TAN Studio"
+            )
+            dialog = MailCenterDialog(
+                self, recipient=recipient, subject=subject, body=body, attachment=path
+            )
+            if dialog.exec():
+                reminder_repository.add(
+                    invoice_id, level, dialog.to.text().strip(),
+                    dialog.subject.text().strip(), remaining
+                )
+                self._reload_details(invoice_id)
+        except Exception as exc:
+            QMessageBox.warning(self, "Payment Center", str(exc))
+
     def open_invoice(self):
         from app.core.ui_freeze_diag import span as _diag_span
 
@@ -181,13 +250,18 @@ class PaymentPage(QWidget):
         return self.model.invoice_id(indexes[0].row())
 
     def show_details(self, index):
-        self.details.load_row(self.model.rows[index.row()])
+        row = self.model.rows[index.row()]
+        self.details.load_row(row)
+        self.details.set_reminder_summary(reminder_repository.summary(row[0]))
+        self.details.set_reminder_history(reminder_repository.list_for_invoice(row[0]))
         self._update_status()
 
     def _reload_details(self, invoice_id):
         for row in self.model.rows:
             if row[0] == invoice_id:
                 self.details.load_row(row)
+                self.details.set_reminder_summary(reminder_repository.summary(invoice_id))
+                self.details.set_reminder_history(reminder_repository.list_for_invoice(invoice_id))
                 return
         self.details.clear()
 
@@ -232,6 +306,21 @@ class PaymentPage(QWidget):
             self.model.refresh(rows)
             self._sync_empty_state(self.search.text().strip(), selected)
             self._update_status()
+
+    def print_payments(self):
+        rows = [
+            (row[1], row[2], row[3], row[4], row[5], row[6])
+            for row in self.model.rows
+        ]
+        html = print_center.table_html(
+            "Plačila / terjatve",
+            ["Račun", "Stranka", "Datum", "Rok", "Znesek", "Status"],
+            rows,
+        )
+        try:
+            print_center.print_html(self, html, "Plačila / terjatve")
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
 
     def _update_kpis(self, invoices):
         received = 0.0

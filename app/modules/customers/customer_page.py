@@ -18,6 +18,7 @@ from app.widgets.customers.customer_table import CustomerTable
 from app.widgets.customers.search_field import CustomerSearch
 from app.widgets.customers.status_bar import CustomerStatusBar
 from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
+from app.services.print_center import print_center
 
 
 class CustomerPage(QWidget):
@@ -96,6 +97,7 @@ class CustomerPage(QWidget):
         self.actions.delete_clicked.connect(self.delete_selected_customer)
         self.actions.refresh_clicked.connect(self.refresh)
         self.actions.excel_clicked.connect(lambda: run_excel_export(self, "customers"))
+        self.actions.print_clicked.connect(self.print_customers)
         self.actions.import_clicked.connect(
             lambda: run_excel_import(self, "customers", self.refresh)
         )
@@ -276,6 +278,21 @@ class CustomerPage(QWidget):
             self.details.clear()
             self.refresh()
             toast(self, "Stranka izbrisana")
+
+    def print_customers(self):
+        rows = [
+            (row[1], row[2], row[5], row[4], row[3])
+            for row in self.model.customers
+        ]
+        html = print_center.table_html(
+            "Stranke",
+            ["Podjetje", "Kontakt", "Kraj", "E-pošta", "Telefon"],
+            rows,
+        )
+        try:
+            print_center.print_html(self, html, "Stranke")
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
 
     def _sync_empty_state(self):
         if self.model.rowCount() == 0:

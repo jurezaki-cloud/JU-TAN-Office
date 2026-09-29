@@ -93,9 +93,11 @@ class InvoiceDialog(EnterpriseDialog):
             self.lbl_number = self.doc_header.lbl_number
             self.customer = self.customer_panel.customer
             self.issue_date = QDateEdit()
+            self.issue_date.setDisplayFormat("dd-MM-yyyy")
             self.issue_date.setCalendarPopup(True)
             self.issue_date.setDate(QDate.currentDate())
             self.due_date = QDateEdit()
+            self.due_date.setDisplayFormat("dd-MM-yyyy")
             self.due_date.setCalendarPopup(True)
             self.due_date.setDate(QDate.currentDate().addDays(30))
             self.notes = QTextEdit()
@@ -105,7 +107,9 @@ class InvoiceDialog(EnterpriseDialog):
             self.notes.setObjectName("DocumentNotes")
 
             grid = FormGrid()
-            grid.add("Datum izdaje", self.issue_date, "Rok plačila", self.due_date)
+            # Keep document metadata narrow enough for 150 % Windows scaling.
+            grid.add_full("Datum izdaje", self.issue_date)
+            grid.add_full("Rok plačila", self.due_date)
             meta_wrap = QWidget()
             meta_wrap.setLayout(grid.layout)
             self.customer_panel.meta_layout.addWidget(meta_wrap)
@@ -114,7 +118,6 @@ class InvoiceDialog(EnterpriseDialog):
             self.items_model = InvoiceItemsModel()
             self.items_table = self.items_panel.items_table
             self.items_table.setModel(self.items_model)
-            self.bind_table(self.items_table)
             self.btn_add_item = self.items_panel.btn_add_item
             self.btn_remove_item = self.items_panel.btn_remove_item
 
@@ -478,6 +481,7 @@ class InvoiceDialog(EnterpriseDialog):
             elapsed_ms = (time.perf_counter() - t0) * 1000
             from app.core.logger import logger
             logger.info("invoice.save id=%s elapsed_ms=%.1f", invoice_id, elapsed_ms)
+            self.invoice_id = invoice_id
             self.accept()
         except Exception as exc:
             from app.core.errors import handle_error

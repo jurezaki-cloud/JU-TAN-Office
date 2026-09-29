@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.ui.layouts import detach_widgets
 from app.theme.tokens import SPACE_3, SPACE_4
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
@@ -208,10 +209,7 @@ class Dashboard(QWidget):
         self._breakpoint = mode
         self._canvas.setUpdatesEnabled(False)
         try:
-            while self._grid.count():
-                item = self._grid.takeAt(0)
-                if item.widget():
-                    item.widget().setParent(self._canvas)
+            detach_widgets(self._grid)
 
             kpis = (
                 self._kpi_revenue,

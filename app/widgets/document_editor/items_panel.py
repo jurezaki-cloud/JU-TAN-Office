@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from app.core.ui.icons import apply_button_icon
 from app.core.ui.brand_icons import brand_icon
+from app.core.ui.sizes import keep_table_expanding
 from app.theme.colors import semantic_color
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.invoices.invoice_table import InvoiceTable
@@ -86,6 +87,11 @@ class DocumentItemsPanel(EnterpriseCard):
         self.items_table.setObjectName("DocumentItemsTable")
         self.items_table.setMinimumHeight(220)
         self.items_table.verticalHeader().setDefaultSectionSize(44)
+        keep_table_expanding(self.items_table)
+        # Reserve the table's width while the empty state is the visible page.
+        policy = self.items_table.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.items_table.setSizePolicy(policy)
         wrap_layout.addWidget(self.items_table)
         self.content_stack.addWidget(table_wrap)
 

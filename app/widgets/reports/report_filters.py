@@ -16,13 +16,15 @@ class ReportFiltersBar(QWidget):
         layout.setSpacing(8)
 
         self.date_from = QDateEdit()
+        self.date_from.setDisplayFormat("dd-MM-yyyy")
         self.date_to = QDateEdit()
+        self.date_to.setDisplayFormat("dd-MM-yyyy")
         today = QDate.currentDate()
         self.date_from.setDate(today.addMonths(-12))
         self.date_to.setDate(today)
         for widget in (self.date_from, self.date_to):
             widget.setCalendarPopup(True)
-            widget.setDisplayFormat("dd. MM. yyyy")
+            widget.setDisplayFormat("dd-MM-yyyy")
             compact_filter(widget)
 
         self.customer = QComboBox()

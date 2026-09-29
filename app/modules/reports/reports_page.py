@@ -3,8 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QTextDocument
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from app.services.print_center import print_center
 from PySide6.QtWidgets import (
     QFileDialog,
     QGridLayout,
@@ -250,10 +249,4 @@ class ReportsPage(QWidget):
         result = self.controller.result
         if result is None:
             return
-        printer = QPrinter(QPrinter.HighResolution)
-        dialog = QPrintDialog(printer, self)
-        if dialog.exec() != QPrintDialog.Accepted:
-            return
-        document = QTextDocument()
-        document.setHtml(self.controller.service.print_html(result))
-        document.print_(printer)
+        print_center.print_html(self, self.controller.service.print_html(result), result.title)

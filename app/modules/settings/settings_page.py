@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QUrl, Signal
+from PySide6.QtCore import QEasingCurve, QEvent, QPropertyAnimation, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
@@ -18,6 +18,7 @@ from app.core.constants import BACKUP_DIR
 from app.core.permissions import can, set_identity
 from app.core.session import session
 from app.core.ui.brand_icons import brand_icon
+from app.core.ui.layouts import detach_widgets
 from app.core.ui.notify import toast
 from app.core.ui.sizes import FOOTER_HEIGHT, OUTER_MARGIN
 from app.modules.settings.settings_controller import SettingsController
@@ -28,6 +29,7 @@ from app.widgets.settings.appearance_card import AppearanceCard
 from app.widgets.settings.backup_card import BackupCard
 from app.widgets.settings.fresh_zone_card import FreshZoneCard
 from app.widgets.settings.license_card import LicenseCard
+from app.widgets.settings.mail_card import MailCard
 from app.widgets.settings.numbering_card import NumberingCard
 from app.widgets.settings.pdf_card import PdfCard
 from app.widgets.settings.privacy_card import PrivacyCard
@@ -156,6 +158,7 @@ class SettingsPage(QWidget):
         self.numbering_card = NumberingCard()
         self.appearance_card = AppearanceCard()
         self.pdf_card = PdfCard()
+        self.mail_card = MailCard()
         self.backup_card = BackupCard()
         self.security_card = SecurityCard()
         self.users_card = UsersCard()
@@ -186,6 +189,7 @@ class SettingsPage(QWidget):
 
         scroll.setWidget(self._canvas)
         scroll.verticalScrollBar().valueChanged.connect(self._on_scroll_changed)
+        scroll.viewport().installEventFilter(self)
         body.addWidget(scroll, 1)
         chrome_layout.addLayout(body, 1)
         outer.addWidget(chrome, 1)
@@ -224,6 +228,7 @@ class SettingsPage(QWidget):
         self.security_card.changed.connect(self._mark_dirty)
         self.travel_card.changed.connect(self._mark_dirty)
         self.pdf_card.changed.connect(self._mark_dirty)
+        self.mail_card.changed.connect(self._mark_dirty)
         self.btn_save.clicked.connect(self._save)
         self.btn_cancel.clicked.connect(self._reset)
 
@@ -257,6 +262,13 @@ class SettingsPage(QWidget):
         self._place_widgets(self.width())
         self._sync_bottom_spacer()
 
+    def eventFilter(self, watched, event):
+        # The visible width, not the canvas width: the canvas grows to its minimum.
+        if event.type() == QEvent.Resize and watched is self._scroll.viewport():
+            margins = self._grid.contentsMargins()
+            self.health_card.fit_columns(watched.width() - margins.left() - margins.right())
+        return super().eventFilter(watched, event)
+
     def _sync_bottom_spacer(self) -> None:
         """Keep enough trailing space so every section can pin to the viewport top."""
         if not hasattr(self, "_bottom_spacer"):
@@ -270,16 +282,14 @@ class SettingsPage(QWidget):
         # Account for nav rail (~220) + chrome margins when choosing density.
         content_width = max(320, width - 260)
         mode = "wide" if content_width >= 980 else "narrow"
+        # The 720 px rail threshold lies inside the narrow mode, so check it every time.
+        self.nav.setVisible(width >= 720)
         if mode == self._breakpoint:
             return
         self._breakpoint = mode
 
-        while self._grid.count():
-            item = self._grid.takeAt(0)
-            if item.widget():
-                item.widget().setParent(self._canvas)
+        detach_widgets(self._grid)
 
-        self.nav.setVisible(width >= 720)
         self.section_modules.show()
 
         r = 0
@@ -294,6 +304,8 @@ class SettingsPage(QWidget):
             self._grid.addWidget(self.pdf_card, r, 0)
             self._grid.addWidget(self.numbering_card, r, 1)
             r += 1
+            self._grid.addWidget(self.mail_card, r, 0, 1, 2)
+            r += 1
             self._grid.addWidget(self.section_appearance, r, 0, 1, 2)
             r += 1
             self._grid.addWidget(self.appearance_card, r, 0)
@@ -305,6 +317,8 @@ class SettingsPage(QWidget):
             self._grid.addWidget(self.pdf_card, r, 0, 1, 2)
             r += 1
             self._grid.addWidget(self.numbering_card, r, 0, 1, 2)
+            r += 1
+            self._grid.addWidget(self.mail_card, r, 0, 1, 2)
             r += 1
             self._grid.addWidget(self.section_appearance, r, 0, 1, 2)
             r += 1
@@ -381,6 +395,9 @@ class SettingsPage(QWidget):
     def _scroll_to_section(self, target: QWidget, *, smooth: bool = True) -> None:
         """Scroll so the section header sits at the top (not merely on-screen)."""
         self._sync_bottom_spacer()
+        # Queued re-layouts (e.g. health tiles re-flowed after a refresh) still move the
+        # sections below them; settle them before measuring the target.
+        QApplication.sendPostedEvents(None, QEvent.LayoutRequest)
         bar = self._scroll.verticalScrollBar()
         end_value = self._section_scroll_value(target)
         if abs(bar.value() - end_value) <= 1:
@@ -442,6 +459,7 @@ class SettingsPage(QWidget):
         self.appearance_card.set_values(extras.get("appearance", {}))
         self.pdf_card.set_values(extras.get("pdf", {}))
         self.pdf_card.set_excel(extras.get("excel", {}))
+        self.mail_card.set_values(extras.get("mail", {}))
         self.travel_card.set_values(extras.get("travel_orders", {}))
         self.security_card.set_values(extras)
         # Re-evaluate RBAC-gated cards from current effective permissions (no restart).
@@ -458,6 +476,7 @@ class SettingsPage(QWidget):
         self._sync_nav_visibility()
         self._applied_appearance = dict(self.appearance_card.values())
         self._baseline = self._confirmable_extras()
+        # Password is already stored encrypted; unchanged masked value must not keep page dirty.
         self._data_loaded = True
         self._set_dirty(False)
 
@@ -475,6 +494,8 @@ class SettingsPage(QWidget):
             "appearance": self.appearance_card.values(),
             "pdf": self.pdf_card.values(),
             "excel": self.pdf_card.excel_values(),
+            "mail": self.mail_card.values(),
+            "smtp_password": self.mail_card.password_value(),
             "travel_orders": self.travel_card.values(),
             **self.security_card.values(),
         }
@@ -528,6 +549,10 @@ class SettingsPage(QWidget):
         from app.core.permissions import can, current_role
 
         extras = self.extras()
+        # A blank SMTP password field means keep the encrypted stored secret.
+        # Only a newly typed value is passed to the secret store.
+        if not extras.get("smtp_password"):
+            extras.pop("smtp_password", None)
         requested_role = self.security_card.role.currentText()
         if requested_role != current_role() and not can("users"):
             QMessageBox.warning(

@@ -14,6 +14,9 @@ class InvoiceActions(QWidget):
     delete_clicked = Signal()
     refresh_clicked = Signal()
     pdf_clicked = Signal()
+    print_clicked = Signal()
+    preview_clicked = Signal()
+    email_clicked = Signal()
     excel_clicked = Signal()
     import_clicked = Signal()
     filter_changed = Signal(str)
@@ -75,6 +78,9 @@ class InvoiceActions(QWidget):
             (
                 ("Kopiraj", self.duplicate_clicked.emit),
                 ("PDF", self.pdf_clicked.emit),
+                ("Predogled tiska", self.preview_clicked.emit),
+                ("Natisni", self.print_clicked.emit),
+                ("Pošlji po e-pošti", self.email_clicked.emit),
                 ("Excel", self.excel_clicked.emit),
                 ("Uvoz", self.import_clicked.emit),
                 ("Osveži", self.refresh_clicked.emit),

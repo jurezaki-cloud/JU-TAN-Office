@@ -8,6 +8,10 @@
 ;   - Local backups deleted only when the user explicitly checks that option
 ;   - Device license activation in LocalAppData is NEVER deleted by Setup/Uninstall
 #include "version.iss"
+; Override for release-candidate builds: ISCC /DAppSourceDir=<onedir> /O<outdir>
+#ifndef AppSourceDir
+  #define AppSourceDir "..\dist\JU-TAN-Office"
+#endif
 
 [Setup]
 AppId={{A7C3E9F1-4B12-4D90-9E21-A1B2C3D4E5F6}
@@ -58,7 +62,7 @@ ShowLanguageDialog=no
 Name: "slovenian"; MessagesFile: "compiler:Languages\Slovenian.isl"
 
 [Files]
-Source: "..\dist\JU-TAN-Office\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+Source: "{#AppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Source: "Version.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docs\PRIVACY.md"; DestDir: "{app}\docs"; Flags: ignoreversion
@@ -168,6 +172,112 @@ begin
     CopyFile(Src, Dst, False);
 end;
 
+function CopyRequired(const Src, Dst: String): Boolean;
+{ True when Src is absent, or was copied and the copy exists. }
+begin
+  Result := True;
+  if not FileExists(Src) then
+    Exit;
+  Result := CopyFile(Src, Dst, False) and FileExists(Dst);
+end;
+
+procedure BackupDatabaseBeforeUpgrade(const DataDir, BackupDir: String);
+{ pre-upgrade.db and its sidecars must stay one matching set: SQLite would
+  replay a stale pre-upgrade.db-wal from an older upgrade into a newer copy. }
+begin
+  ForceDirectories(BackupDir);
+  DeleteFile(BackupDir + '\pre-upgrade.db-wal');
+  DeleteFile(BackupDir + '\pre-upgrade.db-shm');
+  if not CopyFile(DataDir + '\ju_tan.db', BackupDir + '\pre-upgrade.db', False) then
+    Exit;
+  CopyIfExists(DataDir + '\ju_tan.db-wal', BackupDir + '\pre-upgrade.db-wal');
+  CopyIfExists(DataDir + '\ju_tan.db-shm', BackupDir + '\pre-upgrade.db-shm');
+end;
+
+function AppIsRunning: Boolean;
+{ AppMutex must match app.core.app_mutex.APP_MUTEX_NAME / [Setup] AppMutex. }
+begin
+  Result := CheckForMutexes('JU-TANOfficeMutex');
+end;
+
+function EnsureAppClosedForDestructiveOp: Boolean;
+{ Detect running JU-TAN Office, ask for graceful close, verify termination.
+  Returns False if the user cancels or the app remains open. }
+var
+  Answer: Integer;
+  I: Integer;
+begin
+  Result := True;
+  if not AppIsRunning then
+    Exit;
+
+  Answer := MsgBox(
+    'JU-TAN Office je še vedno odprt.'#13#10 +
+    'Pred nadaljevanjem ga je treba zapreti.'#13#10#13#10 +
+    'Zaprite JU-TAN Office in pritisnite Ponovi.'#13#10 +
+    'Prekliči = prekini operacijo.',
+    mbError, MB_RETRYCANCEL or MB_DEFBUTTON1);
+
+  if Answer = IDCANCEL then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  { CloseApplications / Restart Manager already requested; wait for mutex release. }
+  for I := 1 to 60 do
+  begin
+    if not AppIsRunning then
+      Exit;
+    Sleep(500);
+  end;
+
+  if AppIsRunning then
+  begin
+    Answer := MsgBox(
+      'JU-TAN Office je še vedno odprt.'#13#10 +
+      'Pred nadaljevanjem ga je treba zapreti.'#13#10#13#10 +
+      'Ponovi = preveri znova'#13#10 +
+      'Prekliči = prekini operacijo',
+      mbError, MB_RETRYCANCEL or MB_DEFBUTTON1);
+    if Answer = IDCANCEL then
+    begin
+      Result := False;
+      Exit;
+    end;
+    for I := 1 to 40 do
+    begin
+      if not AppIsRunning then
+        Exit;
+      Sleep(500);
+    end;
+  end;
+
+  if AppIsRunning then
+  begin
+    MsgBox(
+      'JU-TAN Office je še vedno odprt.'#13#10 +
+      'Pred nadaljevanjem ga je treba zapreti.',
+      mbError, MB_OK);
+    Result := False;
+  end;
+end;
+
+function BusinessDatabaseFilesGone: Boolean;
+{ Explicit filesystem verification — do not trust DeleteFile return alone. }
+var
+  DataDir: String;
+begin
+  DataDir := AppDataDir;
+  Result :=
+    (not FileExists(DataDir + '\ju_tan.db')) and
+    (not FileExists(DataDir + '\ju_tan.db-wal')) and
+    (not FileExists(DataDir + '\ju_tan.db-shm')) and
+    (not FileExists(DataDir + '\ju_tan.db.jutan-delete')) and
+    (not FileExists(DataDir + '\ju_tan.db-wal.jutan-delete')) and
+    (not FileExists(DataDir + '\ju_tan.db-shm.jutan-delete'));
+end;
+
 function InitializeSetup(): Boolean;
 begin
   FreshInstallChosen := False;
@@ -192,7 +302,14 @@ begin
       True, False);
     InstallModePage.Add('Nadgradi / ponovno namesti in ohrani podatke');
     InstallModePage.Add('Nova čista namestitev');
-    InstallModePage.Values[0] := True;
+    { Default: preserve data. /FRESH=1 pre-selects clean install; confirmations still required. }
+    if ExpandConstant('{param:FRESH|0}') = '1' then
+    begin
+      InstallModePage.Values[0] := False;
+      InstallModePage.Values[1] := True;
+    end
+    else
+      InstallModePage.Values[0] := True;
   end;
 end;
 
@@ -263,6 +380,7 @@ begin
   begin
     FreshInstallChosen := False;
     CreateFreshBackup := False;
+    { The visible selection always decides; /FRESH=1 only pre-selects it. }
     if InstallModePage.Values[1] then
     begin
       if not AskFreshBackupChoice then
@@ -305,19 +423,30 @@ begin
       MsgBox('Varnostna kopija ni bila preverjena. Podatki niso bili izbrisani.', mbError, MB_OK);
       Exit;
     end;
-    CopyIfExists(DataDir + '\ju_tan.db-wal', Target + '\ju_tan.db-wal');
-    CopyIfExists(DataDir + '\ju_tan.db-shm', Target + '\ju_tan.db-shm');
   end;
 
-  CopyIfExists(DataDir + '\settings.json', Target + '\settings.json');
-  CopyIfExists(DataDir + '\warehouse.json', Target + '\warehouse.json');
-  CopyIfExists(DataDir + '\audit.jsonl', Target + '\audit.jsonl');
+  { Every file the wipe will delete must be in the backup; any copy failure aborts. }
+  if not (CopyRequired(DataDir + '\ju_tan.db-wal', Target + '\ju_tan.db-wal') and
+          CopyRequired(DataDir + '\ju_tan.db-shm', Target + '\ju_tan.db-shm') and
+          CopyRequired(DataDir + '\settings.json', Target + '\settings.json') and
+          CopyRequired(DataDir + '\warehouse.json', Target + '\warehouse.json') and
+          CopyRequired(DataDir + '\audit.jsonl', Target + '\audit.jsonl')) then
+  begin
+    MsgBox('Varnostne kopije ni bilo mogoče ustvariti. Podatki niso bili izbrisani.', mbError, MB_OK);
+    Exit;
+  end;
+
   if DirExists(DataDir + '\documents') then
   begin
     ForceDirectories(Target + '\documents');
-    Exec('cmd.exe',
-      '/C xcopy /E /I /Y /Q "' + DataDir + '\documents\*" "' + Target + '\documents\"',
-      '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+    { xcopy: 0 = copied, 1 = nothing to copy; anything else is a failure. }
+    if (not Exec('cmd.exe',
+          '/C xcopy /E /I /Y /Q "' + DataDir + '\documents\*" "' + Target + '\documents\"',
+          '', SW_HIDE, ewWaitUntilTerminated, ExitCode)) or (ExitCode > 1) then
+    begin
+      MsgBox('Varnostne kopije dokumentov ni bilo mogoče ustvariti. Podatki niso bili izbrisani.', mbError, MB_OK);
+      Exit;
+    end;
   end;
 
   SaveStringToFile(Target + '\manifest.txt',
@@ -329,67 +458,69 @@ begin
 end;
 
 procedure DeleteFileIfExists(const Path: String);
-{ Rename/move-then-delete with retries. Windows Search/AV can briefly lock ju_tan.db;
-  moving removes it from the live data path even if the final delete lags. }
+{ Prefer plain DeleteFile after the application has released SQLite handles.
+  Rename/retry remains only as secondary protection (Search/AV brief locks). }
 var
   I: Integer;
   Tmp: String;
-  ResultCode: Integer;
 begin
   if not FileExists(Path) then
     Exit;
+  for I := 1 to 8 do
+  begin
+    if DeleteFile(Path) then
+      Exit;
+    if not FileExists(Path) then
+      Exit;
+    Sleep(200);
+  end;
   Tmp := Path + '.jutan-delete';
   if FileExists(Tmp) then
     DeleteFile(Tmp);
-  if not RenameFile(Path, Tmp) then
+  if RenameFile(Path, Tmp) then
   begin
-    { cmd move often succeeds when Pascal RenameFile fails under shared locks }
-    Exec('cmd.exe', '/C move /Y "' + Path + '" "' + Tmp + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
-  if FileExists(Tmp) then
-  begin
-    for I := 1 to 20 do
+    for I := 1 to 8 do
     begin
       if DeleteFile(Tmp) then
         Exit;
       if not FileExists(Tmp) then
         Exit;
-      Sleep(150);
-    end;
-    Exit;
-  end;
-  if FileExists(Path) then
-  begin
-    for I := 1 to 20 do
-    begin
-      if DeleteFile(Path) then
-        Exit;
-      if not FileExists(Path) then
-        Exit;
-      Sleep(150);
+      Sleep(200);
     end;
   end;
 end;
 
-procedure WipeBusinessDataKeepBackups;
-{ Destructive fresh / complete cleanup of JU-TAN-owned runtime business data.
-  Does NOT delete Backup\ (caller decides). Does NOT touch LocalAppData license. }
+function WipeBusinessDatabaseFiles: Boolean;
+{ Delete ju_tan.db set in safe order and VERIFY absence. Fail closed. }
 var
   DataDir: String;
-  ResultCode: Integer;
 begin
   DataDir := AppDataDir;
-
-  { WAL/SHM first, then main DB — reduces lock races on Windows. }
+  { WAL/SHM first, then main DB. }
   DeleteFileIfExists(DataDir + '\ju_tan.db-wal');
   DeleteFileIfExists(DataDir + '\ju_tan.db-shm');
   DeleteFileIfExists(DataDir + '\ju_tan.db');
-  { Force-delete any leftovers (including .jutan-delete renames). }
-  Exec('cmd.exe',
-    '/C del /F /Q "' + DataDir + '\ju_tan.db" "' + DataDir + '\ju_tan.db-wal" "' +
-    DataDir + '\ju_tan.db-shm" "' + DataDir + '\ju_tan.db.jutan-delete" "' +
-    DataDir + '\ju_tan.db-wal.jutan-delete" "' + DataDir + '\ju_tan.db-shm.jutan-delete"',
-    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  DeleteFileIfExists(DataDir + '\ju_tan.db.jutan-delete');
+  DeleteFileIfExists(DataDir + '\ju_tan.db-wal.jutan-delete');
+  DeleteFileIfExists(DataDir + '\ju_tan.db-shm.jutan-delete');
+  DeleteFileIfExists(DataDir + '\ju_tan.db-journal');
+  Result := BusinessDatabaseFilesGone;
+end;
+
+function WipeBusinessDataKeepBackups: Boolean;
+{ Destructive fresh / complete cleanup of JU-TAN-owned runtime business data.
+  Does NOT delete Backup\ (caller decides). Does NOT touch LocalAppData license.
+  Returns True only when the business database files are confirmed gone. }
+var
+  DataDir: String;
+begin
+  DataDir := AppDataDir;
+
+  if not WipeBusinessDatabaseFiles then
+  begin
+    Result := False;
+    Exit;
+  end;
 
   DeleteFileIfExists(DataDir + '\settings.json');
   DeleteFileIfExists(DataDir + '\warehouse.json');
@@ -426,11 +557,14 @@ begin
   ForceDirectories(AppTempDir);
   ForceDirectories(AppReportsDir);
   ForceDirectories(AppBackupDir);
+
+  { Re-verify after other cleanup — never pretend success if DB remains. }
+  Result := BusinessDatabaseFilesGone;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 { WAL-safe cold backup after CloseApplications for upgrades.
-  Fresh install optionally backs up then wipes business data. }
+  Fresh install: close app → optional backup → wipe → VERIFY (fail closed). }
 var
   DataDir, BackupDir: String;
 begin
@@ -445,6 +579,15 @@ begin
 
   if FreshInstallChosen then
   begin
+    if not EnsureAppClosedForDestructiveOp then
+    begin
+      Result :=
+        'Čiste namestitve ni bilo mogoče dokončati, ker je baza podatkov še vedno v ' +
+        'uporabi. Vaši podatki niso bili nadomeščeni.'#13#10 +
+        'Zaprite JU-TAN Office in poskusite znova.';
+      FreshInstallChosen := False;
+      Exit;
+    end;
     if CreateFreshBackup then
     begin
       if not CreateTimestampedFreshBackup then
@@ -454,18 +597,21 @@ begin
         Exit;
       end;
     end;
-    WipeBusinessDataKeepBackups;
+    if not WipeBusinessDataKeepBackups then
+    begin
+      Result :=
+        'Čiste namestitve ni bilo mogoče dokončati, ker je baza podatkov še vedno v ' +
+        'uporabi. Vaši podatki niso bili nadomeščeni.'#13#10 +
+        'Zaprite JU-TAN Office in poskusite znova.';
+      FreshInstallChosen := False;
+      Exit;
+    end;
     Exit;
   end;
 
   { Normal upgrade / reinstall with data preserved }
   if FileExists(DataDir + '\ju_tan.db') then
-  begin
-    ForceDirectories(BackupDir);
-    CopyIfExists(DataDir + '\ju_tan.db', BackupDir + '\pre-upgrade.db');
-    CopyIfExists(DataDir + '\ju_tan.db-wal', BackupDir + '\pre-upgrade.db-wal');
-    CopyIfExists(DataDir + '\ju_tan.db-shm', BackupDir + '\pre-upgrade.db-shm');
-  end;
+    BackupDatabaseBeforeUpgrade(DataDir, BackupDir);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -564,6 +710,28 @@ begin
       'Ne = ohrani lokalne varnostne kopije',
       mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
 
+  if not EnsureAppClosedForDestructiveOp then
+  begin
+    MsgBox(
+      'Popolne odstranitve ni bilo mogoče nadaljevati, ker je JU-TAN Office še odprt.'#13#10 +
+      'Podatki niso bili izbrisani.',
+      mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  { Wipe business data BEFORE removing program files; fail closed if DB remains. }
+  if not WipeBusinessDataKeepBackups then
+  begin
+    MsgBox(
+      'Popolne odstranitve ni bilo mogoče dokončati, ker je baza podatkov še vedno v '#13#10 +
+      'uporabi. Vaši podatki niso bili v celoti odstranjeni.'#13#10#13#10 +
+      'Zaprite JU-TAN Office in poskusite znova.',
+      mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
   UninstallComplete := True;
 end;
 
@@ -573,7 +741,17 @@ begin
   begin
     if UninstallComplete then
     begin
-      WipeBusinessDataKeepBackups;
+      { DB wipe already performed (and verified) in InitializeUninstall.
+        Finish remaining folder cleanup; report if DB somehow reappeared. }
+      if not BusinessDatabaseFilesGone then
+      begin
+        if not WipeBusinessDatabaseFiles then
+          MsgBox(
+            'Popolne odstranitve ni bilo mogoče dokončati, ker je baza podatkov še vedno v '#13#10 +
+            'uporabi. Vaši podatki niso bili v celoti odstranjeni.'#13#10#13#10 +
+            'Zaprite JU-TAN Office in poskusite znova.',
+            mbError, MB_OK);
+      end;
       if UninstallDeleteBackups then
       begin
         if DirExists(AppBackupDir) then

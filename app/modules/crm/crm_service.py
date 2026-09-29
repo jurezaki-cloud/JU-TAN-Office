@@ -181,7 +181,29 @@ class CrmService:
             documents = []
         activities = self.repository.activities(customer_id)
         notes = self.repository.notes(customer_id)
+        contacts = [row for row in self.repository.contacts() if row[1] == customer_id]
+        customer_deals = [
+            row for row in self.repository.deals() if row[1] == customer_id
+        ]
+        opportunities = [row for row in customer_deals if row[9] == "Active"]
+        opportunity_documents = {
+            int(deal[0]): self.repository.linked_documents(int(deal[0]))
+            for deal in customer_deals
+        }
+        stage_events = []
+        for deal in self.repository.deals():
+            if deal[1] != customer_id:
+                continue
+            for row in self.repository.stage_history(int(deal[0])):
+                stage_events.append({
+                    "date": str(row[4] or "")[:19],
+                    "kind": "Pipeline",
+                    "text": f"{deal[3]}: {row[2] or '—'} → {row[3]}",
+                })
         timeline = self._timeline(invoices, offers, orders, activities, notes)
+        timeline.extend(stage_events)
+        timeline.sort(key=lambda item: str(item.get("date") or ""), reverse=True)
+        timeline = timeline[:40]
         return {
             "customer": customer,
             "revenue": revenue,
@@ -193,6 +215,10 @@ class CrmService:
             "documents": documents,
             "activities": activities,
             "notes": notes,
+            "contacts": contacts,
+            "opportunities": opportunities,
+            "all_opportunities": customer_deals,
+            "opportunity_documents": opportunity_documents,
             "timeline": timeline,
         }
 
@@ -223,24 +249,59 @@ class CrmService:
 
     def kpis(self) -> dict:
         deals = self.repository.deals()
-        today = date.today().isoformat()
-        meetings = 0
-        calls = 0
-        for item in self.repository.activities():
-            due = str(item[6] or item[11] or "")[:10]
-            if due != today:
+        activities = self.repository.activities()
+        today = date.today()
+        month_start = today.replace(day=1).isoformat()
+        today_iso = today.isoformat()
+
+        customers = customer_repository.get_all()
+        new_customers = 0
+        for row in customers:
+            full = customer_repository.get_by_id(row[0])
+            created = str(full[10] if full and len(full) > 10 else "")
+            if created[:10] >= month_start:
+                new_customers += 1
+
+        active_customer_ids = {
+            int(row[1]) for row in deals
+            if row[1] and row[9] == "Active"
+        }
+        for invoice in invoice_repository.get_all():
+            full = invoice_repository.get_by_id(invoice[0])
+            if full and full[2]:
+                active_customer_ids.add(int(full[2]))
+
+        open_offers = []
+        for row in offer_repository.get_all():
+            full = offer_repository.get_by_id(row[0])
+            if not full:
                 continue
-            if item[4] == "Meeting":
-                meetings += 1
-            if item[4] == "Call":
-                calls += 1
+            status = str(full[5] or "").casefold()
+            if status not in {"sprejeta", "zavrnjena", "preklicana", "zaključena"}:
+                open_offers.append(full)
+
+        due_contacts = 0
+        for item in activities:
+            if item[9]:
+                continue
+            due = str(item[6] or "")[:10]
+            if due and due <= today_iso:
+                due_contacts += 1
+
+        active_deals = [row for row in deals if row[9] == "Active"]
+        pipeline_value = sum(float(row[8] or 0) for row in active_deals)
         return {
+            "new_customers": new_customers,
+            "active_customers": len(active_customer_ids),
+            "open_offers": len(open_offers),
+            "open_offers_value": sum(float(row[9] or 0) for row in open_offers),
+            "to_contact": due_contacts,
+            "opportunities": len(active_deals),
+            "pipeline_value": pipeline_value,
             "leads": sum(1 for row in deals if row[5] == "Lead"),
-            "active": sum(1 for row in deals if row[9] == "Active"),
-            "won": sum(1 for row in deals if row[5] == "Won"),
-            "lost": sum(1 for row in deals if row[5] == "Lost"),
-            "meetings": meetings,
-            "calls": calls,
+            "active": len(active_deals),
+            "won": sum(1 for row in deals if row[9] == "Won"),
+            "lost": sum(1 for row in deals if row[9] == "Lost"),
         }
 
     def _match_customer(self, company: str):
@@ -277,3 +338,5 @@ class CrmService:
 
 
 crm_service = CrmService()
+
+

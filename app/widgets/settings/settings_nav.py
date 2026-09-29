@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -64,6 +65,20 @@ class SettingsNav(QFrame):
         layout.addWidget(hint)
         layout.addSpacing(SPACE_3)
 
+        # Scrollable: at 125-150 % scaling a maximised window is shorter than the list.
+        self._scroll = QScrollArea()
+        self._scroll.setObjectName("SettingsNavScroll")
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # Not a tab stop: Tab moves between the category buttons and scrolls to them.
+        self._scroll.setFocusPolicy(Qt.NoFocus)
+        items = QWidget()
+        items.setObjectName("SettingsNavList")
+        items_layout = QVBoxLayout(items)
+        items_layout.setContentsMargins(0, 0, 0, 0)
+        items_layout.setSpacing(SPACE_1)
+
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         self._buttons: dict[str, QPushButton] = {}
@@ -73,8 +88,8 @@ class SettingsNav(QFrame):
             if group_title:
                 section = QLabel(group_title)
                 section.setObjectName("SettingsNavGroup")
-                layout.addSpacing(SPACE_2)
-                layout.addWidget(section)
+                items_layout.addSpacing(SPACE_2)
+                items_layout.addWidget(section)
                 self._group_labels[key] = section
 
             button = QPushButton(label)
@@ -89,9 +104,11 @@ class SettingsNav(QFrame):
             button.clicked.connect(lambda _checked=False, k=key: self._select(k))
             self._group.addButton(button)
             self._buttons[key] = button
-            layout.addWidget(button)
+            items_layout.addWidget(button)
 
-        layout.addStretch(1)
+        items_layout.addStretch(1)
+        self._scroll.setWidget(items)
+        layout.addWidget(self._scroll, 1)
         self._active = "overview"
         self._buttons["overview"].setChecked(True)
         self._refresh_icons()
@@ -116,6 +133,8 @@ class SettingsNav(QFrame):
         button.setChecked(True)
         self._active = key
         self._refresh_icons()
+        # Also runs for the page's scroll-spy, so the highlighted category stays in view.
+        self._scroll.ensureWidgetVisible(button, 0, button.height())
         if emit:
             self.category_selected.emit(key)
 

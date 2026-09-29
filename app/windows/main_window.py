@@ -93,6 +93,7 @@ class MainWindow(QMainWindow):
         self.reports = LazyPage(_page_reports, "Poročila")
         self.travel_orders = LazyPage(_page_travel_orders, "Potni nalogi")
         self.automation = LazyPage(_page_automation, "Avtomatizacija")
+        self.proformas = LazyPage(_page_proformas, "Predračuni")
 
         self.stack.addWidget(self.dashboard)          # 0
         self.stack.addWidget(self.invoices)           # 1
@@ -112,6 +113,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.reports)            # 15
         self.stack.addWidget(self.automation)         # 16
         self.stack.addWidget(self.travel_orders)      # 17
+        self.stack.addWidget(self.proformas)           # 18
 
         right_layout.addWidget(self.stack)
         root_layout.addWidget(right)
@@ -305,7 +307,12 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         """MainWindow is the sole quit authority — PDF viewers must not end the app."""
         from PySide6.QtWidgets import QApplication
+        from app.core.db_lifecycle import shutdown_database
 
+        try:
+            shutdown_database()
+        except Exception:
+            pass
         app = QApplication.instance()
         if app is not None:
             # Allow quit now that the user explicitly closes the main window.
@@ -326,6 +333,11 @@ def _page_customers():
 def _page_offers():
     from app.modules.offers.offer_page import OfferPage
     return OfferPage()
+
+
+def _page_proformas():
+    from app.modules.proformas.proforma_page import ProformaPage
+    return ProformaPage()
 
 
 def _page_articles():
@@ -429,6 +441,15 @@ def run():
 
     acquire_app_mutex()
     app = QApplication(sys.argv)
+    from app.core.ui.qt_translations import install_qt_translations
+
+    install_qt_translations(app)
+    from app.core.ui.app_identity import apply_application_icon
+
+    apply_application_icon(app)
+    from app.core.db_lifecycle import shutdown_database
+
+    app.aboutToQuit.connect(shutdown_database)
     from app.services.license_gate import ensure_licensed
     if not ensure_licensed():
         return 1
@@ -553,7 +574,7 @@ def run():
     span.mark("shown")
     saved = load_ui_session()
     page = saved.get("page")
-    if crashed and isinstance(page, int) and 0 <= page <= 17:
+    if crashed and isinstance(page, int) and 0 <= page <= 18:
         window.change_page(page)
 
     def _background() -> None:

@@ -9,6 +9,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (str(ROOT / "app" / "theme" / "theme.qss"), "app/theme"),
+        (str(ROOT / "app" / "theme" / "icons"), "app/theme/icons"),
         (str(ROOT / "config" / "app.example.json"), "config"),
         (str(ROOT / "resources" / "app.ico"), "resources"),
         (str(ROOT / "resources" / "logo.png"), "resources"),

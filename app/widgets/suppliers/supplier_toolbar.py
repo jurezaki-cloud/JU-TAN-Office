@@ -24,6 +24,7 @@ class SupplierToolbar(QWidget):
     edit_clicked = Signal()
     delete_clicked = Signal()
     refresh_clicked = Signal()
+    print_clicked = Signal()
     filter_changed = Signal()
 
     def __init__(self, parent=None) -> None:
@@ -57,10 +58,12 @@ class SupplierToolbar(QWidget):
         self.btn_delete.setObjectName("DangerButton")
         self.btn_refresh = QPushButton("Osveži")
         self.btn_refresh.setObjectName("SecondaryButton")
+        self.btn_print = QPushButton("Tiskaj")
+        self.btn_print.setObjectName("SecondaryButton")
 
         layout.addWidget(self.search)
         layout.addWidget(self.status)
-        for button in (self.btn_new, self.btn_edit, self.btn_delete, self.btn_refresh):
+        for button in (self.btn_new, self.btn_edit, self.btn_delete, self.btn_print, self.btn_refresh):
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(36)
             layout.addWidget(button)
@@ -69,5 +72,6 @@ class SupplierToolbar(QWidget):
         self.btn_edit.clicked.connect(self.edit_clicked.emit)
         self.btn_delete.clicked.connect(self.delete_clicked.emit)
         self.btn_refresh.clicked.connect(self.refresh_clicked.emit)
+        self.btn_print.clicked.connect(self.print_clicked.emit)
         self.search.textChanged.connect(lambda _: self.filter_changed.emit())
         self.status.currentIndexChanged.connect(lambda _: self.filter_changed.emit())

@@ -109,6 +109,7 @@ class AboutCard(QWidget):
         card.body.addWidget(hero)
 
         meta = QWidget()
+        meta.setObjectName("AboutMetaGrid")
         grid = QGridLayout(meta)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(10)

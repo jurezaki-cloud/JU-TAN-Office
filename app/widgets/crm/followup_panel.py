@@ -15,10 +15,10 @@ class FollowupPanel(EnterpriseCard):
 
         self.lists = {}
         for key, caption in (
-            ("today", "Today"),
-            ("tomorrow", "Tomorrow"),
-            ("week", "This Week"),
-            ("overdue", "Overdue"),
+            ("today", "Danes"),
+            ("tomorrow", "Jutri"),
+            ("week", "Ta teden"),
+            ("overdue", "Zapadlo"),
         ):
             label = QLabel(caption)
             label.setObjectName("KpiTitle")

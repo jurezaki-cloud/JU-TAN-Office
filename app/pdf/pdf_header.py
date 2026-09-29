@@ -25,6 +25,7 @@ from app.pdf.pdf_branding import (
 )
 from app.pdf.pdf_images import pdf_image, resolve_pdf_logo_path
 from app.pdf.pdf_styles import ensure_fonts, styles
+from app.pdf.pdf_text import esc, format_iban
 from app.utils.flags import parse_bool
 
 
@@ -127,24 +128,24 @@ def build_header(company, options: dict):
         city_line = f"{city_line}, {company.country}".strip(", ")
 
     # Build a single right-aligned company column so every line shares one right edge.
-    info_lines: list = [Paragraph(company.name or "JU-TAN Office", look["company"])]
+    info_lines: list = [Paragraph(esc(company.name or "JU-TAN Office"), look["company"])]
     if company.address:
-        info_lines.append(Paragraph(company.address, look["meta"]))
+        info_lines.append(Paragraph(esc(company.address), look["meta"]))
     if city_line:
-        info_lines.append(Paragraph(city_line, look["meta"]))
+        info_lines.append(Paragraph(esc(city_line), look["meta"]))
 
     contact_entries = []
     phone = (company.phone or company.mobile or "").strip()
     if phone:
         contact_entries.append(
-            (contact_phone_icon(palette, size=12.0), phone, Paragraph(phone, look["meta_contact"]))
+            (contact_phone_icon(palette, size=12.0), phone, Paragraph(esc(phone), look["meta_contact"]))
         )
     if company.email:
         contact_entries.append(
             (
                 contact_email_icon(palette, size=12.0),
                 company.email,
-                Paragraph(company.email, look["meta_contact"]),
+                Paragraph(esc(company.email), look["meta_contact"]),
             )
         )
     website = (getattr(company, "website", "") or "").strip()
@@ -154,7 +155,7 @@ def build_header(company, options: dict):
             (
                 contact_web_icon(palette, size=12.0),
                 display,
-                Paragraph(display, look["meta_contact"]),
+                Paragraph(esc(display), look["meta_contact"]),
             )
         )
 
@@ -168,7 +169,7 @@ def build_header(company, options: dict):
     iban_line = ""
     if company.iban:
         bank = (getattr(company, "bank", "") or "").strip()
-        iban_line = f"TRR: {company.iban}"
+        iban_line = f"TRR: {format_iban(company.iban, sep=' ')}"
         if bank:
             iban_line = f"{iban_line} ({bank})"
         trr_w = stringWidth(iban_line, regular, 10.0)
@@ -198,11 +199,11 @@ def build_header(company, options: dict):
             info_lines.append(wrap)
 
     if tax:
-        info_lines.append(Paragraph(f"Davčna št.: {tax}", look["meta"]))
+        info_lines.append(Paragraph(f"Davčna št.: {esc(tax)}", look["meta"]))
     if reg:
-        info_lines.append(Paragraph(f"Matična št.: {reg}", look["meta"]))
+        info_lines.append(Paragraph(f"Matična št.: {esc(reg)}", look["meta"]))
     if iban_line:
-        info_lines.append(Paragraph(iban_line, look["meta"]))
+        info_lines.append(Paragraph(esc(iban_line), look["meta"]))
 
     info_block = Table([[line] for line in info_lines], colWidths=[info_width])
     info_block.hAlign = "RIGHT"

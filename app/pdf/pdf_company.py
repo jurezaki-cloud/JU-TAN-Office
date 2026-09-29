@@ -214,6 +214,8 @@ def load_pdf_options() -> dict:
 
         "show_logo": parse_bool(pdf.get("logo", True), default=True),
 
+        # JU-TAN invoices use the approved director sign-off by default.  Keep
+        # legacy settings compatible, but an absent value must render it.
         "show_signature": parse_bool(pdf.get("signature", True), default=True),
 
         "show_stamp": parse_bool(pdf.get("stamp", True), default=True),
@@ -235,6 +237,8 @@ def load_pdf_options() -> dict:
         "stamp_path": company.stamp_path or str(pdf.get("stamp_path") or ""),
 
         "payment_method": str(pdf.get("payment_method") or "Nakazilo"),
+
+        "signer_name": str(pdf.get("signer_name") or "").strip(),
 
         "website_url": WEBSITE_URL,
 

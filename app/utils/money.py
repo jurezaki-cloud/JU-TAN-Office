@@ -100,6 +100,27 @@ def document_totals(lines: Iterable, *, vat_liable: bool = True) -> dict[str, fl
     }
 
 
+def vat_breakdown(lines: Iterable, *, vat_liable: bool = True) -> list[dict[str, float]]:
+    """Taxable base and VAT per rate (highest rate first).
+
+    Rounded per line exactly like ``document_totals`` so the per-rate amounts
+    add up to the document's net total and VAT to the cent.
+    """
+    groups: dict[Decimal, list[Decimal]] = {}
+    for line in lines:
+        qty, price, discount, vat = _unpack_line(line)
+        rate = to_decimal(vat) if vat_liable else Decimal("0")
+        base = to_decimal(qty) * to_decimal(price)
+        disc = base * to_decimal(discount) / HUNDRED
+        group = groups.setdefault(rate, [Decimal("0"), Decimal("0")])
+        group[0] += money(base) - money(disc)
+        group[1] += money((base - disc) * rate / HUNDRED)
+    return [
+        {"rate": float(rate), "base": as_float(base), "vat": as_float(vat)}
+        for rate, (base, vat) in sorted(groups.items(), reverse=True)
+    ]
+
+
 def _unpack_line(line) -> tuple:
     if isinstance(line, dict):
         return (

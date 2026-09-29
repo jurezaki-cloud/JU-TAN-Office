@@ -54,13 +54,13 @@ class PeriodFilterBar(QWidget):
         self.from_date = QDateEdit()
         self.from_date.setObjectName("EnterpriseFilter")
         self.from_date.setCalendarPopup(True)
-        self.from_date.setDisplayFormat("dd. MM. yyyy")
+        self.from_date.setDisplayFormat("dd-MM-yyyy")
         self.from_date.setMinimumHeight(36)
 
         self.to_date = QDateEdit()
         self.to_date.setObjectName("EnterpriseFilter")
         self.to_date.setCalendarPopup(True)
-        self.to_date.setDisplayFormat("dd. MM. yyyy")
+        self.to_date.setDisplayFormat("dd-MM-yyyy")
         self.to_date.setMinimumHeight(36)
 
         from_label = QLabel("Od")

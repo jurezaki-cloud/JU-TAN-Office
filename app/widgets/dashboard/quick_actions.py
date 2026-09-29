@@ -35,6 +35,7 @@ class QuickActionsCard(EnterpriseCard):
         self.body.addWidget(caption)
 
         grid_host = QWidget()
+        grid_host.setObjectName("QuickActionsGrid")
         grid = QGridLayout(grid_host)
         grid.setContentsMargins(0, 4, 0, 0)
         grid.setHorizontalSpacing(8)

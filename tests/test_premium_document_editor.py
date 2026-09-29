@@ -11,6 +11,7 @@ def test_extract_signer_rejects_studio_brand_label():
     assert extract_signer_name("JU-TAN studio") == ""
     assert extract_signer_name("JU-TAN studio, Tanja Hrup s.p.") == "Tanja Hrup"
     assert extract_signer_name("Acme d.o.o., Janez Novak s.p.") == "Janez Novak"
+    assert extract_signer_name("Acme d.o.o.") == ""
 
 
 def test_theme_qss_does_not_force_transparent_buttons_in_document_splitter():

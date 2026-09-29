@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, QAbstractTableModel, QSize
 
 from app.widgets.orders.status_badge import order_badge
+from app.core.date_format import format_date
 
 
 class OrderTableModel(QAbstractTableModel):
@@ -43,9 +44,9 @@ class OrderTableModel(QAbstractTableModel):
             if column == 1:
                 return order[2]
             if column == 2:
-                return order[3]
+                return format_date(order[3], fallback="")
             if column == 3:
-                return order[4]
+                return format_date(order[4])
             if column == 4:
                 return order_badge(order[5], order[4])
             if column == 5:

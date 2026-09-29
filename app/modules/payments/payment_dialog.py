@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.ui.enterprise_dialog import EnterpriseDialog
+from app.core.date_format import format_date
 from app.core.ui.form_grid import FormGrid
 from app.database.invoice_repository import invoice_repository
 from app.database.payment_repository import payment_repository
@@ -50,6 +51,7 @@ class PaymentDialog(EnterpriseDialog):
         self.amount.setObjectName("EnterpriseFilter")
         self.amount.setMinimumHeight(36)
         self.paid_date = QDateEdit()
+        self.paid_date.setDisplayFormat("dd-MM-yyyy")
         self.paid_date.setCalendarPopup(True)
         self.paid_date.setDate(QDate.currentDate())
         self.paid_date.setObjectName("EnterpriseFilter")
@@ -114,7 +116,7 @@ class PaymentDialog(EnterpriseDialog):
         self.lbl_customer.setText(str(listing[3] if listing else "—"))
         self.lbl_invoice_total.setText(format_eur(total))
         self.lbl_remaining.setText(format_eur(remaining))
-        self.lbl_due.setText(str(due or "—"))
+        self.lbl_due.setText(format_date(due))
         self.lbl_status.setText(invoice_badge(listing[5] if listing else "", due))
         self.amount.setMaximum(max(as_float(remaining), 0.01))
         self.amount.setValue(as_float(remaining) if remaining > 0 else 0.01)

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from io import BytesIO
 from pathlib import Path
+
+from app.core.date_format import format_date
 
 from reportlab.graphics.shapes import Drawing, Rect
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.platypus import (
+    Image,
     KeepTogether,
     Paragraph,
     SimpleDocTemplate,
@@ -27,7 +32,7 @@ from app.pdf.pdf_branding import (
     FOOTER_RESERVED_MM,
     IDENTITY_TO_TABLE_MM,
     LEFT_MARGIN_MM,
-    PAYMENT_COL_WIDTH_MM,
+    PAYMENT_TO_TOTALS_GUTTER_MM,
     QR_SIDE_MM,
     RACUN_TOP_INSET_MM,
     RIGHT_MARGIN_MM,
@@ -38,21 +43,26 @@ from app.pdf.pdf_branding import (
     THANKS_BEFORE_MM,
     THANKS_SUBTITLE,
     TOP_MARGIN_MM,
-    TOTALS_TO_PAYMENT_GAP_MM,
+    TOTAL_BAR_HEIGHT_MM,
+    TOTAL_BAR_WIDTH_MM,
+    TOTALS_TO_CLOSING_MM,
+    TOTALS_TO_SIGNATURE_MM,
+    TOTALS_WIDTH_MM,
     VerticalGreenRule,
     SpacedTagline,
     CustomerCard,
     bank_icon,
     customer_people_icon,
-    extract_signer_name,
     resolve_palette,
+    resolve_signer_name,
 )
 from app.pdf.pdf_company import CompanyProfile, existing_path, load_company, load_pdf_options
 from app.pdf.pdf_footer import draw_footer
 from app.pdf.pdf_header import build_header
 from app.pdf.pdf_images import image_or_space
 from app.pdf.pdf_styles import PAD, ensure_fonts, styles
-from app.pdf.pdf_tables import build_items_table, build_summary
+from app.pdf.pdf_tables import build_items_table, build_summary, build_totals_stack
+from app.pdf.pdf_text import NBSP, esc, format_iban
 from app.pdf.upn_qr import format_reference, format_reference_display
 from app.utils.vat import ARTICLE_94_NOTICE, DOCUMENT_FOOTER_MESSAGE, WEBSITE_LABEL, WEBSITE_URL
 
@@ -60,6 +70,7 @@ from app.utils.vat import ARTICLE_94_NOTICE, DOCUMENT_FOOTER_MESSAGE, WEBSITE_LA
 TITLES = {
     "invoice": "RAČUN",
     "offer": "PONUDBA",
+    "proforma": "PREDRAČUN",
     "order": "NAROČILO",
     "delivery": "DOBAVNICA",
 }
@@ -70,6 +81,13 @@ _QR_MODULE_MM = QR_SIDE_MM / 85.0
 # ReportLab Frame adds 6 pt on both horizontal sides. Offset the document
 # margins so the actual flowable content lands on the intended 10 mm grid.
 _FRAME_SIDE_PADDING_PT = 6.0
+
+_NO_PADDING = (
+    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ("TOPPADDING", (0, 0), (-1, -1), 0),
+    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+)
 
 
 class _PagedCanvas(pdf_canvas.Canvas):
@@ -129,7 +147,7 @@ class PdfDocument:
 
 
 def _due_label(doc_type: str) -> str:
-    if doc_type == "invoice":
+    if doc_type in {"invoice", "proforma"}:
         return "Rok plačila"
     if doc_type == "order":
         return "Dobava"
@@ -170,41 +188,34 @@ class PdfEngine:
             story.append(Paragraph("STORNIRANO", look["title"]))
             story.append(Spacer(1, PAD))
         story.append(build_items_table(document.items, options))
-        closing = []
-        closing.extend(
-            build_summary(
-                document.subtotal,
-                document.discount,
-                document.vat,
-                document.total,
-                options,
-                items=document.items,
+        if self._has_payment(document):
+            story.extend(self._closing_section(document, company, options))
+        else:
+            story.extend(
+                build_summary(
+                    document.subtotal,
+                    document.discount,
+                    document.vat,
+                    document.total,
+                    options,
+                    items=document.items,
+                )
             )
-        )
-        if not document.vat_liable:
-            look = styles(options)
-            closing.append(Spacer(1, 6))
-            closing.append(Paragraph(ARTICLE_94_NOTICE, look["art94"]))
-        # Totals stay with the table flow. Payment+thanks follow MASTER gap.
-        # Keep payment+thanks together so the closing never orphans onto page 2.
-        story.extend(closing)
-
-        # Pull payment ~four text lines closer to the totals bar while keeping
-        # a hard positive clearance so "Direktor" never paints into Za plačilo.
-        payment_gap_mm = max(2.0, TOTALS_TO_PAYMENT_GAP_MM - 14.5)
-        lower = [Spacer(1, payment_gap_mm * mm)]
-        lower.extend(self._payment_block(document, company, options))
-        if document.doc_type not in ("invoice", "offer"):
-            lower.extend(self._signature_block(options))
+            if not document.vat_liable:
+                look = styles(options)
+                story.append(Spacer(1, 6))
+                story.append(Paragraph(ARTICLE_94_NOTICE, look["art94"]))
+            story.append(Spacer(1, TOTALS_TO_CLOSING_MM * mm))
+            if document.doc_type not in ("invoice", "offer"):
+                story.extend(self._signature_block(options))
         # The closing thanks/brand rail is anchored to the footer on the
         # final page so it cannot drift with invoice row count.
-        story.extend(lower)
 
         if options.get("show_notes") and document.notes:
             look = styles(options)
             story.append(Spacer(1, PAD))
             story.append(Paragraph("Opombe", look["label"]))
-            story.append(Paragraph(document.notes.replace("\n", "<br/>"), look["body"]))
+            story.append(Paragraph(esc(document.notes).replace("\n", "<br/>"), look["body"]))
 
         website = options.get("website_url") or company.website or WEBSITE_URL
         if website and not str(website).startswith(("http://", "https://")):
@@ -275,20 +286,20 @@ class PdfEngine:
                 ]
             )
         )
-        number = Paragraph(document.number or "", look["doc_number"])
+        number = Paragraph(esc(document.number), look["doc_number"])
 
         meta_rows = [
             [
                 Paragraph("Številka:", look["meta_label"]),
-                Paragraph(document.number or "—", look["meta_value"]),
+                Paragraph(esc(document.number or "—"), look["meta_value"]),
             ],
             [
                 Paragraph("Datum:", look["meta_label"]),
-                Paragraph(document.issue_date or "—", look["meta_value"]),
+                Paragraph(esc(format_date(document.issue_date)), look["meta_value"]),
             ],
             [
                 Paragraph(f"{due_label}:", look["meta_label"]),
-                Paragraph(document.due_date or "—", look["meta_value"]),
+                Paragraph(esc(format_date(document.due_date)), look["meta_value"]),
             ],
         ]
         meta = Table(meta_rows, colWidths=[36 * mm, 44 * mm])
@@ -410,16 +421,16 @@ class PdfEngine:
 
         text_lines = [Paragraph("Kupec", kupec_style)]
         text_lines.append(Spacer(1, 1.8))
-        text_lines.append(Paragraph(document.customer_name or "—", name_style))
+        text_lines.append(Paragraph(esc(document.customer_name or "—"), name_style))
         text_lines.append(Spacer(1, 1.0))
         if document.customer_address:
-            text_lines.append(Paragraph(document.customer_address, detail_style))
+            text_lines.append(Paragraph(esc(document.customer_address), detail_style))
         if city:
-            text_lines.append(Paragraph(city, detail_style))
+            text_lines.append(Paragraph(esc(city), detail_style))
         if document.customer_tax:
             text_lines.append(Spacer(1, 1.0))
             text_lines.append(
-                Paragraph(f"Davčna št.: {document.customer_tax}", detail_style)
+                Paragraph(f"Davčna št.: {esc(document.customer_tax)}", detail_style)
             )
 
         text_w = CUSTOMER_CARD_WIDTH_MM - icon_mm - 9.0
@@ -454,13 +465,74 @@ class PdfEngine:
         )
         return CustomerCard(inner, CUSTOMER_CARD_WIDTH_MM, palette, radius=4.5)
 
+    @staticmethod
+    def _has_payment(document: PdfDocument) -> bool:
+        return document.doc_type in ("invoice", "offer") and document.status != "Storniran"
+
+    def _closing_section(self, document: PdfDocument, company: CompanyProfile, options: dict):
+        """Totals, payment details, UPN QR and signature as one unit.
+
+        Right column: totals, the 'Za plačilo' bar and the signature centred on
+        the bar. Left column: payment details and QR, centred on the bar's band
+        so the block sits beside the totals instead of below them.
+        """
+        look = styles(options)
+        stack, bar_top = build_totals_stack(
+            document.subtotal,
+            document.discount,
+            document.vat,
+            document.total,
+            options,
+            items=document.items,
+        )
+        right = [[stack]]
+        # The Article 94 notice belongs under payment details, not under totals.
+        if options.get("show_signature", True):
+            right += [
+                [Spacer(1, TOTALS_TO_SIGNATURE_MM * mm)],
+                [self._invoice_signature_block(company, options, TOTAL_BAR_WIDTH_MM)],
+            ]
+        right_col = Table(right, colWidths=[TOTALS_WIDTH_MM * mm])
+        right_col.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "RIGHT"), *_NO_PADDING]))
+
+        left_w = (CONTENT_WIDTH_MM - TOTALS_WIDTH_MM) * mm
+        icon_offset = (BANK_ICON_MM - TOTAL_BAR_HEIGHT_MM) / 2 * mm
+        left = [[Spacer(1, max(bar_top - icon_offset, 0))]]
+        left += [[part] for part in self._payment_block(document, company, options)]
+        if not document.vat_liable:
+            left += [[Spacer(1, 2.5 * mm)], [Paragraph(ARTICLE_94_NOTICE, look["art94"])]]
+        # UPN QR is deliberately below the payment text / Article 94 notice so it
+        # remains fully visible and never competes with the totals column.
+        qr = self._qr_flowable(document, company, options, module_mm=_QR_MODULE_MM)
+        if qr is not None:
+            left += [[Spacer(1, 3.0 * mm)], [qr]]
+        left_col = Table(left, colWidths=[left_w])
+        left_col.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "LEFT"), *_NO_PADDING]))
+
+        row = Table([[left_col, right_col]], colWidths=[left_w, TOTALS_WIDTH_MM * mm])
+        row.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        return [Spacer(1, 1.5), row]
+
     def _payment_block(self, document: PdfDocument, company: CompanyProfile, options: dict):
-        if document.doc_type in ("order", "delivery") or document.status == "Storniran":
+        """Payment details (+ UPN QR for invoices), sized for the closing left column."""
+        if not self._has_payment(document):
             return []
         look = styles(options)
         palette = resolve_palette(options)
         method = document.payment_method or options.get("payment_method") or "Nakazilo"
         due_label = _due_label(document.doc_type)
+
+        # QR is rendered by _closing_section below the payment details / Article 94 notice.
+        row_w = (CONTENT_WIDTH_MM - TOTALS_WIDTH_MM - PAYMENT_TO_TOTALS_GUTTER_MM) * mm
+        pay_w = row_w
 
         heading = Table(
             [
@@ -469,7 +541,7 @@ class PdfEngine:
                     Paragraph("Podatki za plačilo", look["section"]),
                 ]
             ],
-            colWidths=[(BANK_ICON_MM + 3) * mm, 58 * mm],
+            colWidths=[(BANK_ICON_MM + 3) * mm, pay_w - (BANK_ICON_MM + 3) * mm],
         )
         heading.setStyle(
             TableStyle(
@@ -483,45 +555,36 @@ class PdfEngine:
             )
         )
 
-        detail_rows = []
+        labelled: list[tuple[str, str]] = []
         if document.doc_type != "invoice":
-            detail_rows.append(
-                [Paragraph("Način plačila:", look["meta_label"]), Paragraph(method, look["body"])]
-            )
+            labelled.append(("Način plačila:", esc(method)))
 
-        iban_text = company.iban or "—"
+        iban_text = format_iban(company.iban) or "—"
         bank = (getattr(company, "bank", "") or "").strip()
         if company.iban and bank:
-            iban_text = f"{company.iban} ({bank})"
-        detail_rows.append(
-            [Paragraph("TRR:", look["meta_label"]), Paragraph(iban_text, look["body"])]
-        )
+            # Wrap only between the IBAN and the bank name, never inside either.
+            iban_text = f"{iban_text} ({esc(bank).replace(' ', NBSP)})"
+        labelled.append(("TRR:", iban_text))
 
         if document.doc_type != "invoice":
-            detail_rows.append(
-                [
-                    Paragraph(f"{due_label}:", look["meta_label"]),
-                    Paragraph(document.due_date or "—", look["body"]),
-                ]
-            )
+            labelled.append((f"{due_label}:", esc(format_date(document.due_date))))
         if document.doc_type == "invoice":
             sklic_raw = (document.reference or "").strip() or format_reference(document.number)
-            sklic = format_reference_display(sklic_raw)
-            detail_rows.append(
-                [Paragraph("Sklic:", look["meta_label"]), Paragraph(sklic, look["body"])]
-            )
-            detail_rows.append(
-                [
-                    Paragraph("Namen:", look["meta_label"]),
-                    Paragraph(f"Plačilo računa št. {document.number}", look["body"]),
-                ]
-            )
+            labelled.append(("Sklic:", esc(format_reference_display(sklic_raw))))
+            labelled.append(("Namen:", f"Plačilo računa št.{NBSP}{esc(document.number)}"))
 
-        # Keep labels such as "Namen:" on one line while preserving the
-        # 68 mm value column for the full IBAN and bank name.
+        label_style = look["meta_label"]
+        label_w = max(
+            16 * mm,
+            max(stringWidth(label, label_style.fontName, label_style.fontSize) for label, _ in labelled)
+            + 2.5 * mm,
+        )
         details = Table(
-            detail_rows,
-            colWidths=[16 * mm, (PAYMENT_COL_WIDTH_MM - 16) * mm],
+            [
+                [Paragraph(label, label_style), Paragraph(value, look["body"])]
+                for label, value in labelled
+            ],
+            colWidths=[label_w, pay_w - label_w],
         )
         details.setStyle(
             TableStyle(
@@ -535,72 +598,12 @@ class PdfEngine:
             )
         )
 
-        pay_w = PAYMENT_COL_WIDTH_MM * mm
         pay_col = Table(
             [[heading], [Spacer(1, 3.0)], [details]],
             colWidths=[pay_w],
         )
-        pay_col.setStyle(
-            TableStyle(
-                [
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                    ("TOPPADDING", (0, 0), (-1, -1), 0),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ]
-            )
-        )
-
-        qr = self._qr_flowable(document, company, options, module_mm=_QR_MODULE_MM)
-
-        rule_w = 1.6 * mm
-        qr_w = (QR_SIDE_MM + 4) * mm
-
-        cells = [pay_col]
-        widths = [pay_w]
-        if qr is not None:
-            rule = VerticalGreenRule(QR_SIDE_MM + 1, palette)
-            residual = max(CONTENT_WIDTH_MM * mm - pay_w - rule_w - qr_w, 0)
-            cells.extend([rule, qr])
-            widths.extend([rule_w, qr_w])
-            if residual > 0.5 * mm:
-                if document.doc_type == "invoice":
-                    # Centre the director beneath the right-hand total bar.
-                    trailing_w = min(10 * mm, residual / 5)
-                    signature_w = residual - trailing_w
-                    cells.extend([
-                        self._invoice_signature_block(company, options, signature_w / mm),
-                        Spacer(trailing_w, 1),
-                    ])
-                    widths.extend([signature_w, trailing_w])
-                else:
-                    cells.append(Spacer(residual, 1))
-                    widths.append(residual)
-
-        if qr is None and document.doc_type in ("invoice", "offer"):
-            gap_w = 33 * mm
-            signature_w = 70 * mm
-            cells.extend([Spacer(gap_w, 1), self._invoice_signature_block(company, options, 70)])
-            widths.extend([gap_w, signature_w])
-
-        if len(cells) == 1:
-            content = pay_col
-        else:
-            style_cmds = [
-                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]
-            if qr is not None:
-                style_cmds.append(("ALIGN", (2, 0), (2, 0), "CENTER"))
-            content = Table([cells], colWidths=widths)
-            content.setStyle(TableStyle(style_cmds))
-
-        # Keep the payment area clean and unobstructed.
-        return [content]
+        pay_col.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), *_NO_PADDING]))
+        return [pay_col]
 
     def _invoice_signature_block(
         self,
@@ -608,12 +611,13 @@ class PdfEngine:
         options: dict,
         width_mm: float,
     ):
-        """Compact invoice signature: role, signature, rule, and signer name."""
+        """Approved invoice sign-off: signer name, signature/rule, then role."""
         look = styles(options)
         palette = resolve_palette(options)
         signature_path = existing_path(options.get("signature_path", ""))
-        signer = "Tanja Hrup"
+        signer = resolve_signer_name(company.name, options.get("signer_name", ""))
 
+        name = Paragraph(f"<b>{esc(signer)}</b>", look["caption"]) if signer else Spacer(1, 1)
         role = Paragraph("Direktor", look["caption"])
         if signature_path:
             signature = image_or_space(
@@ -637,11 +641,8 @@ class PdfEngine:
                 ]
             )
         )
-        name = Paragraph(f"<b>{signer}</b>", look["caption"])
-        block = Table(
-            [[role], [signature], [line], [name]],
-            colWidths=[width_mm * mm],
-        )
+        rows = [[name], [signature], [line], [role]]
+        block = Table(rows, colWidths=[width_mm * mm])
         block.setStyle(
             TableStyle(
                 [
@@ -717,40 +718,14 @@ class PdfEngine:
             micro=False,
             boost_error=False,
         )
-        module = float(module_mm) * mm
-        border = 4
-        matrix = tuple(code.matrix)
-        modules = len(matrix)
-        size = (modules + 2 * border) * module
-        drawing = Drawing(size, size)
-        from reportlab.lib.colors import black, white
-
-        # UPN QR must have an opaque white background and a clean 4-module
-        # quiet zone. The payment watermark must never show through the code.
-        drawing.add(
-            Rect(
-                0,
-                0,
-                size,
-                size,
-                strokeWidth=0,
-                fillColor=white,
-            )
-        )
-
-        for y, row in enumerate(matrix):
-            for x, dark in enumerate(row):
-                if dark:
-                    drawing.add(
-                        Rect(
-                            (x + border) * module,
-                            (modules - 1 - y + border) * module,
-                            module,
-                            module,
-                            strokeWidth=0,
-                            fillColor=black,
-                        )
-                    )
+        # Render the UPN QR as an embedded PNG. This is more reliable in Qt PDF
+        # preview and Windows PDF viewers than thousands of tiny vector rectangles.
+        side = 85 * float(module_mm) * mm
+        png = BytesIO()
+        code.save(png, kind="png", scale=6, border=4, dark="black", light="white")
+        png.seek(0)
+        drawing = Image(png, width=side, height=side)
+        size = side
         label = Paragraph("Plačilo z UPN QR", look["caption"])
         qr_box = Table([[drawing], [Spacer(1, 2)], [label]], colWidths=[size])
         qr_box.setStyle(
@@ -770,7 +745,7 @@ class PdfEngine:
     def _inline_signature(self, options: dict, company: CompanyProfile | None = None):
         """Legacy helper for non-invoice docs only — NEVER call from invoice payment.
 
-        Draws green line + signer name (e.g. Tanja Hrup) + role (Direktorica).
+        Draws green line + signer name (when known) + role (Direktor).
         """
         look = styles(options)
         palette = resolve_palette(options)
@@ -795,11 +770,12 @@ class PdfEngine:
             )
         )
 
-        signer = ""
-        if company is not None:
-            signer = extract_signer_name(company.name or "")
-        signer = signer or "Tanja Hrup"
-        name_para = Paragraph(f"<b>{signer}</b>", look["sign_name"])
+        signer = resolve_signer_name(
+            company.name if company is not None else "", options.get("signer_name", "")
+        )
+        name_para = (
+            Paragraph(f"<b>{esc(signer)}</b>", look["sign_name"]) if signer else Spacer(1, 1)
+        )
         role_para = Paragraph("Direktor", look["sign_role"])
 
         rows = [[graphic], [line], [Spacer(1, 1.5)], [name_para], [role_para]]

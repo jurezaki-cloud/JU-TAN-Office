@@ -6,7 +6,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from app.database.offer_repository import CONVERTED_OFFER_MESSAGE, offer_repository
+from app.database.customer_repository import customer_repository
 from app.pdf.pdf_export import pdf_export
+from app.services.print_center import print_center
+from app.widgets.mail_center_dialog import MailCenterDialog
 from app.services.offer_service import offer_service
 from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
 from app.modules.offers.models.offer_table_model import OfferTableModel
@@ -76,6 +79,9 @@ class OfferPage(QWidget):
         self.btn_edit.clicked.connect(self.edit_offer)
         self.btn_delete.clicked.connect(self.delete_offer)
         self.actions.pdf_clicked.connect(self.export_pdf)
+        self.actions.preview_clicked.connect(self.preview_print)
+        self.actions.print_clicked.connect(self.print_document)
+        self.actions.email_clicked.connect(self.email_document)
         self.actions.excel_clicked.connect(lambda: run_excel_export(self, "offers"))
         self.actions.import_clicked.connect(
             lambda: run_excel_import(self, "offers", self.refresh)
@@ -174,6 +180,44 @@ class OfferPage(QWidget):
             pdf_export.show_result(self, path)
         except Exception as exc:
             QMessageBox.warning(self, "PDF", str(exc))
+
+    def preview_print(self):
+        document_id = self.selected_offer()
+        if document_id is None:
+            QMessageBox.information(self, "Ponudba", "Najprej izberi dokument.")
+            return
+        try:
+            path = pdf_export.export_offer(document_id)
+            print_center.preview_pdf(self, path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
+
+    def print_document(self):
+        document_id = self.selected_offer()
+        if document_id is None:
+            QMessageBox.information(self, "Ponudba", "Najprej izberi dokument.")
+            return
+        try:
+            path = pdf_export.export_offer(document_id)
+            print_center.print_pdf(self, path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
+
+    def email_document(self):
+        document_id = self.selected_offer()
+        if document_id is None:
+            QMessageBox.information(self, "Mail Center", "Najprej izberi ponudbo.")
+            return
+        offer = offer_repository.get_by_id(document_id)
+        customer = customer_repository.get_by_id(offer[2]) if offer else None
+        recipient = str(customer[8] or "") if customer else ""
+        number = str(offer[1] or "") if offer else ""
+        try:
+            path = pdf_export.export_offer(document_id)
+            body = f"Spoštovani,\n\nv priponki vam pošiljamo ponudbo {number}.\n\nLep pozdrav,\nJU-TAN Studio"
+            MailCenterDialog(self, recipient=recipient, subject=f"Ponudba {number}", body=body, attachment=path).exec()
+        except Exception as exc:
+            QMessageBox.warning(self, "Mail Center", str(exc))
 
     def convert_invoice(self):
         from app.core.permissions import allow, audit

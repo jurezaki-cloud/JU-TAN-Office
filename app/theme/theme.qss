@@ -81,9 +81,12 @@ QLabel#ToolbarTitle {
     color: {{TEXT_MUTED}};
 }
 
+/* Toolbar controls are CONTROL_HEIGHT (36 px) tall. Qt adds padding and border to
+   min/max-height, so 26 px + 2 x 4 px padding + 2 x 1 px border = 36 px; a larger
+   value no longer fits the fixed 52 px bar and the controls are cut off at the bottom. */
 #ToolbarSearch {
-    min-height: 36px;
-    max-height: 36px;
+    min-height: 26px;
+    max-height: 26px;
     background: {{BACKGROUND}};
     color: {{TEXT}};
     border: 1px solid {{BORDER}};
@@ -104,8 +107,8 @@ QLabel#ToolbarTitle {
 #ModernToolbar QPushButton#PrimaryButton,
 #ModernToolbar QPushButton#SecondaryButton,
 #ModernToolbar QPushButton#ToolbarIconButton {
-    min-height: 36px;
-    max-height: 36px;
+    min-height: 26px;
+    max-height: 26px;
     padding: 4px 14px;
     border-radius: 8px;
 }
@@ -121,8 +124,11 @@ QLabel#ToolbarTitle {
     color: {{TEXT}};
     border: 1px solid {{BORDER}};
     font-weight: 500;
-    min-width: 36px;
-    max-width: 36px;
+    /* No padding: 34 px + 2 x 1 px border = a 36 px square. */
+    min-width: 34px;
+    max-width: 34px;
+    min-height: 34px;
+    max-height: 34px;
     padding: 0;
 }
 
@@ -142,8 +148,8 @@ QToolButton#ToolbarUserButton {
     border-radius: 8px;
     padding: 4px 10px;
     font-weight: 600;
-    min-height: 36px;
-    max-height: 36px;
+    min-height: 26px;
+    max-height: 26px;
 }
 
 QToolButton#ToolbarUserButton:hover,
@@ -272,10 +278,16 @@ QPushButton#DangerButton {
     border: 1px solid {{BORDER}};
 }
 
-QPushButton#DangerButton:hover,
+/* Tinted, not filled: the icon keeps the DANGER colour in every state. */
+QPushButton#DangerButton:hover {
+    background: {{DANGER_SOFT}};
+    color: {{DANGER_ON_SOFT}};
+    border-color: {{DANGER}};
+}
+
 QPushButton#DangerButton:pressed {
-    background: {{DANGER}};
-    color: {{ON_PRIMARY}};
+    background: {{DANGER_SOFT_PRESSED}};
+    color: {{DANGER_ON_SOFT}};
     border-color: {{DANGER}};
 }
 
@@ -349,7 +361,8 @@ QTextEdit,
 QPlainTextEdit,
 QSpinBox,
 QDoubleSpinBox,
-QDateEdit {
+QDateEdit,
+QDateTimeEdit {
     background: {{SURFACE}};
     color: {{TEXT}};
     border: 1px solid {{BORDER}};
@@ -359,14 +372,80 @@ QDateEdit {
     selection-color: {{ON_PRIMARY}};
 }
 
-QComboBox::drop-down {
+/* A styled frame makes Qt drop the native sub-controls: every drop-down and spin
+   button needs its own rule. Arrows are SVG images (app/theme/indicators.py) because
+   styles paint CSS border triangles inconsistently (Windows 11: a filled block). */
+QComboBox::drop-down,
+QDateTimeEdit::drop-down {
     border: none;
     width: 28px;
 }
 
-QComboBox::down-arrow {
+QComboBox::down-arrow,
+QDateTimeEdit::down-arrow {
+    image: url({{ARROW_DOWN}});
     width: 10px;
     height: 10px;
+}
+
+QComboBox::down-arrow:disabled,
+QDateTimeEdit::down-arrow:disabled {
+    image: url({{ARROW_DOWN_DISABLED}});
+}
+
+QSpinBox::up-button,
+QDoubleSpinBox::up-button,
+QSpinBox::down-button,
+QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 22px;
+    border: none;
+    background: transparent;
+}
+
+QSpinBox::up-button,
+QDoubleSpinBox::up-button {
+    subcontrol-position: top right;
+}
+
+QSpinBox::down-button,
+QDoubleSpinBox::down-button {
+    subcontrol-position: bottom right;
+}
+
+QSpinBox::up-button:hover,
+QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover,
+QDoubleSpinBox::down-button:hover {
+    background: {{HOVER}};
+}
+
+QSpinBox::up-arrow,
+QDoubleSpinBox::up-arrow {
+    image: url({{ARROW_UP}});
+    width: 9px;
+    height: 9px;
+}
+
+QSpinBox::down-arrow,
+QDoubleSpinBox::down-arrow {
+    image: url({{ARROW_DOWN}});
+    width: 9px;
+    height: 9px;
+}
+
+QSpinBox::up-arrow:disabled,
+QSpinBox::up-arrow:off,
+QDoubleSpinBox::up-arrow:disabled,
+QDoubleSpinBox::up-arrow:off {
+    image: url({{ARROW_UP_DISABLED}});
+}
+
+QSpinBox::down-arrow:disabled,
+QSpinBox::down-arrow:off,
+QDoubleSpinBox::down-arrow:disabled,
+QDoubleSpinBox::down-arrow:off {
+    image: url({{ARROW_DOWN_DISABLED}});
 }
 
 QComboBox QAbstractItemView {
@@ -385,7 +464,8 @@ QTextEdit:focus,
 QPlainTextEdit:focus,
 QSpinBox:focus,
 QDoubleSpinBox:focus,
-QDateEdit:focus {
+QDateEdit:focus,
+QDateTimeEdit:focus {
     border-color: {{PRIMARY}};
 }
 
@@ -416,6 +496,52 @@ QTableView::item:selected,
 QTableWidget::item:selected {
     background: {{SELECTED}};
     color: {{TEXT}};
+}
+
+/* QDateEdit popup: override the generic table rules. Without these explicit
+   calendar rules Windows can paint current-month day numbers with the same
+   colour as the cell background, making most dates look blank. */
+QCalendarWidget {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+}
+
+QCalendarWidget QWidget#qt_calendar_navigationbar {
+    background: {{SURFACE}};
+    color: {{TEXT}};
+}
+
+QCalendarWidget QToolButton {
+    background: transparent;
+    color: {{TEXT}};
+    border: none;
+    min-height: 24px;
+    padding: 2px 6px;
+}
+
+QCalendarWidget QAbstractItemView,
+QCalendarWidget QTableView#qt_calendar_calendarview {
+    background: {{SURFACE}};
+    alternate-background-color: {{TABLE_HEADER}};
+    color: {{TEXT}};
+    selection-background-color: {{SELECTED}};
+    selection-color: {{TEXT}};
+    border: none;
+    border-radius: 0;
+    outline: none;
+}
+
+QCalendarWidget QAbstractItemView::item,
+QCalendarWidget QTableView#qt_calendar_calendarview::item {
+    color: {{TEXT}};
+    background: {{SURFACE}};
+    padding: 2px;
+}
+
+QCalendarWidget QAbstractItemView::item:selected,
+QCalendarWidget QTableView#qt_calendar_calendarview::item:selected {
+    color: {{TEXT}};
+    background: {{SELECTED}};
 }
 
 QHeaderView::section {
@@ -649,6 +775,16 @@ QScrollArea {
 }
 
 QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+
+/* Layout-only containers inside cards. A plain QWidget paints the global
+   background, which would show as a darker patch on the card surface. */
+QWidget#FirstRunBrand,
+QWidget#QuickActionsGrid,
+QWidget#LicenseMetaGrid,
+QWidget#AboutMetaGrid,
+QWidget#TaxLookupRow {
     background: transparent;
 }
 
@@ -1280,6 +1416,14 @@ QLabel#DetailValue {
     border-radius: {{CARD_RADIUS}};
 }
 
+/* The generic QScrollArea / QWidget rules would paint the window colour inside the rail. */
+#SettingsNavScroll,
+#SettingsNavScroll > QWidget,
+#SettingsNavList {
+    background: transparent;
+    border: none;
+}
+
 QLabel#SettingsNavEyebrow {
     font-size: 10px;
     font-weight: 700;
@@ -1423,14 +1567,58 @@ QLabel#LogoPreview {
 
 QCheckBox,
 QRadioButton {
+    background: transparent;
     spacing: 8px;
     min-height: 24px;
 }
 
+/* Fully styled: native indicators ignore the stylesheet colours and vanish on the
+   dark surfaces (Windows 11 draws a bare check mark, no box). */
 QCheckBox::indicator,
 QRadioButton::indicator {
     width: 16px;
     height: 16px;
+    border: 1px solid {{TEXT_MUTED}};
+    background: {{SURFACE}};
+}
+
+QCheckBox::indicator {
+    border-radius: 4px;
+}
+
+QRadioButton::indicator {
+    border-radius: 9px;
+}
+
+QCheckBox::indicator:hover,
+QRadioButton::indicator:hover,
+QCheckBox::indicator:focus,
+QRadioButton::indicator:focus {
+    border-color: {{PRIMARY}};
+}
+
+QCheckBox::indicator:checked {
+    background: {{PRIMARY}};
+    border-color: {{PRIMARY}};
+    image: url({{CHECK_MARK}});
+}
+
+QRadioButton::indicator:checked {
+    background: {{PRIMARY}};
+    border-color: {{PRIMARY}};
+    image: url({{RADIO_DOT}});
+}
+
+QCheckBox::indicator:disabled,
+QRadioButton::indicator:disabled {
+    background: {{BACKGROUND}};
+    border-color: {{BORDER}};
+}
+
+QCheckBox::indicator:checked:disabled,
+QRadioButton::indicator:checked:disabled {
+    background: {{DISABLED}};
+    border-color: {{DISABLED}};
 }
 
 QPushButton#AccentChip {

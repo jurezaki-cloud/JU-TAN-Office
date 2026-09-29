@@ -53,9 +53,11 @@ class OfferDialog(EnterpriseDialog):
         self.lbl_number = self.doc_header.lbl_number
         self.customer = self.customer_panel.customer
         self.issue_date = QDateEdit()
+        self.issue_date.setDisplayFormat("dd-MM-yyyy")
         self.issue_date.setCalendarPopup(True)
         self.issue_date.setDate(QDate.currentDate())
         self.valid_until = QDateEdit()
+        self.valid_until.setDisplayFormat("dd-MM-yyyy")
         self.valid_until.setCalendarPopup(True)
         self.valid_until.setDate(QDate.currentDate().addDays(14))
         self.status = QComboBox()
@@ -67,8 +69,10 @@ class OfferDialog(EnterpriseDialog):
         self.notes.setObjectName("DocumentNotes")
 
         grid = FormGrid()
-        grid.add("Datum", self.issue_date, "Status", self.status)
-        grid.add("Velja do", self.valid_until)
+        # Stack metadata so the customer pane does not starve the items table at 150 % DPI.
+        grid.add_full("Datum", self.issue_date)
+        grid.add_full("Status", self.status)
+        grid.add_full("Velja do", self.valid_until)
         meta_wrap = QWidget()
         meta_wrap.setLayout(grid.layout)
         self.customer_panel.meta_layout.addWidget(meta_wrap)
@@ -77,7 +81,6 @@ class OfferDialog(EnterpriseDialog):
         self.items_model = InvoiceItemsModel()
         self.items_table = self.items_panel.items_table
         self.items_table.setModel(self.items_model)
-        self.bind_table(self.items_table)
         self.btn_add_item = self.items_panel.btn_add_item
         self.btn_remove_item = self.items_panel.btn_remove_item
 
@@ -337,6 +340,7 @@ class OfferDialog(EnterpriseDialog):
             return
 
         audit("create" if self.offer_id is None else "edit", f"offer:{offer_id}")
+        self.offer_id = offer_id
         self.accept()
 
     def load_offer(self):

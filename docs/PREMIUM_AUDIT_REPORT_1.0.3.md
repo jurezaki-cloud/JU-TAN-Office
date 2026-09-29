@@ -5,6 +5,9 @@
 **Date:** 2026-09-28  
 **Version baseline:** 1.0.2 GOLD
 
+> **Status 2026-09-29:** §1–§17 describe the first premium pass. The final release-gate
+> verification in **§19** supersedes their test, build and installer results.
+
 ---
 
 ## 1. EXECUTIVE SUMMARY
@@ -223,6 +226,85 @@ Run signed release packaging when ready; do not replace last known-good Setup un
 3. Automated screenshot CI for PrimaryButton under splitter  
 4. MASTER mm harness asserting payment Y landmarks  
 5. Complete icon audit on warehouse / CRM / automation modules  
+
+---
+
+## 19. FINAL RELEASE-GATE VERIFICATION (2026-09-29)
+
+**Verified source:** `audit/premium-redesign-1.0.3` at `56897a1` plus the uncommitted working tree
+(491 files, tree SHA-256 `f67022c1f32ec1cc1487141729fc20bafa434c7e593ef994ea15511a8d91baf2`).
+Built from an isolated copy (`C:\Users\jurez\JU-TAN-Office-RC-build2`); the copy and the working tree
+were hash-identical after the build.
+
+**Verdict: RELEASE CANDIDATE.** Not GOLD: the 150 % DPI gate has one open defect, and the installer
+and installed-app gates could not be executed on this machine.
+
+### Gate matrix
+
+| Gate | Result | Evidence | Blocking? |
+| --- | --- | --- | --- |
+| Automated tests | PASS | 467 passed, 0 failed, 0 skipped | No |
+| compileall | PASS | exit 0 (`app`, `tests`, `scripts`, `app.py`) | No |
+| Light-theme visual QA | PASS | Real Windows platform, 52 screens × 3 scales, 0 clipped / cut / overlapping / overflowing / surface patches | No |
+| Dark-theme interactive QA | PASS | Same sweep in dark incl. dialogs, dropdown, message box, editor flow, theme switch and back; hover states by in-process tests | No |
+| 100 % DPI | PASS | 0 findings; editor items table fits | No |
+| 125 % DPI | PASS | 0 findings; editor items table fits (HEAD scrolled here) | No |
+| 150 % DPI | FAIL | Editor items table scrolls horizontally by 318 px (open issue 1); travel orders 3 px squeeze (harmless) | Blocks GOLD, not RC |
+| Invoice PDF | PASS | 11 invoice cases, 0 verifier failures, UPN decoded | No |
+| Offer PDF | PASS | Signature / payment / header checks, no QR | No |
+| Multipage PDF | PASS | 10 / 35 items, long names, mixed VAT: no missing or duplicated rows, no overlap, QR on last page only | No |
+| Portable build | PASS | Built from verified copy; onedir exe = portable exe = exe in zip | No |
+| Fresh Setup.exe build | PASS | Inno Setup 6.7.3, all 242 files from the verified copy; static installer checks passed | No |
+| Installer test | NOT TESTED | No Windows Sandbox / Hyper-V; production 1.0.3 with the same AppId is installed here | Blocks GOLD |
+| Installed-app smoke test | NOT TESTED | Same reason; activation needs the production license service | Blocks GOLD |
+| Startup / log check | PASS | Frozen portable, 2 starts: Slovenian activation dialog after 0.5 s, clean logs, graceful exit 0, no writes outside the test root. Frozen DB init is behind activation: NOT TESTED | No |
+| Artifact consistency | PASS | source → copy → build → portable → setup by hash; setup → installed NOT TESTED | No |
+
+### Fixes in the release-gate phase (uncommitted)
+
+- **Data safety:** one database shutdown path (`db_lifecycle.py`) before any file operation; fresh reset fails closed if files remain.
+- **Installer:** pre-upgrade backup incl. WAL/SHM, app-close gate, backup-first wipe with verification (fail closed).
+- **PDF:** user text escaped; UPN payload made ISO-8859-2 safe. HEAD crashed on typographic quotes in a payer name; the other 10 payloads are byte-identical to HEAD. Also:
+  - header icons, separator and customer frame without green accents;
+  - "Direktor" / "Tanja Hrup" centred under the totals;
+  - payment block about 24 mm higher, with no overlap;
+  - VAT breakdown per rate.
+- **Theme:** themed check / radio / chevron SVGs, Danger hover tints with 4.5:1 labels, icon re-tint on theme switch, Slovenian Qt standard buttons.
+- **Layout and DPI:**
+  - Articles toolbar filter, wizard welcome and toolbar centring;
+  - details panels scroll instead of squeezing;
+  - payments table minimum height, 13-character VAT IDs;
+  - stale grid height after re-layout;
+  - five layout containers that painted the page background on cards.
+- **Startup:** the app icon is set before the license gate, so the activation dialog no longer shows a generic icon.
+
+### Release artifacts (not published; the known-good `dist/` build is untouched)
+
+| File | Size (bytes) | SHA-256 |
+| --- | --- | --- |
+| `JU-TAN-Office-Setup.exe` | 44,262,048 | `2AFC9774DD4A0A1F1616427822B40B4BE1AF60D56A78939F9448A4EDCB17B17B` |
+| `JU-TAN-Office-Portable.zip` | 61,120,070 | `55865A0F1398386745D0365A07F81EE6467D4441B1CF797771FC55E84F937D31` |
+| `JU-TAN-Office.exe` (onedir = portable) | 8,446,480 | `CF8BD42BF243E66AAB30BF845E0AF160FFE029B9BA51033238B7F45A79AE8946` |
+
+Location: `C:\Users\jurez\JU-TAN-Office-RC-build2\dist\`. FileVersion 1.0.3.0 / ProductVersion 1.0.3,
+Authenticode self-signed `CN=JU-TAN Studio`, timestamped.
+
+### Open issues
+
+1. **150 % editor items table.** At 1280×680 logical the invoice / offer / order items table scrolls horizontally.
+   - Cause: the customer panel's minimum width is 499 px, set by the side-by-side "Datum izdaje / Rok plačila" row. The splitter therefore cannot give the items pane its designed share.
+   - This is pre-existing and needs a layout decision, for example stacking the fields and tuning the split.
+2. **Installer changes are untested at runtime.** The new Setup.exe contains the installer data-safety changes above, which so far have only static checks. Test in a disposable VM or Windows Sandbox before distribution.
+3. **Self-signed code signing.** Customers will see an untrusted publisher and SmartScreen warnings.
+4. **Release label.** Release metadata labels this build "1.0.3 GOLD / GOLD RELEASE" (`APP_CHANNEL`, `Version.txt`).
+5. **Minor findings:**
+   - the UI shows "41.00 €" while PDFs show "41,00 €";
+   - ISO dates in the payments and offers details;
+   - elided payments columns at 150 %;
+   - F4 does not open the calendar;
+   - the PDF page number sits 3.6 mm from the bottom edge;
+   - generic buttons are 48 px tall next to 33 px inputs;
+   - travel orders are 3 px squeezed at 150 %.
 
 ---
 

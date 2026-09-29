@@ -45,8 +45,17 @@ class LeadDialog(EnterpriseDialog):
             self.salesperson.addItem(person)
         if self.salesperson.count() == 0:
             self.salesperson.addItem(self.controller.service.default_owner())
-        self.stage.addItems(list(self.controller.stages()))
-        self.priority.addItems(list(self.controller.service.priorities()))
+        stage_labels = {
+            "Lead": "Novo", "Qualified": "Kontaktirano", "Proposal": "Ponudba",
+            "Negotiation": "Pogajanja", "Won": "Dogovorjeno", "Lost": "Izgubljeno",
+        }
+        priority_labels = {
+            "Low": "Nizka", "Normal": "Normalna", "High": "Visoka", "Urgent": "Nujna",
+        }
+        for value in self.controller.stages():
+            self.stage.addItem(stage_labels.get(value, value), value)
+        for value in self.controller.service.priorities():
+            self.priority.addItem(priority_labels.get(value, value), value)
         self.customer = QComboBox()
         self.customer.setObjectName("EnterpriseFilter")
         self.customer.addItem("Nova stranka / lead", None)
@@ -90,8 +99,8 @@ class LeadDialog(EnterpriseDialog):
             "vat": self.vat.text().strip(),
             "title": self.title.text().strip() or self.company.text().strip(),
             "salesperson": self.salesperson.currentText().strip(),
-            "stage": self.stage.currentText(),
-            "priority": self.priority.currentText(),
+            "stage": self.stage.currentData(),
+            "priority": self.priority.currentData(),
             "value": float(self.value.value()),
         }
 
@@ -115,12 +124,18 @@ class ActivityDialog(EnterpriseDialog):
         card = EnterpriseCard("DashboardCard")
         grid = FormGrid()
         self.type = QComboBox()
-        self.type.addItems(list(self.controller.service.activity_types()))
-        index = self.type.findText(activity_type)
+        activity_labels = {
+            "Call": "Klic", "Email": "E-pošta", "Meeting": "Sestanek",
+            "Task": "Opravilo", "Visit": "Obisk", "Note": "Opomba", "Reminder": "Opomnik",
+        }
+        for value in self.controller.service.activity_types():
+            self.type.addItem(activity_labels.get(value, value), value)
+        index = self.type.findData(activity_type)
         if index >= 0:
             self.type.setCurrentIndex(index)
         self.title = QLineEdit()
         self.due = QDateEdit()
+        self.due.setDisplayFormat("dd-MM-yyyy")
         self.due.setCalendarPopup(True)
         self.due.setDate(QDate.currentDate())
         self.salesperson = QComboBox()
@@ -130,7 +145,11 @@ class ActivityDialog(EnterpriseDialog):
         if self.salesperson.count() == 0:
             self.salesperson.addItem(self.controller.service.default_owner())
         self.priority = QComboBox()
-        self.priority.addItems(list(self.controller.service.priorities()))
+        priority_labels = {
+            "Low": "Nizka", "Normal": "Normalna", "High": "Visoka", "Urgent": "Nujna",
+        }
+        for value in self.controller.service.priorities():
+            self.priority.addItem(priority_labels.get(value, value), value)
         self.notes = QTextEdit()
         self.notes.setAcceptRichText(False)
         self.notes.setMinimumHeight(72)
@@ -167,10 +186,10 @@ class ActivityDialog(EnterpriseDialog):
         return {
             "customer_id": self.customer.currentData(),
             "pipeline_id": self.pipeline_id,
-            "type": self.type.currentText(),
+            "type": self.type.currentData(),
             "title": self.title.text().strip(),
             "due_date": self.due.date().toString("yyyy-MM-dd"),
             "salesperson": self.salesperson.currentText().strip(),
-            "priority": self.priority.currentText(),
+            "priority": self.priority.currentData(),
             "notes": self.notes.toPlainText().strip(),
         }

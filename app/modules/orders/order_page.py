@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 from app.database.order_repository import order_repository
 from app.pdf.pdf_export import pdf_export
+from app.services.print_center import print_center
 from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
 from app.modules.orders.models.order_table_model import OrderTableModel
 from app.modules.orders.order_dialog import OrderDialog
@@ -74,6 +75,8 @@ class OrderPage(QWidget):
         self.btn_edit.clicked.connect(self.edit_order)
         self.btn_delete.clicked.connect(self.delete_order)
         self.actions.pdf_clicked.connect(self.export_pdf)
+        self.actions.preview_clicked.connect(self.preview_print)
+        self.actions.print_clicked.connect(self.print_document)
         self.actions.excel_clicked.connect(lambda: run_excel_export(self, "orders"))
         self.actions.import_clicked.connect(
             lambda: run_excel_import(self, "orders", self.refresh)
@@ -154,6 +157,28 @@ class OrderPage(QWidget):
             pdf_export.show_result(self, path)
         except Exception as exc:
             QMessageBox.warning(self, "PDF", str(exc))
+
+    def preview_print(self):
+        document_id = self.selected_order()
+        if document_id is None:
+            QMessageBox.information(self, "Naročilo", "Najprej izberi dokument.")
+            return
+        try:
+            path = pdf_export.export_order(document_id)
+            print_center.preview_pdf(self, path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
+
+    def print_document(self):
+        document_id = self.selected_order()
+        if document_id is None:
+            QMessageBox.information(self, "Naročilo", "Najprej izberi dokument.")
+            return
+        try:
+            path = pdf_export.export_order(document_id)
+            print_center.print_pdf(self, path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
 
     def selected_order(self):
         indexes = self.table.selectionModel().selectedRows()

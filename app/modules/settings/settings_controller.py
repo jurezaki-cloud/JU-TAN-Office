@@ -76,6 +76,10 @@ def default_settings() -> dict:
             "export_folder": str(EXPORT_DIR),
             "import_folder": str(DATA_DIR),
         },
+        "mail": {
+            "host": "", "port": 587, "security": "STARTTLS", "username": "",
+            "sender_name": "", "sender_email": "", "reply_to": "",
+        },
         "setup_complete": False,
         "administrator": "Administrator",
         "currency": "EUR",
@@ -317,9 +321,11 @@ class SettingsController:
         try:
             from app.core.ui.app_identity import sync_titlebar_for_app
             from app.core.ui.brand_icons import clear_icon_cache
+            from app.core.ui.icons import refresh_button_icons
             from app.widgets.navigation.sidebar_header import refresh_brand_logos
 
             clear_icon_cache()
+            refresh_button_icons()
             sync_titlebar_for_app(mode)
             # Live LIGHT↔DARK brand logo swap (sidebar) without restart.
             refresh_brand_logos()
@@ -373,8 +379,9 @@ class SettingsController:
                 raise ValueError("Varnostna kopija ni celovita.")
         finally:
             check.close()
+        from app.core.db_lifecycle import shutdown_database
         from app.database.database import db
-        db.dispose()
+        shutdown_database(database=db)
         dest = sqlite3.connect(DATABASE_PATH)
         src = sqlite3.connect(source)
         try:

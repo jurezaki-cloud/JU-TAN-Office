@@ -68,6 +68,7 @@ class CrmToolbar(QWidget):
         self.priority = QComboBox()
         self.date_mode = QComboBox()
         self.date = QDateEdit()
+        self.date.setDisplayFormat("dd-MM-yyyy")
         self.date.setCalendarPopup(True)
         self.date.setDate(QDate.currentDate())
         for combo in (self.salesperson, self.status, self.stage, self.priority, self.date_mode):

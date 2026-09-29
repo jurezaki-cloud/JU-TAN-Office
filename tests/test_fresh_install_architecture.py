@@ -58,10 +58,30 @@ def test_installer_fresh_and_uninstall_contracts():
     assert "DATA_LOCATIONS.md" in ISS
     # Silent paths must not auto-wipe
     assert "FreshInstallChosen := False" in ISS
+    # Fail-closed wipe + process detection
+    assert "EnsureAppClosedForDestructiveOp" in ISS
+    assert "BusinessDatabaseFilesGone" in ISS
+    assert "Čiste namestitve ni bilo mogoče dokončati" in ISS
+    assert "{param:FRESH|0}" in ISS or "param:FRESH" in ISS
     # Official Slovenian Inno Setup language pack (not hand-hacked button strings)
     assert "[Languages]" in ISS
     assert r'compiler:Languages\Slovenian.isl' in ISS
     assert "č" in ISS and "š" in ISS and "ž" in ISS
+
+
+def test_installer_backups_fail_closed_and_stay_consistent():
+    # Fresh-install backup: any copy failure (files or documents) aborts before the wipe.
+    assert "CopyRequired(DataDir + '\\settings.json'" in ISS
+    assert "CopyRequired(DataDir + '\\ju_tan.db-wal'" in ISS
+    assert "(ExitCode > 1)" in ISS
+    # Upgrade backup: stale sidecars from an older upgrade must never pair with a newer DB.
+    body = ISS.split("procedure BackupDatabaseBeforeUpgrade", 1)[1].split("end;", 1)[0]
+    assert body.index("DeleteFile(BackupDir + '\\pre-upgrade.db-wal')") < body.index(
+        "CopyFile(DataDir + '\\ju_tan.db'"
+    )
+    # The user's visible choice decides; the EULA is never pre-accepted for them.
+    assert "LicenseAcceptedRadio" not in ISS
+    assert "ForceFresh" not in ISS
 
 
 def test_data_locations_inventory_covers_programdata_and_license():
