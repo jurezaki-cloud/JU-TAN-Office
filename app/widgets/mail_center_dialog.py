@@ -23,9 +23,13 @@ class MailCenterDialog(QDialog):
         layout.addWidget(title)
         form = QFormLayout()
         self.to = QLineEdit(recipient)
+        self.cc = QLineEdit()
+        self.bcc = QLineEdit()
         self.subject = QLineEdit(subject)
         self.body = QTextEdit(body)
         form.addRow("Prejemnik", self.to)
+        form.addRow("Kopija (CC)", self.cc)
+        form.addRow("Skrita kopija (BCC)", self.bcc)
         form.addRow("Zadeva", self.subject)
         form.addRow("Sporočilo", self.body)
         attached = QLabel(Path(self.attachment).name if self.attachment else "Brez priponke")
@@ -33,6 +37,18 @@ class MailCenterDialog(QDialog):
         attached.setToolTip(self.attachment)
         form.addRow("PDF priponka", attached)
         layout.addLayout(form)
+        self.history_label = QLabel("Zgodovina: še ni poslanih sporočil")
+        self.history_label.setObjectName("DashboardMuted")
+        try:
+            rows = mail_center.history(3)
+            if rows:
+                self.history_label.setText("Nazadnje poslano: " + " · ".join(
+                    f"{row[0][:10]} {row[2]}" for row in rows
+                ))
+        except Exception:
+            pass
+        self.history_label.setWordWrap(True)
+        layout.addWidget(self.history_label)
         self.btn_test = QPushButton("Preveri SMTP povezavo")
         self.btn_test.setObjectName("SecondaryButton")
         self.btn_test.clicked.connect(self._test)
@@ -57,6 +73,8 @@ class MailCenterDialog(QDialog):
         try:
             mail_center.send(
                 to=self.to.text(),
+                cc=self.cc.text(),
+                bcc=self.bcc.text(),
                 subject=self.subject.text(),
                 body=self.body.toPlainText(),
                 attachments=[self.attachment] if self.attachment else [],

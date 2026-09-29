@@ -30,6 +30,7 @@ class Dashboard(QWidget):
     new_offer_requested = Signal()
     new_customer_requested = Signal()
     new_article_requested = Signal()
+    assistant_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -79,6 +80,7 @@ class Dashboard(QWidget):
         self._quick_card.new_offer_requested.connect(self.new_offer_requested.emit)
         self._quick_card.new_customer_requested.connect(self.new_customer_requested.emit)
         self._quick_card.new_article_requested.connect(self.new_article_requested.emit)
+        self._quick_card.assistant_requested.connect(self.assistant_requested.emit)
 
         # Backward-compatible aliases used by older UI helpers / polish scripts.
         self.btn_new_invoice = self._quick_card.btn_new_invoice
@@ -100,7 +102,7 @@ class Dashboard(QWidget):
         eyebrow.setObjectName("DashboardEyebrow")
         title = QLabel("Promet po mesecih")
         title.setObjectName("DashboardSectionTitle")
-        self._chart_caption = QLabel("Zadnjih 6 mesecev")
+        self._chart_caption = QLabel("Zadnjih 12 mesecev")
         self._chart_caption.setObjectName("DashboardMuted")
         self.chart = RevenueChart()
         card.body.addWidget(eyebrow)
@@ -326,7 +328,7 @@ class Dashboard(QWidget):
         }
         today = date.today()
         points = []
-        for offset in range(5, -1, -1):
+        for offset in range(11, -1, -1):
             month_index = today.month - offset
             year = today.year
             while month_index <= 0:

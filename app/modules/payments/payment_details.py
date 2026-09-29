@@ -34,6 +34,7 @@ class PaymentDetails(QWidget):
         self.lblStatus = QLabel("-")
         self.lblTotal = QLabel("0.00 €")
         self.lblReminder = QLabel("Ni poslanih opominov")
+        self.lblPromise = QLabel("Ni obljubljenega plačila")
 
         for label in (
             self.lblNumber,
@@ -43,6 +44,7 @@ class PaymentDetails(QWidget):
             self.lblStatus,
             self.lblTotal,
             self.lblReminder,
+            self.lblPromise,
         ):
             label.setObjectName("DetailValue")
             label.setWordWrap(True)
@@ -54,6 +56,7 @@ class PaymentDetails(QWidget):
         form.addRow("Status", self.lblStatus)
         form.addRow("Znesek", self.lblTotal)
         form.addRow("Opomini", self.lblReminder)
+        form.addRow("Obljuba", self.lblPromise)
         card.body.addLayout(form)
 
         history_title = QLabel("Zgodovina opominov")
@@ -84,6 +87,7 @@ class PaymentDetails(QWidget):
         self.lblStatus.setText("-")
         self.lblTotal.setText("0.00 €")
         self.lblReminder.setText("Ni poslanih opominov")
+        self.lblPromise.setText("Ni obljubljenega plačila")
         self.reminderHistory.clear()
 
     def load_row(self, row):
@@ -97,6 +101,15 @@ class PaymentDetails(QWidget):
             self.lblTotal.setText(f"{float(row[5]):,.2f} €".replace(",", " "))
         except (TypeError, ValueError):
             self.lblTotal.setText("0.00 €")
+
+    def set_promise(self, promise):
+        if not promise:
+            self.lblPromise.setText("Ni obljubljenega plačila")
+            return
+        from app.utils.money import format_eur
+        self.lblPromise.setText(
+            f"{format_date(promise[0])} · {format_eur(promise[1])} · {promise[2] or 'brez opombe'}"
+        )
 
     def set_reminder_summary(self, summary):
         count = int((summary or {}).get("count", 0))

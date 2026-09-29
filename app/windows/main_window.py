@@ -137,11 +137,16 @@ class MainWindow(QMainWindow):
         self.dashboard.new_customer_requested.connect(lambda: self.customers.new_customer())
         self.dashboard.new_article_requested.connect(lambda: self.articles.new_article())
         self.dashboard.new_offer_requested.connect(lambda: self.offers.new_offer())
+        self.dashboard.assistant_requested.connect(self.open_business_assistant)
 
         # Defer status chips (company/DB) until after first paint.
         from app.core.async_load import defer
 
         defer(self.statusBar().refresh)
+
+    def open_business_assistant(self):
+        from app.widgets.business_assistant_dialog import BusinessAssistantDialog
+        BusinessAssistantDialog(self).exec()
 
     def change_page(self, index):
         from app.core.async_load import defer

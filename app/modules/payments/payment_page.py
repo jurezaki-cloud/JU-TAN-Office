@@ -15,6 +15,7 @@ from app.pdf.pdf_export import pdf_export
 from app.widgets.mail_center_dialog import MailCenterDialog
 from app.database.payment_repository import payment_repository
 from app.database.reminder_repository import reminder_repository
+from app.database.payment_promise_repository import payment_promise_repository
 from app.modules.invoices.invoice_dialog import InvoiceDialog
 from app.modules.payments.models.payment_table_model import PaymentTableModel
 from app.modules.payments.payment_details import PaymentDetails
@@ -60,6 +61,9 @@ class PaymentPage(QWidget):
         ):
             kpis.addWidget(card)
         layout.addLayout(kpis)
+        self.expected_label = QLabel("Obljubljena plačila · 7 dni: 0,00 € · 30 dni: 0,00 €")
+        self.expected_label.setObjectName("DashboardMuted")
+        layout.addWidget(self.expected_label)
 
         self.actions = PaymentActions()
         self.btn_new = self.actions.btn_new
@@ -118,6 +122,7 @@ class PaymentPage(QWidget):
         self.btn_refresh.clicked.connect(self.refresh)
         self.actions.print_clicked.connect(self.print_payments)
         self.actions.reminder_clicked.connect(self.send_reminder)
+        self.actions.promise_clicked.connect(self.record_promise)
         self.search.textChanged.connect(self.search_changed)
         self.actions.filter_changed.connect(self._apply_view)
         self.table.clicked.connect(self.show_details)
@@ -169,6 +174,40 @@ class PaymentPage(QWidget):
         self.refresh()
         self._reload_details(invoice_id)
 
+    def record_promise(self):
+        from datetime import date, timedelta
+        invoice_id = self.selected_invoice()
+        if invoice_id is None:
+            QMessageBox.information(self, "Plačila", "Najprej izberi račun.")
+            return
+        invoice = invoice_repository.get_by_id(invoice_id)
+        if not invoice:
+            return
+        remaining = payment_repository.remaining(invoice_id, invoice[9] or 0)
+        if remaining <= 0:
+            QMessageBox.information(self, "Plačila", "Račun nima odprte terjatve.")
+            return
+        suggested = (date.today() + timedelta(days=7)).isoformat()
+        day, ok = QInputDialog.getText(self, "Obljubljeno plačilo",
+                                       "Obljubljeni datum (LLLL-MM-DD):", text=suggested)
+        if not ok:
+            return
+        amount, ok = QInputDialog.getDouble(self, "Obljubljeno plačilo",
+                                            "Pričakovani znesek (€):", remaining,
+                                            0.01, remaining, 2)
+        if not ok:
+            return
+        note, ok = QInputDialog.getText(self, "Obljubljeno plačilo", "Opomba (neobvezno):")
+        if not ok:
+            return
+        try:
+            payment_promise_repository.record(invoice_id, day.strip(), amount, note)
+        except (ValueError, PermissionError) as exc:
+            QMessageBox.warning(self, "Obljubljeno plačilo", str(exc))
+            return
+        self._reload_details(invoice_id)
+        self.refresh()
+
     def send_reminder(self):
         invoice_id = self.selected_invoice()
         if invoice_id is None:
@@ -184,6 +223,10 @@ class PaymentPage(QWidget):
             return
         if badge == "Stornirano":
             QMessageBox.information(self, "Payment Center", "Za storniran račun opomina ni mogoče poslati.")
+            return
+        if badge != "Zapadlo":
+            QMessageBox.information(self, "Payment Center",
+                                    "Opomin je predlagan po zapadlosti izdanega računa.")
             return
         customer = customer_repository.get_by_id(invoice[2]) if invoice[2] else None
         recipient = str(customer[8] or "") if customer else ""
@@ -254,6 +297,7 @@ class PaymentPage(QWidget):
         self.details.load_row(row)
         self.details.set_reminder_summary(reminder_repository.summary(row[0]))
         self.details.set_reminder_history(reminder_repository.list_for_invoice(row[0]))
+        self.details.set_promise(payment_promise_repository.latest(row[0]))
         self._update_status()
 
     def _reload_details(self, invoice_id):
@@ -262,6 +306,7 @@ class PaymentPage(QWidget):
                 self.details.load_row(row)
                 self.details.set_reminder_summary(reminder_repository.summary(invoice_id))
                 self.details.set_reminder_history(reminder_repository.list_for_invoice(invoice_id))
+                self.details.set_promise(payment_promise_repository.latest(invoice_id))
                 return
         self.details.clear()
 
@@ -346,6 +391,10 @@ class PaymentPage(QWidget):
                 open_total += remaining
             elif badge in ("Neplačano", "Delno plačano"):
                 open_total += remaining
+        expected7, expected30 = payment_promise_repository.expected()
+        self.expected_label.setText(
+            f"Obljubljena plačila · 7 dni: {self._money(expected7)} · 30 dni: {self._money(expected30)}"
+        )
         self.kpi_received.set_value(self._money(received))
         self.kpi_open.set_value(self._money(open_total))
         self.kpi_overdue.set_value(self._money(overdue_total))

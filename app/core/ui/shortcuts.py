@@ -108,3 +108,17 @@ def _palette(window) -> None:
         index = dialog.chosen_index()
         if index is not None:
             window.change_page(index)
+            query = dialog.chosen_query()
+            if query:
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(0, lambda: _filter_chosen_page(window, index, query))
+
+
+def _filter_chosen_page(window, index: int, query: str) -> None:
+    if window.stack.currentIndex() != index:
+        return
+    page = _page(window)
+    search = getattr(page, "search", None)
+    if isinstance(search, QLineEdit):
+        search.setText(query)
+        search.setFocus()

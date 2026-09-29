@@ -3,16 +3,20 @@ from __future__ import annotations
 # JU-TAN Mail Center
 import smtplib
 import ssl
+import html
+import mimetypes
 from email.message import EmailMessage
+from email.utils import getaddresses
 from pathlib import Path
 
 from app.core.permissions import audit, require
 from app.database.company_repository import company_repository
-from app.modules.settings.settings_controller import SettingsController
+from app.database.database import db
 
 
 class MailCenter:
     def settings(self) -> dict:
+        from app.modules.settings.settings_controller import SettingsController
         ctrl = SettingsController()
         extras = ctrl.load_extras()
         data = dict(extras.get("mail") or {})
@@ -64,36 +68,104 @@ class MailCenter:
         finally:
             server.quit()
 
-    def send(self, *, to: str, subject: str, body: str, attachments=()) -> None:
+    @staticmethod
+    def _addresses(value: str) -> list[str]:
+        if "\r" in value or "\n" in value:
+            raise ValueError("E-poštni naslov ne sme vsebovati preloma vrstice.")
+        parsed = getaddresses([value or ""])
+        addresses = [address.strip() for _, address in parsed]
+        if any(not address or address.count("@") != 1 for address in addresses):
+            raise ValueError("Preveri e-poštne naslove prejemnikov.")
+        return addresses
+
+    @staticmethod
+    def _html_body(body: str, sender: str) -> str:
+        paragraphs = "".join(
+            f'<p style="margin:0 0 14px">{html.escape(line)}</p>'
+            for line in (body or "").splitlines()
+        )
+        return (
+            '<html><body style="margin:0;background:#f3f7f6;padding:24px">'
+            '<div style="max-width:640px;margin:auto;background:#fff;border-radius:12px;'
+            'border:1px solid #dce9e2;padding:30px;color:#142b34;font:16px Arial,sans-serif">'
+            '<div style="color:#09865a;font-size:22px;font-weight:bold;margin-bottom:22px">'
+            'JU-TAN Studio</div>' + paragraphs +
+            '<div style="border-top:2px solid #19a974;margin-top:26px;padding-top:16px;'
+            'color:#52666a;font-size:13px">' + html.escape(sender) +
+            '</div></div></body></html>'
+        )
+
+    def _record_sent(self, to: str, cc: str, bcc: str, subject: str, paths) -> None:
+        conn = db.connect()
+        try:
+            conn.execute("""CREATE TABLE IF NOT EXISTS mail_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                recipient TEXT NOT NULL, cc TEXT, bcc TEXT,
+                subject TEXT NOT NULL, attachments TEXT, status TEXT NOT NULL
+            )""")
+            conn.execute("""INSERT INTO mail_history
+                (recipient, cc, bcc, subject, attachments, status)
+                VALUES (?, ?, ?, ?, ?, 'Poslano')""",
+                (to, cc, bcc, subject, ", ".join(path.name for path in paths)))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def history(self, limit: int = 30):
+        require("read")
+        conn = db.connect()
+        try:
+            if not conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='mail_history'"
+            ).fetchone():
+                return []
+            return conn.execute("""SELECT sent_at, recipient, subject, status
+                FROM mail_history ORDER BY id DESC LIMIT ?""",
+                (min(max(limit, 1), 100),)).fetchall()
+        finally:
+            conn.close()
+
+    def send(self, *, to: str, subject: str, body: str, attachments=(),
+             cc: str = "", bcc: str = "") -> None:
         require("write")
         p = self.profile()
         self._validate(p)
-        recipient = (to or "").strip()
-        if "@" not in recipient:
-            raise ValueError("Vnesite veljaven e-poštni naslov prejemnika.")
+        recipients = self._addresses(to)
+        copies = self._addresses(cc)
+        hidden = self._addresses(bcc)
+        if not recipients:
+            raise ValueError("Vnesite prejemnika.")
         message = EmailMessage()
         message["From"] = f'{p["sender_name"]} <{p["sender_email"]}>' if p["sender_name"] else p["sender_email"]
-        message["To"] = recipient
+        message["To"] = ", ".join(recipients)
+        if copies:
+            message["Cc"] = ", ".join(copies)
         message["Subject"] = (subject or "").strip()
         if p["reply_to"]:
             message["Reply-To"] = p["reply_to"]
         message.set_content(body or "")
+        message.add_alternative(self._html_body(body, p["sender_name"]), subtype="html")
         paths = [Path(item) for item in attachments]
         for path in paths:
-            if not path.exists():
+            if not path.is_file():
                 raise FileNotFoundError(f"Priponka ne obstaja: {path}")
-            message.add_attachment(
-                path.read_bytes(),
-                maintype="application",
-                subtype="pdf",
-                filename=path.name,
-            )
+            media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            main, subtype = media_type.split("/", 1)
+            message.add_attachment(path.read_bytes(), maintype=main,
+                                   subtype=subtype, filename=path.name)
         server = self._connect(p)
         try:
-            server.send_message(message)
+            server.send_message(message, to_addrs=recipients + copies + hidden)
         finally:
             server.quit()
-        audit("email", f"to:{recipient}; subject:{subject}; attachments:{len(paths)}")
+        try:
+            self._record_sent(", ".join(recipients), ", ".join(copies),
+                              ", ".join(hidden), message["Subject"], paths)
+        except Exception:
+            from app.core.logger import logger
+            logger.exception("Email sent, but history could not be saved")
+        audit("email", f"to:{message['To']}; subject:{subject}; attachments:{len(paths)}")
 
 
 mail_center = MailCenter()

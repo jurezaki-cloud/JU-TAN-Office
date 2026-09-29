@@ -9,6 +9,7 @@ class PaymentActions(QWidget):
     refresh_clicked = Signal()
     print_clicked = Signal()
     reminder_clicked = Signal()
+    promise_clicked = Signal()
     filter_changed = Signal(str)
 
     def __init__(self, parent=None):
@@ -41,6 +42,8 @@ class PaymentActions(QWidget):
         self.btn_print.setObjectName("SecondaryButton")
         self.btn_reminder = QPushButton("Pošlji opomin")
         self.btn_reminder.setObjectName("SecondaryButton")
+        self.btn_promise = QPushButton("Obljubljeno plačilo")
+        self.btn_promise.setObjectName("SecondaryButton")
 
         layout.addWidget(self.filter)
         for button in (
@@ -49,6 +52,7 @@ class PaymentActions(QWidget):
             self.btn_invoice,
             self.btn_print,
             self.btn_reminder,
+            self.btn_promise,
             self.btn_refresh,
         ):
             button.setCursor(Qt.PointingHandCursor)
@@ -61,6 +65,7 @@ class PaymentActions(QWidget):
         self.btn_refresh.clicked.connect(self.refresh_clicked.emit)
         self.btn_print.clicked.connect(self.print_clicked.emit)
         self.btn_reminder.clicked.connect(self.reminder_clicked.emit)
+        self.btn_promise.clicked.connect(self.promise_clicked.emit)
         self.filter.currentIndexChanged.connect(
             lambda: self.filter_changed.emit(self.filter.currentData())
         )
