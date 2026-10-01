@@ -69,8 +69,7 @@ def _prepare_dialog(monkeypatch, *, remember_user: bool = True, role: str = "Adm
     _write_credentials(remember_user=remember_user, role=role)
     dlg = UnlockDialog()
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Ok)
-    session.authenticated = False
-    session.locked = True
+    session.lock()
     session.last_activity = time.monotonic() - 10_000
     return dlg
 
@@ -331,3 +330,53 @@ def test_enterprise_dialog_enter_activates_save_not_cancel(qt_app):
     result = dialog.exec()
     assert result == QDialog.DialogCode.Accepted
     assert hits == ["save"]
+
+
+@pytest.mark.parametrize("enter", [False, True])
+def test_idle_guard_unlocks_a_real_locked_session(qt_app, monkeypatch, enter):
+    from app.core.idle_guard import IdleGuard
+    from app.core.permissions import can
+    from PySide6.QtWidgets import QWidget
+
+    _write_credentials()
+    session.login(ADMIN_USER, "Administrator")
+    window = QWidget()
+    guard = IdleGuard(qt_app, window, password_required=True)
+    guard.arm(1)
+    session.last_activity = time.monotonic() - 10_000
+
+    def login():
+        dlg = qt_app.activeModalWidget()
+        assert isinstance(dlg, UnlockDialog)
+        assert session.locked and not can("settings")
+        dlg.user.setText(ADMIN_USER)
+        dlg.password.setText(VALID_PASSWORD)
+        if enter:
+            QTest.keyClick(dlg.password, Qt.Key.Key_Return)
+        else:
+            dlg.btn_save.click()
+
+    QTimer.singleShot(30, login)
+    guard._tick()
+    assert session.authenticated and not session.locked
+    assert not session.idle_too_long()
+    assert can("settings")
+    guard.disarm()
+    qt_app.removeEventFilter(guard)
+    guard.deleteLater()
+    window.deleteLater()
+
+
+def test_login_preference_io_failure_does_not_block_unlock(qt_app, monkeypatch):
+    dlg = _prepare_dialog(monkeypatch)
+    dlg.user.setText(ADMIN_USER)
+    dlg.password.setText(VALID_PASSWORD)
+
+    def fail_save(self, preferences):
+        assert set(preferences) <= {"remember_user", "administrator", "remembered_username"}
+        raise OSError("Test: preferences are read-only")
+
+    from app.modules.settings.settings_controller import SettingsController
+    monkeypatch.setattr(SettingsController, "save_extras_unrestricted", fail_save)
+    assert _run_with_trigger(dlg, dlg.btn_save.click) == QDialog.DialogCode.Accepted
+    assert session.authenticated and not session.locked

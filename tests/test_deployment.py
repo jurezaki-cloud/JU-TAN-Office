@@ -1,4 +1,4 @@
-"""Namestitev, verzije, prvi zagon, nadgradnja."""
+﻿"""Namestitev, verzije, prvi zagon, nadgradnja."""
 
 from app.core.constants import APP_CHANNEL, APP_VERSION, SCHEMA_VERSION
 from app.core.setup_state import mark_setup_complete, needs_first_run
@@ -7,7 +7,7 @@ from app.database.company_repository import company_repository
 
 
 def test_versioning_major_minor_build():
-    assert APP_VERSION == "1.0.3"
+    assert APP_VERSION == "1.0.4"
     assert APP_CHANNEL == "GOLD"
     assert parse_version("1.0.3") == (1, 0, 3)
     assert parse_version("1.1.0") > parse_version("1.0.3")
@@ -71,3 +71,4 @@ def test_upgrade_backup_and_rollback(tmp_path):
     rollback(backup)
     found = customer_repository.search("Deploy d.o.o.")
     assert found
+

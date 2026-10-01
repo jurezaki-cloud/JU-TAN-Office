@@ -79,6 +79,7 @@ class LicenseState:
     device_name: str = ""
     last_seen_at: str = ""
     status: str = ""
+    machine_id: str = ""
 
     @classmethod
     def load(cls) -> "LicenseState | None":
@@ -101,16 +102,21 @@ class LicenseState:
                 device_name=str(data.get("device_name") or ""),
                 last_seen_at=str(data.get("last_seen_at") or ""),
                 status=str(data.get("status") or ""),
+                machine_id=str(data.get("machine_id") or ""),
             )
         except (OSError, KeyError, ValueError, TypeError):
             return None
 
     def save(self) -> None:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
+        if not self.machine_id:
+            self.machine_id = _machine_id()
         data = dict(self.__dict__)
         data["activation_token"] = _dpapi_protect(self.activation_token)
-        data["device_id_version"] = _DEVICE_ID_VERSION
-        STATE_FILE.write_text(json.dumps(data), encoding="utf-8")
+        data["device_id_version"] = 2
+        from app.core.security import write_json_atomic
+
+        write_json_atomic(STATE_FILE, data)
 
     def apply_server_result(self, result: dict[str, Any]) -> None:
         """Merge validate/activate payload into local license.json fields."""
@@ -148,6 +154,16 @@ def _windows_machine_guid() -> str:
     if platform.system() != "Windows":
         return ""
     try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography",
+            0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY,
+        ) as key:
+            return str(winreg.QueryValueEx(key, "MachineGuid")[0]).strip().lower()
+    except OSError:
+        pass
+    try:
         out = subprocess.check_output(
             ["reg", "query", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"],
             text=True,
@@ -159,8 +175,25 @@ def _windows_machine_guid() -> str:
         return ""
 
 
+def _machine_id() -> str:
+    guid = _windows_machine_guid()
+    return hashlib.sha256(("JU-TAN-machine-v2|" + guid.strip().lower()).encode("utf-8")).hexdigest() if guid else ""
+
+
 def device_id() -> str:
-    """Return the API-required 64-char SHA-256 device fingerprint."""
+    """Keep the API identity stable across network/hostname changes.
+
+    A legacy Windows activation can be reused only after its DPAPI token has
+    decrypted for this Windows user. Preserve its server-side ID during migration.
+    """
+    machine = _machine_id()
+    if platform.system() == "Windows":
+        state = LicenseState.load()
+        if state and len(state.device_id) == 64:
+            if not state.machine_id or not machine or hmac.compare_digest(state.machine_id, machine):
+                return state.device_id
+    if machine:
+        return machine
     raw = "|".join(
         [
             _windows_machine_guid(),

@@ -1,5 +1,10 @@
-# Changelog
+﻿# Changelog
 
+## 1.0.4 GOLD — 2026-10-01
+
+- Stabilizirana lokalna aktivacija licence: ponovni zagon ali prijava ne odstrani veljavne aktivacije.
+- Izboljšan vnos delnega plačila računa in prikaz zneska v EUR.
+- Izboljšave prijave/odklepa po neaktivnosti ter dashboarda.
 ## 1.0.3 GOLD — 2026-09-28
 
 - Dokumentni urejevalnik: vidni primarni gumb »Dodaj postavko«, prazen stan postavk, usklajene kartice in tipografija.
@@ -79,3 +84,4 @@ Prva kandidatka za produkcijsko izdajo. **Code freeze:** ni novih modulov, tabel
 - Poročilo **Service** je placeholder.
 - Windows installer Authenticode: pripravljen prek `JU_TAN_PFX` / `-RequireSigned` (glej `docs/SIGNING.md`); razvojni buildi ostanejo nepodpisani.
 - PyInstaller/Inno je treba zagnati na build stroju (`scripts/build_release.ps1`).
+

@@ -138,6 +138,7 @@ class MainWindow(QMainWindow):
         self.dashboard.new_article_requested.connect(lambda: self.articles.new_article())
         self.dashboard.new_offer_requested.connect(lambda: self.offers.new_offer())
         self.dashboard.assistant_requested.connect(self.open_business_assistant)
+        self.dashboard.alert_requested.connect(self.change_page)
 
         # Defer status chips (company/DB) until after first paint.
         from app.core.async_load import defer

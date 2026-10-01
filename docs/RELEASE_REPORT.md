@@ -1,3 +1,4 @@
+﻿Posodobitev 2026-10-01: **1.0.4 GOLD** — stabilizacija licence, delnih plačil in prijave/odklepa.
 # TASK-033 / Release Report — JU-TAN Office Enterprise 1.0.0 GOLD
 
 Posodobitev 2026-09-28: **1.0.3 GOLD** — premium UI audit (dokumentni urejevalnik, temni način, PDF polish).  
@@ -62,3 +63,4 @@ Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb p
 
 - Razvojni/RC buildi ne zahtevajo certifikata. Produkcijski podpis: certifikat `CN=JU-TAN Studio` v `Cert:\CurrentUser\My` (ali `JU_TAN_PFX` kot fallback); gate `-RequireSigned` (glej `docs/SIGNING.md`).
 - Posodobitveni kanal (`updates/latest.json`) je pripravljen; zunanji feed je konfiguracija okolja
+
