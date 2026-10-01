@@ -71,6 +71,10 @@ class TravelOrderPage(QWidget):
         self.btn_new.setIcon(brand_icon("new", color="#FFFFFF", size=14))
         self.btn_edit = QPushButton("Odpri")
         self.btn_edit.setObjectName("SecondaryButton")
+        self.btn_approve = QPushButton("Odobri")
+        self.btn_approve.setObjectName("SecondaryButton")
+        self.btn_finish = QPushButton("Zaključi")
+        self.btn_finish.setObjectName("PrimaryButton")
         self.btn_pdf = QPushButton("PDF")
         self.btn_pdf.setObjectName("SecondaryButton")
         self.btn_excel = QPushButton("Excel")
@@ -81,6 +85,8 @@ class TravelOrderPage(QWidget):
         for button in (
             self.btn_new,
             self.btn_edit,
+            self.btn_approve,
+            self.btn_finish,
             self.btn_pdf,
             self.btn_excel,
             self.btn_cancel,
@@ -92,6 +98,8 @@ class TravelOrderPage(QWidget):
         toolbar.layout.addWidget(self.filter, 0)
         toolbar.layout.addWidget(self.btn_new, 0)
         toolbar.layout.addWidget(self.btn_edit, 0)
+        toolbar.layout.addWidget(self.btn_approve, 0)
+        toolbar.layout.addWidget(self.btn_finish, 0)
         toolbar.layout.addWidget(self.btn_pdf, 0)
         toolbar.layout.addWidget(self.btn_excel, 0)
         toolbar.layout.addWidget(self.btn_cancel, 0)
@@ -118,6 +126,8 @@ class TravelOrderPage(QWidget):
         self.empty_state.action_clicked.connect(self.new_order)
         self.btn_new.clicked.connect(self.new_order)
         self.btn_edit.clicked.connect(self.edit_order)
+        self.btn_approve.clicked.connect(lambda: self.change_status("Odobren"))
+        self.btn_finish.clicked.connect(lambda: self.change_status("Zaključen"))
         self.btn_pdf.clicked.connect(self.export_pdf)
         self.btn_excel.clicked.connect(self.export_excel)
         self.btn_cancel.clicked.connect(self.cancel_order)
@@ -202,6 +212,24 @@ class TravelOrderPage(QWidget):
         oid = self.selected_id()
         if oid and TravelOrderDialog(self, oid).exec():
             self.refresh()
+
+    def change_status(self, status: str):
+        from app.core.permissions import allow, audit
+        from app.core.ui.notify import toast_info
+
+        if not allow("write", self):
+            return
+        oid = self.selected_id()
+        if not oid:
+            toast_info(self, "Najprej izberi potni nalog.")
+            return
+        try:
+            travel_order_repository.set_status(oid, status)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Potni nalog", str(exc))
+            return
+        audit("edit", f"travel_order:{oid}:status:{status}")
+        self.refresh()
 
     def cancel_order(self):
         from app.core.permissions import allow, audit
