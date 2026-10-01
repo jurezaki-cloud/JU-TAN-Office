@@ -11,6 +11,8 @@ from app.database.article_repository import article_repository
 from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
 from app.database.order_repository import order_repository
+from app.database.payment_repository import payment_repository
+from app.database.reminder_repository import reminder_repository
 from app.modules.automation.automation_repository import automation_repository
 from app.modules.automation.execution_log import execution_log
 from app.modules.automation.job_queue import JobQueue
@@ -113,7 +115,16 @@ class AutomationService:
                 continue
             try:
                 if due and date.fromisoformat(due) < today:
-                    events.append(("invoice_overdue", self._invoice_context(full)))
+                    context = self._invoice_context(full)
+                    context["days_overdue"] = (today - date.fromisoformat(due)).days
+                    context["remaining"] = payment_repository.remaining(
+                        int(full[0]), float(full[9] or 0)
+                    )
+                    if context["remaining"] > 0:
+                        summary = reminder_repository.summary(int(full[0]))
+                        context["reminder_count"] = summary["count"]
+                        context["next_reminder_level"] = summary["next_level"]
+                        events.append(("invoice_overdue", context))
             except ValueError:
                 pass
         for item in warehouse_service.stock_rows():
@@ -198,6 +209,8 @@ class AutomationService:
             "customer_category": "",
             "payment_method": "",
             "due_date": invoice[4],
+            "email": customer[8] if customer else "",
+            "invoice_number": invoice[1],
         }
 
     def _run_action(self, action_key: str, config: dict, context: dict) -> Any:

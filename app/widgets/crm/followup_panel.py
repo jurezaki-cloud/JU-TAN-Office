@@ -18,6 +18,7 @@ class FollowupPanel(EnterpriseCard):
             ("today", "Danes"),
             ("tomorrow", "Jutri"),
             ("week", "Ta teden"),
+            ("next7", "Naslednjih 7 dni"),
             ("overdue", "Zapadlo"),
         ):
             label = QLabel(caption)

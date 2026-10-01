@@ -239,7 +239,8 @@ class CrmService:
         today = date.today()
         tomorrow = today + timedelta(days=1)
         week_end = today + timedelta(days=(6 - today.weekday()))
-        buckets = {"today": [], "tomorrow": [], "week": [], "overdue": []}
+        next_week_end = today + timedelta(days=7)
+        buckets = {"today": [], "tomorrow": [], "week": [], "next7": [], "overdue": []}
         for item in self.repository.activities():
             if item[9]:
                 continue
@@ -258,6 +259,8 @@ class CrmService:
                 buckets["tomorrow"].append(item)
             elif today < when <= week_end:
                 buckets["week"].append(item)
+            elif today < when <= next_week_end:
+                buckets["next7"].append(item)
         return buckets
 
     def kpis(self) -> dict:
