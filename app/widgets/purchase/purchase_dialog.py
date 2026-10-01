@@ -17,6 +17,7 @@ from app.modules.purchase.models.purchase_table_model import PurchaseItemsModel
 from app.modules.purchase.purchase_controller import PurchaseController
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.purchase.purchase_table import PurchaseTable
+from app.utils.vat import company_vat_liable
 
 
 class PurchaseDialog(EnterpriseDialog):
@@ -106,7 +107,13 @@ class PurchaseDialog(EnterpriseDialog):
         total_layout.addWidget(QLabel("DDV:"))
         total_layout.addWidget(self.lbl_vat)
         total_layout.addSpacing(20)
-        total_layout.addWidget(QLabel("SKUPAJ:"))
+        total_caption = (
+            "STROŠEK / NABAVNA VREDNOST:"
+            if not company_vat_liable()
+            else "SKUPAJ:"
+        )
+        self.lbl_total_caption = QLabel(total_caption)
+        total_layout.addWidget(self.lbl_total_caption)
         total_layout.addWidget(self.lbl_total)
         totals_card.body.addLayout(total_layout)
         self.body.addWidget(totals_card)
@@ -123,7 +130,9 @@ class PurchaseDialog(EnterpriseDialog):
             self.supplier.addItem(str(row[1]), row[0])
 
     def add_item(self) -> None:
-        dialog = InvoiceItemDialog(self)
+        # A supplier invoice may contain VAT even when our company is not VAT-registered.
+        # The purchase side must therefore never inherit the sales VAT exemption.
+        dialog = InvoiceItemDialog(self, vat_liable=True)
         if dialog.exec():
             data = dialog.get_data()
             self.items_model.add_item({
@@ -131,9 +140,10 @@ class PurchaseDialog(EnterpriseDialog):
                 "name": data[1],
                 "quantity": data[2],
                 "price": data[4],
-                "vat": data[5],
-                "total": data[6],
-                "article_id": data[7],
+                "discount": data[5],
+                "vat": data[6],
+                "total": data[7],
+                "article_id": data[8],
                 "qty_received": 0,
             })
             self.update_total()
@@ -150,6 +160,8 @@ class PurchaseDialog(EnterpriseDialog):
         vat = 0.0
         for item in self.items_model.items:
             base = float(item.get("quantity") or 0) * float(item.get("price") or 0)
+            discount = float(item.get("discount") or 0)
+            base *= 1 - discount / 100
             subtotal += base
             vat += base * float(item.get("vat") or 0) / 100
         self.lbl_subtotal.setText(f"{subtotal:.2f} €")
@@ -163,6 +175,8 @@ class PurchaseDialog(EnterpriseDialog):
         vat_amount = 0.0
         for item in self.items_model.items:
             base = float(item.get("quantity") or 0) * float(item.get("price") or 0)
+            discount = float(item.get("discount") or 0)
+            base *= 1 - discount / 100
             subtotal += base
             vat_amount += base * float(item.get("vat") or 0) / 100
         header = {
@@ -207,6 +221,7 @@ class PurchaseDialog(EnterpriseDialog):
                 "price": item[6],
                 "vat": item[7],
                 "total": item[8],
+                "discount": item[9] if len(item) > 9 else 0,
             })
         self.items_model.refresh(items)
         self.update_total()
