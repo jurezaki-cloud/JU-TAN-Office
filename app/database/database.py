@@ -529,6 +529,12 @@ class Database:
         except Exception:
             logger.debug("Users schema upgrade skipped.", exc_info=True)
 
+        try:
+            from app.modules.purchase.purchase_repository import purchase_repository
+            purchase_repository.ensure_schema()
+        except Exception:
+            logger.debug("Purchase schema upgrade skipped.", exc_info=True)
+
         # ensure_schema() uses the module-level singleton. If initialize() ran on a
         # temporary Database instance, release the singleton so WAL/SHM are not held.
         if self is not db:
