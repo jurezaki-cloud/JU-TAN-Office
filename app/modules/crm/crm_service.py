@@ -8,6 +8,8 @@ from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
 from app.database.offer_repository import offer_repository
 from app.database.order_repository import order_repository
+from app.database.payment_repository import payment_repository
+from app.database.reminder_repository import reminder_repository
 from app.modules.crm.crm_repository import (
     ACTIVITY_TYPES,
     PRIORITIES,
@@ -162,8 +164,8 @@ class CrmService:
                 total = 0.0
             revenue += total
             badge = invoice_badge(invoice[5], full[4] if len(full) > 4 else None)
-            if badge in ("Neplačano", "Zapadlo", "Osnutek"):
-                open_total += total
+            if badge in ("Neplačano", "Zapadlo"):
+                open_total += payment_repository.remaining(int(invoice[0]), total)
         for offer in offer_repository.get_all():
             full = offer_repository.get_by_id(offer[0])
             if full is not None and full[2] == customer_id:
@@ -201,6 +203,16 @@ class CrmService:
                     "text": f"{deal[3]}: {row[2] or '—'} → {row[3]}",
                 })
         timeline = self._timeline(invoices, offers, orders, activities, notes)
+        reminders = []
+        for invoice in invoices:
+            for reminder in reminder_repository.list_for_invoice(int(invoice[0])):
+                event = {
+                    "date": str(reminder[2] or "")[:19],
+                    "kind": "Opomin",
+                    "text": f"{reminder[1]}. opomin · račun {invoice[1]} · {float(reminder[5] or 0):.2f} EUR",
+                }
+                reminders.append(event)
+        timeline.extend(reminders)
         timeline.extend(stage_events)
         timeline.sort(key=lambda item: str(item.get("date") or ""), reverse=True)
         timeline = timeline[:40]
@@ -220,6 +232,7 @@ class CrmService:
             "all_opportunities": customer_deals,
             "opportunity_documents": opportunity_documents,
             "timeline": timeline,
+            "reminders": reminders,
         }
 
     def followups(self) -> dict[str, list]:

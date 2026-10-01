@@ -88,6 +88,7 @@ class CustomerCard(EnterpriseCard):
             ("Ponudbe", str(len(data.get("offers") or []))),
             ("Naročila", str(len(data.get("orders") or []))),
             ("Aktivne priložnosti", str(len(data.get("opportunities") or []))),
+            ("Poslani opomini", str(len(data.get("reminders") or []))),
         )
         for label, value in values:
             self.overview.addItem(f"{label}:  {value}")
