@@ -12,6 +12,9 @@ class OfferActions(QWidget):
     edit_clicked = Signal()
     delete_clicked = Signal()
     pdf_clicked = Signal()
+    print_clicked = Signal()
+    preview_clicked = Signal()
+    email_clicked = Signal()
     excel_clicked = Signal()
     import_clicked = Signal()
     invoice_clicked = Signal()
@@ -71,6 +74,9 @@ class OfferActions(QWidget):
         self.btn_more.add_actions(
             (
                 ("PDF", self.pdf_clicked.emit),
+                ("Predogled tiska", self.preview_clicked.emit),
+                ("Natisni", self.print_clicked.emit),
+                ("Pošlji po e-pošti", self.email_clicked.emit),
                 ("Excel", self.excel_clicked.emit),
                 ("Uvoz", self.import_clicked.emit),
                 ("Pretvori v račun", self.invoice_clicked.emit),

@@ -1,4 +1,14 @@
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QTextEdit, QWidget
+from PySide6.QtCore import QSize
+from PySide6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QStyle,
+    QStyleOptionFrame,
+    QTextEdit,
+    QWidget,
+)
 
 from app.core.ui.form_grid import FormGrid
 from app.modules.customers.services.company_lookup import CompanyLookupError, lookup_company
@@ -12,6 +22,23 @@ COUNTRIES = (
     "Madžarska",
     "Švica",
 )
+
+
+class _TaxNumberEdit(QLineEdit):
+    """Keeps a whole 13-character EU VAT ID (HR, IT) readable; the lookup button shares its row."""
+
+    SAMPLE = "HR12345678901"
+
+    def minimumSizeHint(self) -> QSize:
+        hint = super().minimumSizeHint()
+        text, contents = self.textMargins(), self.contentsMargins()
+        # QLineEdit's own sizing: the text, its 2 px side margins and the cursor, then the style's box.
+        width = (self.fontMetrics().horizontalAdvance(self.SAMPLE) + 2 * 2 + 2 + text.left()
+                 + text.right() + contents.left() + contents.right())
+        option = QStyleOptionFrame()
+        self.initStyleOption(option)
+        box = self.style().sizeFromContents(QStyle.CT_LineEdit, option, QSize(width, hint.height()), self)
+        return QSize(max(hint.width(), box.width()), hint.height())
 
 
 class CustomerForm(QWidget):
@@ -31,7 +58,7 @@ class CustomerForm(QWidget):
         self.country = QComboBox()
         self.country.setEditable(True)
         self.country.addItems(COUNTRIES)
-        self.tax_number = QLineEdit()
+        self.tax_number = _TaxNumberEdit()
         self.lookup_button = QPushButton("Poišči podjetje")
         self.lookup_button.setToolTip("Poišči slovensko podjetje po davčni številki")
         self.email = QLineEdit()
@@ -50,6 +77,7 @@ class CustomerForm(QWidget):
         grid.add_full("Naslov", self.address)
         grid.add("Poštna št.", self.postal_code, "Kraj", self.city)
         tax_lookup = QWidget()
+        tax_lookup.setObjectName("TaxLookupRow")
         tax_layout = QHBoxLayout(tax_lookup)
         tax_layout.setContentsMargins(0, 0, 0, 0)
         tax_layout.setSpacing(8)

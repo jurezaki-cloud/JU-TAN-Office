@@ -4,8 +4,7 @@ from html import escape
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextDocument
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from app.services.print_center import print_center
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -210,13 +209,7 @@ class WarehousePage(QWidget):
         toast(self, "Excel izvožen")
 
     def print_stock(self) -> None:
-        printer = QPrinter(QPrinter.HighResolution)
-        dialog = QPrintDialog(printer, self)
-        if dialog.exec() != QPrintDialog.Accepted:
-            return
-        document = QTextDocument()
-        document.setHtml(self._print_html())
-        document.print_(printer)
+        print_center.print_html(self, self._print_html(), "Skladišče — zaloga")
 
     def _print_html(self) -> str:
         rows = "".join(

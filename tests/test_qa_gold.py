@@ -314,25 +314,32 @@ def test_installer_upgrade_contract():
     assert "AppPublisherURL=" in iss
     assert "PRIVACY.md" in iss
     assert "SECURITY.md" in iss
+    assert "DATA_LOCATIONS.md" in iss
     assert "CloseApplications=yes" in iss
     assert "AppMutex=JU-TANOfficeMutex" in iss
     assert "pre-upgrade.db-wal" in iss
     assert "pre-upgrade.db-shm" in iss
+    assert "Nadgradi / ponovno namesti in ohrani podatke" in iss
+    assert "Nova čista namestitev" in iss
+    assert "Popolnoma odstrani" in iss
+    assert "WipeBusinessDataKeepBackups" in iss
     version = Path("Version.txt").read_text(encoding="utf-8")
-    assert "1.0.0 GOLD" in version or "1.0.0" in version
+    from app.core.constants import APP_VERSION
+    assert f"Version: {APP_VERSION} GOLD" in version
     assert f"SCHEMA {SCHEMA_VERSION}" in version
     assert Path("packaging/LICENSE.txt").exists()
     assert Path("docs/INSTALL.md").exists()
     assert Path("docs/SECURITY.md").exists()
     assert Path("docs/PRIVACY.md").exists()
     assert Path("docs/SIGNING.md").exists()
+    assert Path("docs/DATA_LOCATIONS.md").exists()
     notes = Path("docs/RELEASE_NOTES.md").read_text(encoding="utf-8")
     assert "1.0.0" in notes
     assert Path("packaging/version.iss").exists()
     assert not Path("packaging/SHA256SUMS.txt").exists()
     changelog = Path("docs/CHANGELOG.md").read_text(encoding="utf-8")
     assert "## 1.0.0" in changelog
-    assert "## 1.0.1" not in changelog
+    assert f"## {APP_VERSION}" in changelog
     assert Path("INSTALL.md").read_text(encoding="utf-8") == Path("docs/INSTALL.md").read_text(
         encoding="utf-8"
     )

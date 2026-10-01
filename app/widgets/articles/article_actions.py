@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
 
 from app.core.ui.brand_icons import brand_icon
+from app.widgets.common.filter_controls import compact_filter
 
 UNITS = [
     "kos",
@@ -23,6 +24,7 @@ class ArticleActions(QWidget):
     delete_clicked = Signal()
     refresh_clicked = Signal()
     excel_clicked = Signal()
+    print_clicked = Signal()
     import_clicked = Signal()
     filter_changed = Signal(str)
 
@@ -36,8 +38,8 @@ class ArticleActions(QWidget):
         layout.setSpacing(8)
 
         self.filter = QComboBox()
-        self.filter.setObjectName("EnterpriseFilter")
-        self.filter.setMinimumHeight(36)
+        compact_filter(self.filter, contents_length=6)
+        self.filter.setMaximumWidth(96)
         self.filter.addItem("Vse enote", "all")
         for unit in UNITS:
             self.filter.addItem(unit, unit)
@@ -56,6 +58,8 @@ class ArticleActions(QWidget):
         self.btn_refresh.setObjectName("GhostButton")
         self.btn_excel = QPushButton("Excel")
         self.btn_excel.setObjectName("SecondaryButton")
+        self.btn_print = QPushButton("Tiskaj")
+        self.btn_print.setObjectName("SecondaryButton")
         self.btn_import = QPushButton("Uvoz")
         self.btn_import.setObjectName("GhostButton")
 
@@ -66,6 +70,7 @@ class ArticleActions(QWidget):
             self.btn_edit,
             self.btn_delete,
             self.btn_excel,
+            self.btn_print,
             self.btn_import,
             self.btn_refresh,
         ):
@@ -77,6 +82,7 @@ class ArticleActions(QWidget):
         self.btn_edit.clicked.connect(self.edit_clicked.emit)
         self.btn_delete.clicked.connect(self.delete_clicked.emit)
         self.btn_excel.clicked.connect(self.excel_clicked.emit)
+        self.btn_print.clicked.connect(self.print_clicked.emit)
         self.btn_import.clicked.connect(self.import_clicked.emit)
         self.btn_refresh.clicked.connect(self.refresh_clicked.emit)
         self.filter.currentIndexChanged.connect(

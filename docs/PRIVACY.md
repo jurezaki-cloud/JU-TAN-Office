@@ -45,8 +45,11 @@ Gesla so shranjena kot kriptografski hash; skrivnosti so zaščitene lokalno (np
 ## 5. Hramba in brisanje
 
 - Trajanje hrambe določate vi v skladu z računovodskimi in davčnimi obveznostmi.
-- Odstranitev programa (uninstall) **ne zbriše** baze, varnostnih kopij in dokumentov v podatkovnih mapah.
-- Za izbris ali izvoz podatkov uporabite funkcije v Nastavitvah (varnostne kopije / izvoz) ali se obrnite na svojega skrbnika IT. Celovit GDPR paket izvoza/brisanja se lahko dopolni v prihodnjih izdajah.
+- Odstranitev programa:
+  - **Odstrani program** ne zbriše baze, varnostnih kopij in dokumentov.
+  - **Popolna odstranitev** zbriše lokalne poslovne podatke šele po izrecni potrditvi; varnostne kopije le, če to ločeno potrdite.
+- Aktivacija naprave (%LocalAppData%) se ob odstranitvi / čisti namestitvi privzeto ohrani.
+- Za izbris ali izvoz podatkov uporabite funkcije v Nastavitvah (varnostne kopije / izvoz) ali se obrnite na svojega skrbnika IT. Glej `docs/DATA_LOCATIONS.md`.
 
 ## 6. Varnost
 

@@ -1,7 +1,14 @@
+﻿Posodobitev 2026-10-01: **1.0.5 razvoj** — Command Center in akcijska opozorila.
+
+Prejšnja stabilna izdaja: **1.0.4 GOLD** — stabilizacija licence, delnih plačil in prijave/odklepa.
 # TASK-033 / Release Report — JU-TAN Office Enterprise 1.0.0 GOLD
 
+Posodobitev 2026-09-28: **1.0.3 GOLD** — premium UI audit (dokumentni urejevalnik, temni način, PDF polish).  
+Posodobitev 2026-09-28: **1.0.2 GOLD** — podpis direktorja na ponudbah, zanesljiv podpis na računu tudi brez UPN QR.  
+Posodobitev 2026-09-28: popravek **1.0.1 GOLD** odpravlja uvoz modula Stranke. Spodnje poročilo opisuje prvotno izdajo 1.0.0.
+
 Datum: 2026-09-21  
-Različica: **1.0.0** (`APP_VERSION`) / kanal **GOLD** / `SCHEMA_VERSION` = **3**  
+Različica: **1.0.3** (`APP_VERSION`) / kanal **GOLD** / `SCHEMA_VERSION` = **3**  
 Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb poslovne logike.
 
 ## Tokeni
@@ -20,7 +27,7 @@ Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb p
 
 | Artifact | Vir resnice |
 | --- | --- |
-| `APP_VERSION` / `APP_CHANNEL` | `app/core/constants.py` → `1.0.0` / `GOLD` |
+| `APP_VERSION` / `APP_CHANNEL` | `app/core/constants.py` → `1.0.3` / `GOLD` |
 | `SCHEMA_VERSION` | `app/core/constants.py` → `3` |
 | `Version.txt` / `packaging/Version.txt` | `scripts/sync_release_metadata.py` |
 | `packaging/version.iss` / `file_version_info.txt` | sync iz `release_meta` |
@@ -58,3 +65,4 @@ Pravilo: samo pakiranje/dokumentacija/nadgradnja installerja — brez sprememb p
 
 - Razvojni/RC buildi ne zahtevajo certifikata. Produkcijski podpis: certifikat `CN=JU-TAN Studio` v `Cert:\CurrentUser\My` (ali `JU_TAN_PFX` kot fallback); gate `-RequireSigned` (glej `docs/SIGNING.md`).
 - Posodobitveni kanal (`updates/latest.json`) je pripravljen; zunanji feed je konfiguracija okolja
+

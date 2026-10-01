@@ -7,13 +7,37 @@ QR is only built when IBAN and positive amount are present (never decorative).
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from app.utils.money import money, to_decimal
 
+# The UPN QR character set is ISO 8859-2; typographic characters common in
+# Slovenian text („“ – € …) are outside it and would make the QR unencodable.
+_UPN_TRANSLATE = str.maketrans(
+    {
+        "\u201e": '"', "\u201c": '"', "\u201d": '"', "\u00ab": '"', "\u00bb": '"',
+        "\u201a": "'", "\u2018": "'", "\u2019": "'",
+        "\u2013": "-", "\u2014": "-", "\u2212": "-",
+        "\u2026": "...", "\u20ac": "EUR", "\u00a0": " ",
+    }
+)
+
+
+def _latin2(text: str) -> str:
+    out = []
+    for ch in text:
+        try:
+            ch.encode("iso-8859-2")
+            out.append(ch)
+        except UnicodeEncodeError:
+            base = unicodedata.normalize("NFKD", ch).encode("iso-8859-2", "ignore").decode("iso-8859-2")
+            out.append(base or "?")
+    return "".join(out)
+
 
 def _clean(value: str, limit: int) -> str:
-    text = re.sub(r"[\r\n]+", " ", str(value or "")).strip()
-    return text[:limit]
+    text = re.sub(r"[\r\n]+", " ", str(value or "")).translate(_UPN_TRANSLATE)
+    return _latin2(text).strip()[:limit]
 
 
 def _iban(value: str) -> str:

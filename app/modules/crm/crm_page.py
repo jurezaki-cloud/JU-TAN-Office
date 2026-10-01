@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtGui import QTextDocument
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from app.services.print_center import print_center
 from PySide6.QtWidgets import (
     QFileDialog,
     QSplitter,
@@ -18,6 +17,7 @@ from app.widgets.crm.crm_dashboard import CrmDashboard
 from app.widgets.crm.crm_dialogs import ActivityDialog, LeadDialog
 from app.widgets.crm.crm_toolbar import CrmToolbar
 from app.widgets.crm.customer_card import CustomerCard
+from app.widgets.crm.deal_dialog import DealDialog
 from app.widgets.crm.followup_panel import FollowupPanel
 from app.widgets.crm.pipeline_board import PipelineBoard
 
@@ -70,6 +70,7 @@ class CrmPage(QWidget):
         self.actions.filter_changed.connect(self.refresh)
         self.board.deal_moved.connect(self._move_deal)
         self.board.deal_selected.connect(self._select_deal)
+        self.board.deal_opened.connect(self.edit_deal)
         self.customer_card.customer_selected.connect(self._select_customer)
         from app.core.ui.window_state import remember_layout
         remember_layout(self, "page.crm", splitters=[split], fields=[self.search])
@@ -98,6 +99,24 @@ class CrmPage(QWidget):
             self.controller.create_lead(dialog.data())
             self.refresh()
 
+    def edit_deal(self, deal_id: int) -> None:
+        dialog = DealDialog(deal_id, self, self.controller)
+        if not dialog.exec():
+            return
+        self.controller.update_deal(deal_id, dialog.data())
+        activity = dialog.next_activity_data()
+        if activity:
+            self.controller.add_activity(activity)
+        note = dialog.note_text()
+        if note:
+            deal = self.controller.repository.get_deal(deal_id)
+            self.controller.repository.add_note(
+                deal[1] if deal else None, deal_id, note,
+                dialog.data().get("salesperson") or self.controller.service.default_owner(),
+            )
+        self._deal_id = deal_id
+        self.refresh()
+
     def new_activity(self, activity_type: str) -> None:
         dialog = ActivityDialog(
             self,
@@ -118,13 +137,7 @@ class CrmPage(QWidget):
         self.controller.export_excel(Path(path), self._deals())
 
     def print_pipeline(self) -> None:
-        printer = QPrinter(QPrinter.HighResolution)
-        dialog = QPrintDialog(printer, self)
-        if dialog.exec() != QPrintDialog.Accepted:
-            return
-        document = QTextDocument()
-        document.setHtml(self.controller.print_html(self._deals()))
-        document.print_(printer)
+        print_center.print_html(self, self.controller.print_html(self._deals()), "CRM — prodajni lijak")
 
     def _deals(self) -> list:
         return self.controller.deals(

@@ -38,14 +38,19 @@ def application_icon() -> QIcon:
     return _ICON_CACHE
 
 
+def apply_application_icon(app: QApplication) -> None:
+    """Default icon for every window, including the license dialogs shown before the identity."""
+    icon = application_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
+
+
 def apply_application_identity(app: QApplication) -> None:
     """Set display name + icon before any window is shown."""
     app.setApplicationName(APP_NAME)
     app.setApplicationDisplayName(APP_NAME)
     app.setOrganizationName("JU-TAN Studio")
-    icon = application_icon()
-    if not icon.isNull():
-        app.setWindowIcon(icon)
+    apply_application_icon(app)
 
 
 def apply_window_icon(widget: QWidget) -> None:

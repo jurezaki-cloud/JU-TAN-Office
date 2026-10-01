@@ -100,6 +100,10 @@ class FreshResetDialog(EnterpriseDialog):
         self.confirm = QLineEdit()
         self.confirm.setPlaceholderText("Vnesite FRESH")
         self.confirm.setMinimumHeight(36)
+        # Confirmation is a fixed safety phrase, never an administrator password.
+        # Keeping it separate prevents the destructive action from looking broken
+        # when a valid admin password is entered in both fields.
+        self.confirm.setToolTip("Za potrditev vnesite natančno besedo FRESH.")
 
         form = QFormLayout()
         form.addRow("Geslo administratorja", self.password)
@@ -116,7 +120,7 @@ class FreshResetDialog(EnterpriseDialog):
     def _update_enabled(self) -> None:
         ok = (
             bool(self.password.text())
-            and self.confirm.text().strip() == FRESH_CONFIRM_TEXT
+            and self.confirm.text().strip().upper() == FRESH_CONFIRM_TEXT
         )
         self.btn_save.setEnabled(ok)
 
@@ -134,7 +138,7 @@ class FreshResetDialog(EnterpriseDialog):
             fresh_reset_service.assert_authorized()
             path = fresh_reset_service.execute(
                 password=self.password.text(),
-                confirm_text=self.confirm.text(),
+                confirm_text=self.confirm.text().strip().upper(),
             )
         except FreshResetError as exc:
             QMessageBox.critical(self, "FRESH", str(exc))

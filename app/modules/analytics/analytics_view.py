@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.ui.layouts import detach_widgets
 from app.modules.analytics.analytics_controller import AnalyticsController
 from app.modules.analytics.analytics_widgets import (
     BarChart,
@@ -78,7 +79,7 @@ class AnalyticsView(QWidget):
         self.filters.custom_range_changed.connect(self.refresh)
         self.exports.pdf_clicked.connect(self._export_finance)
         self.exports.excel_clicked.connect(self._export_finance)
-        self.exports.print_clicked.connect(self._export_finance)
+        self.exports.print_clicked.connect(self._print_finance)
 
         today = date.today()
         self.filters.from_date.setDate(QDate(today.year, today.month, 1))
@@ -141,10 +142,7 @@ class AnalyticsView(QWidget):
             return
         self._breakpoint = mode
 
-        while self._grid.count():
-            item = self._grid.takeAt(0)
-            if item.widget():
-                item.widget().setParent(self._canvas)
+        detach_widgets(self._grid)
 
         kpis = (
             self._kpi_today,
@@ -268,6 +266,24 @@ class AnalyticsView(QWidget):
             from app.core.errors import handle_error
 
             handle_error(exc, context="analytics_export", parent=self)
+
+    def _print_finance(self):
+        """Print the finance report through the central JU-TAN Print Center."""
+        try:
+            from app.modules.reports.reporting_service import ReportFilters, reporting_service
+            from app.services.print_center import print_center
+
+            result = reporting_service.run("finance_outstanding", ReportFilters())
+            html = print_center.table_html(
+                "Analitika — odprte postavke",
+                list(result.headers),
+                list(result.rows),
+            )
+            print_center.print_html(self, html, "Analitika")
+        except Exception as exc:
+            from app.core.errors import handle_error
+
+            handle_error(exc, context="analytics_print", parent=self)
 
     @staticmethod
     def _set_caption(card: EnterpriseCard, text: str) -> None:

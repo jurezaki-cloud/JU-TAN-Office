@@ -1,4 +1,4 @@
-# Namestitev — JU-TAN Office Enterprise 1.0.0 GOLD
+# Namestitev — JU-TAN Office Enterprise 1.0.3 GOLD
 
 ## Namestitveni paket
 
@@ -15,11 +15,25 @@
 Podrobnosti: `docs/SIGNING.md`.
 
 Privzeta mapa: `C:\Program Files\JU-TAN Office\`  
-Podatki: `%ProgramData%\JU-TAN Office\` (Data, Logs, Backup, Temp, Reports).
+Podatki: `%ProgramData%\JU-TAN Office\` (Data, Logs, Backup, Temp, Reports).  
+Aktivacija naprave: `%LocalAppData%\JU-TAN\Office\` (ločeno od poslovnih podatkov).
 
 Bližnjice: namizje (opcijsko), Start meni, Programs, Odstrani.
 
-Ob odstranitvi se **ne** zbrišejo baza, backupi in dokumenti.
+## Načini namestitve
+
+- **Prva namestitev** (ni starih podatkov): običajna namestitev, prazen poslovni prostor.
+- **Nadgradi / ponovno namesti in ohrani podatke**: privzeto, ko Setup najde obstoječe podatke. Poslovni podatki ostanejo.
+- **Nova čista namestitev**: samo po izrecni izbiri in potrditvi. Priporočena varnostna kopija pred izbrisom. Program se inicializira brez podjetij, strank, artiklov, računov, …
+
+Tiha namestitev (`/SILENT`) **vedno ohrani** podatke (nikoli samodejna čista namestitev).
+
+## Odstranitev
+
+1. **Odstrani program** — program se odstrani; poslovni podatki ostanejo.
+2. **Popolnoma odstrani … in vse podatke** — po potrditvi; varnostne kopije le, če to izrecno označite.
+
+Glej tudi `docs/DATA_LOCATIONS.md`.
 
 ## Predpogoji
 
@@ -35,13 +49,17 @@ Ob odstranitvi se **ne** zbrišejo baza, backupi in dokumenti.
 
 ## Prvi zagon
 
-Čarovnik (podjetje, DDV, naslov, davčna št., valuta, logo, administrator) ustvari bazo, privzetega administratorja in nastavitve.
+Po čisti namestitvi: licenca / aktivacija → prijava / začetni račun → čarovnik prvega zagona → vnos podjetja → nastavitve → pripravljen za uporabo.
+
+Čarovnik **ne** predizpolni fiktivnih poslovnih podatkov. Produkcijski paket **ne** vsebuje razvojne / demo baze.
 
 ## Nadgradnja
 
-Namestite novi Setup.exe čez obstoječo namestitev. Installer zapre tekočo aplikacijo (`CloseApplications` / `AppMutex`), nato naredi WAL-varno kopijo baze (`ju_tan.db` + morebitna `.db-wal` / `.db-shm`) v `Backup\pre-upgrade.db*`. Ob napaki sheme aplikacija naredi rollback.
+Namestite novi Setup.exe in izberite **Nadgradi / ponovno namesti in ohrani podatke** (privzeto). Installer zapre tekočo aplikacijo (`CloseApplications` / `AppMutex`), nato naredi varnostno kopijo baze v `Backup\pre-upgrade.db*`. Ob napaki sheme aplikacija naredi rollback.
 
-Če je bila namestitev označena kot dokončana (`setup_complete`), a še ni uporabnikov v SQLite (starejše različice brez večuporabniške prijave), aplikacija **ne** zažene čarovnika znova. Namesto tega odpre enkratno **Nastavitev prijave** (Credential Onboarding), kjer lastnik ustvari skrbnika. Poslovni podatki ostanejo nedotaknjeni; nato velja običajna prijava.
+**Nadgradnja 1.0.3 → 1.0.4 ne briše** podjetij, strank, artiklov, računov.
+
+Če je bila namestitev označena kot dokončana (`setup_complete`), a še ni uporabnikov v bazi (starejše različice), aplikacija odpre **Nastavitev prijave** — poslovni podatki ostanejo nedotaknjeni.
 
 ## Razvoj
 
@@ -60,12 +78,14 @@ Politika zasebnosti je vključena v paket (`docs/PRIVACY.md`) in dostopna v Nast
 
 Ročni kontrolni seznam (po `build_release.ps1`):
 
-1. Čista namestitev na svež Windows 10/11 x64.
-2. Prvi zagon — čarovnik, baza in administrator.
-3. Nadgradnja z istim Setup.exe (ali višjo verzijo) — `Backup\pre-upgrade.db`.
-4. Ponovna namestitev (Repair) brez izgube podatkov.
-5. Varnostna kopija in obnovitev v Nastavitvah.
-6. Uninstall — program izgine, `%ProgramData%\JU-TAN Office` ostane.
+1. Čista namestitev na svež Windows — prazen poslovni prostor (0 podjetij z imenom, 0 strank, 0 artiklov, 0 računov).
+2. Nadgradnja z ohranitvijo podatkov — vsi poslovni zapisi ostanejo.
+3. Standardna odstranitev → ponovna namestitev — podatki se vrnejo.
+4. Popolna odstranitev (z potrditvijo) → ponovna namestitev — svež prazen prostor.
+5. Čista namestitev z varnostno kopijo — baza prazna, kopija obstaja.
+6. Prvi zagon: čarovnik → ročno podjetje → stranka → artikel → račun → restart → podatki ostanejo.
+
+**Ne** uporabljajte produkcijske baze za uničujoče teste.
 
 ## Portable
 

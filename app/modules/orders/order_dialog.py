@@ -47,9 +47,11 @@ class OrderDialog(EnterpriseDialog):
         self.lbl_number = self.doc_header.lbl_number
         self.customer = self.customer_panel.customer
         self.issue_date = QDateEdit()
+        self.issue_date.setDisplayFormat("dd-MM-yyyy")
         self.issue_date.setCalendarPopup(True)
         self.issue_date.setDate(QDate.currentDate())
         self.delivery_date = QDateEdit()
+        self.delivery_date.setDisplayFormat("dd-MM-yyyy")
         self.delivery_date.setCalendarPopup(True)
         self.delivery_date.setDate(QDate.currentDate().addDays(7))
         self.status = QComboBox()
@@ -61,8 +63,10 @@ class OrderDialog(EnterpriseDialog):
         self.notes.setObjectName("DocumentNotes")
 
         grid = FormGrid()
-        grid.add("Datum", self.issue_date, "Status", self.status)
-        grid.add("Dobava", self.delivery_date)
+        # Stack metadata so the customer pane does not starve the items table at 150 % DPI.
+        grid.add_full("Datum", self.issue_date)
+        grid.add_full("Status", self.status)
+        grid.add_full("Dobava", self.delivery_date)
         meta_wrap = QWidget()
         meta_wrap.setLayout(grid.layout)
         self.customer_panel.meta_layout.addWidget(meta_wrap)
@@ -71,7 +75,6 @@ class OrderDialog(EnterpriseDialog):
         self.items_model = InvoiceItemsModel()
         self.items_table = self.items_panel.items_table
         self.items_table.setModel(self.items_model)
-        self.bind_table(self.items_table)
         self.btn_add_item = self.items_panel.btn_add_item
         self.btn_remove_item = self.items_panel.btn_remove_item
 
@@ -112,6 +115,7 @@ class OrderDialog(EnterpriseDialog):
             self.load_order()
         else:
             self.update_total()
+        self._sync_items_actions()
 
     def _apply_vat_ui(self):
         from app.utils.vat import ARTICLE_94_NOTICE, parse_vat_liable
@@ -135,8 +139,15 @@ class OrderDialog(EnterpriseDialog):
         self.doc_header.set_customer_name(name if customer_id is not None else None)
         if customer_id is None:
             self.customer_panel.set_customer_record(None)
+        else:
+            self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        self._sync_items_actions()
+
+    def _sync_items_actions(self) -> None:
+        if self.customer.currentData() is None:
+            self.items_panel.set_add_enabled(False, reason="Najprej izberite stranko.")
             return
-        self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        self.items_panel.set_add_enabled(True)
 
     def _on_more_action(self, action: str) -> None:
         if action == "refresh_totals":
@@ -167,6 +178,12 @@ class OrderDialog(EnterpriseDialog):
         self._on_customer_changed()
 
     def add_item(self):
+        if self.customer.currentData() is None:
+            from app.core.ui.notify import toast
+
+            toast(self, "Najprej izberite stranko.")
+            self._sync_items_actions()
+            return
         dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
         if dialog.exec():
             self.items_model.add_item(dialog.get_data())
@@ -283,6 +300,7 @@ class OrderDialog(EnterpriseDialog):
             )
             order_id = self.order_id
         audit("create" if self.order_id is None else "edit", f"order:{order_id}")
+        self.order_id = order_id
         self.accept()
 
     def load_order(self):

@@ -16,6 +16,7 @@ from app.core.ui.notify import toast
 from app.modules.purchase.models.purchase_table_model import PurchaseTableModel
 from app.modules.purchase.purchase_controller import PurchaseController
 from app.pdf.pdf_export import pdf_export
+from app.services.print_center import print_center
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
 from app.widgets.customers.empty_state import EmptyStateCard
@@ -160,7 +161,7 @@ class PurchasePage(QWidget):
             return
         try:
             path = self.controller.export_pdf(purchase_id)
-            pdf_export.print_pdf(path)
+            print_center.print_pdf(self, path)
         except Exception as exc:
             QMessageBox.warning(self, "Print", str(exc))
 

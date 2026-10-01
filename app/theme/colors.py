@@ -26,6 +26,11 @@ class LightColors:
     WARNING_SOFT = "rgba(217, 119, 6, 0.45)"
     DANGER = "#DC2626"
     DANGER_HOVER = "#B91C1C"
+    # Hover / pressed tint of the outline Danger button. Its icon stays DANGER in every
+    # state, so a DANGER fill would hide it; ON_SOFT keeps the label >= 4.5:1 on the tint.
+    DANGER_SOFT = "#FCEEEE"
+    DANGER_SOFT_PRESSED = "#FAE1E1"
+    DANGER_ON_SOFT = "#B91C1C"
     INFO = "#2563EB"
     TABLE_HEADER = "#F1F5F9"
     TABLE_ALTERNATE = "#F8FAFC"
@@ -63,6 +68,9 @@ class DarkColors:
     WARNING_SOFT = "rgba(251, 191, 36, 0.40)"
     DANGER = "#F87171"
     DANGER_HOVER = "#EF4444"
+    DANGER_SOFT = "#302733"
+    DANGER_SOFT_PRESSED = "#422E39"
+    DANGER_ON_SOFT = "#FCA5A5"
     INFO = "#60A5FA"
     TABLE_HEADER = "#1A2332"
     TABLE_ALTERNATE = "#121A27"

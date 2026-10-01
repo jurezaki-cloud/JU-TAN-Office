@@ -60,6 +60,7 @@ class PurchaseToolbar(QWidget):
         self.status = QComboBox()
         self.date_mode = QComboBox()
         self.date = QDateEdit()
+        self.date.setDisplayFormat("dd-MM-yyyy")
         self.date.setCalendarPopup(True)
         self.date.setDate(QDate.currentDate())
         for combo in (self.supplier, self.status, self.date_mode):

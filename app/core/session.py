@@ -75,6 +75,7 @@ class Session:
         if not self.locked:
             audit("lock", self.user)
         self.locked = True
+        self.authenticated = False
         set_identity(authenticated=False)
 
     def unlock(self, user: str | None = None) -> None:

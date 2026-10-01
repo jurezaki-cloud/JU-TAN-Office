@@ -1,10 +1,15 @@
 import sqlite3
 import threading
+import weakref
 from contextlib import contextmanager
 from pathlib import Path
 
 from app.core.constants import DATABASE_PATH
 from app.core.logger import logger
+
+
+class _TrackedConnection(sqlite3.Connection):
+    """sqlite3.Connection cannot be weak-referenced; this subclass can."""
 
 
 class _PooledConnection:
@@ -32,12 +37,15 @@ class Database:
     def __init__(self) -> None:
         self.database = Path(DATABASE_PATH)
         self._local = threading.local()
+        self._lock = threading.Lock()
+        # Weak: a worker thread's connection must still be freed when the thread exits.
+        self._connections: weakref.WeakSet[sqlite3.Connection] = weakref.WeakSet()
 
     def connect(self):
         """Odpri ali ponovno uporabi povezavo niti."""
         raw = getattr(self._local, "conn", None)
         if raw is None:
-            raw = sqlite3.connect(self.database, timeout=10)
+            raw = sqlite3.connect(self.database, timeout=10, factory=_TrackedConnection)
             raw.execute("PRAGMA foreign_keys = ON")
             raw.execute("PRAGMA journal_mode = WAL")
             raw.execute("PRAGMA busy_timeout = 5000")
@@ -45,17 +53,60 @@ class Database:
             raw.execute("PRAGMA temp_store = MEMORY")
             raw.execute("PRAGMA cache_size = -8000")
             raw.execute("PRAGMA mmap_size = 268435456")
+            with self._lock:
+                self._connections.add(raw)
             self._local.conn = raw
         return _PooledConnection(raw)
 
     def dispose(self) -> None:
-        raw = getattr(self._local, "conn", None)
-        if raw is not None:
+        """Close pooled connections, releasing WAL/SHM file handles.
+
+        sqlite3 only allows the owning thread to close a connection. A connection
+        still owned by a running worker thread stays open (and tracked) until that
+        thread exits; callers that delete files must verify the files are gone.
+        """
+        with self._lock:
+            conns = list(self._connections)
+        for raw in conns:
             try:
                 raw.close()
+            except sqlite3.ProgrammingError:
+                logger.debug("Pooled connection owned by another live thread left open.")
+                continue
             except sqlite3.Error:
                 pass
-            self._local.conn = None
+            with self._lock:
+                self._connections.discard(raw)
+        self._local.conn = None
+
+    def shutdown(self) -> None:
+        """Checkpoint the WAL, then close pooled connections.
+
+        Call before process exit or any filesystem delete of ju_tan.db / WAL / SHM.
+        A later ``connect()`` reopens the database (controlled maintenance).
+        """
+        raw = getattr(self._local, "conn", None)
+        if raw is None and self.database.exists():
+            try:
+                raw = sqlite3.connect(self.database, timeout=5, factory=_TrackedConnection)
+                with self._lock:
+                    self._connections.add(raw)
+            except sqlite3.Error as exc:
+                logger.warning("Could not open DB for WAL checkpoint: %s", exc)
+                raw = None
+        if raw is not None:
+            try:
+                # Finish/rollback any implicit transaction, then truncate WAL.
+                try:
+                    raw.rollback()
+                except sqlite3.Error:
+                    pass
+                raw.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                raw.commit()
+            except sqlite3.Error as exc:
+                logger.warning("WAL checkpoint during shutdown: %s", exc)
+        self.dispose()
+        logger.info("SQLite baza zaustavljena (povezave zaprte).")
 
     @contextmanager
     def transaction(self, *, immediate: bool = False):
@@ -145,6 +196,8 @@ class Database:
         INSERT OR IGNORE INTO company(id)
         VALUES (1)
         """)
+        # Singleton scaffold only (blank name). Not demo/business data.
+        # First-run wizard collects the real company profile.
 
         # =====================================================
         # CUSTOMERS
@@ -475,6 +528,14 @@ class Database:
             user_repository.ensure_schema()
         except Exception:
             logger.debug("Users schema upgrade skipped.", exc_info=True)
+
+        # ensure_schema() uses the module-level singleton. If initialize() ran on a
+        # temporary Database instance, release the singleton so WAL/SHM are not held.
+        if self is not db:
+            try:
+                db.dispose()
+            except Exception:
+                logger.debug("Singleton dispose after temp initialize failed.", exc_info=True)
 
         logger.info("SQLite baza inicializirana.")
 

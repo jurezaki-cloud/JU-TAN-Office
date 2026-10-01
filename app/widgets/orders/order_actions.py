@@ -13,6 +13,8 @@ class OrderActions(QWidget):
     delete_clicked = Signal()
     refresh_clicked = Signal()
     pdf_clicked = Signal()
+    print_clicked = Signal()
+    preview_clicked = Signal()
     excel_clicked = Signal()
     import_clicked = Signal()
     filter_changed = Signal(str)
@@ -67,6 +69,8 @@ class OrderActions(QWidget):
         self.btn_more.add_actions(
             (
                 ("PDF", self.pdf_clicked.emit),
+                ("Predogled tiska", self.preview_clicked.emit),
+                ("Natisni", self.print_clicked.emit),
                 ("Excel", self.excel_clicked.emit),
                 ("Uvoz", self.import_clicked.emit),
                 ("Osveži", self.refresh_clicked.emit),

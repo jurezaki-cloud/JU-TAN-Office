@@ -59,6 +59,7 @@ class DocumentFilters(QWidget):
         self.owner = QComboBox()
         self.date_mode = QComboBox()
         self.date = QDateEdit()
+        self.date.setDisplayFormat("dd-MM-yyyy")
         self.date.setCalendarPopup(True)
         self.date.setDate(QDate.currentDate())
 

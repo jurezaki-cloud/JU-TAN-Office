@@ -13,7 +13,8 @@ from app.pdf.pdf_branding import (
     resolve_palette,
 )
 from app.pdf.pdf_styles import ensure_fonts, styles
-from app.utils.money import money
+from app.pdf.pdf_text import esc, format_percent, format_quantity
+from app.utils.money import money, vat_breakdown
 
 
 def _money(value) -> str:
@@ -28,13 +29,7 @@ def _money(value) -> str:
 
 
 def _discount(value) -> str:
-    try:
-        amount = float(value or 0)
-    except (TypeError, ValueError):
-        amount = 0.0
-    if amount == int(amount):
-        return f"{int(amount)} %"
-    return f"{amount:g} %"
+    return format_percent(value)
 
 
 def build_items_table(items: list[dict], options: dict):
@@ -57,9 +52,9 @@ def build_items_table(items: list[dict], options: dict):
     data = [header_row]
     for item in items:
         row = [
-            Paragraph(str(item.get("code") or ""), look["td"]),
-            Paragraph(str(item.get("name") or ""), look["td"]),
-            Paragraph(str(item.get("quantity") or ""), look["td_right"]),
+            Paragraph(esc(item.get("code")), look["td"]),
+            Paragraph(esc(item.get("name")), look["td"]),
+            Paragraph(format_quantity(item.get("quantity")), look["td_right"]),
             Paragraph(_money(item.get("price")), look["td_right"]),
         ]
         if show_discount:
@@ -163,9 +158,7 @@ def _dominant_vat_rate(items: list[dict] | None) -> str | None:
         return None
     rates.sort()
     best = max(set(rates), key=rates.count)
-    if best == int(best):
-        return f"{int(best)} %"
-    return f"{best:g} %"
+    return format_percent(best)
 
 
 class _RoundedPayBar(Flowable):
@@ -195,7 +188,26 @@ class _RoundedPayBar(Flowable):
         c.drawRightString(self.width - 3.8 * mm, self.height * 0.28, self.value)
 
 
-def build_summary(
+def _vat_rows(subtotal, discount, vat, items: list[dict] | None) -> list[tuple[str, object]]:
+    """VAT lines of the totals block: one rate, or base + VAT for every rate."""
+    groups = vat_breakdown(items or [])
+    consistent = bool(groups) and money(sum(g["vat"] for g in groups)) == money(vat)
+    if len(groups) > 1 and consistent:
+        rows: list[tuple[str, object]] = []
+        for group in groups:
+            rate = format_percent(group["rate"])
+            rows.append((f"Osnova za DDV {rate}:", group["base"]))
+            rows.append((f"DDV ({rate}):", group["vat"]))
+        return rows
+    rows = []
+    if float(discount or 0) != 0:
+        rows.append(("Osnova za DDV:", money(subtotal) - money(discount)))
+    rate = _dominant_vat_rate(items) if len(groups) <= 1 else None
+    rows.append((f"DDV ({rate}):" if rate else "DDV:", vat))
+    return rows
+
+
+def build_totals_stack(
     subtotal,
     discount,
     vat,
@@ -203,36 +215,27 @@ def build_summary(
     options: dict,
     *,
     items: list[dict] | None = None,
-):
-    """Right-aligned totals with JU-TAN green 'Za plačilo' bar."""
+) -> tuple[Table, float]:
+    """Totals rows above the green 'Za plačilo' bar.
+
+    Returns the stack and the distance (pt) from its top to the top of the bar,
+    so neighbouring content can align with the bar.
+    """
     look = styles(options)
     palette = resolve_palette(options)
     fonts = ensure_fonts()
 
-    rows = [
-        [
-            Paragraph("Skupaj brez DDV:", look["total_label"]),
-            Paragraph(_money(subtotal), look["total_value"]),
-        ],
-    ]
+    labelled: list[tuple[str, object]] = [("Skupaj brez DDV:", subtotal)]
     if options.get("show_discount", True) and float(discount or 0) != 0:
-        rows.append(
-            [
-                Paragraph("Popust:", look["total_label"]),
-                Paragraph(_money(discount), look["total_value"]),
-            ]
-        )
+        labelled.append(("Popust:", discount))
     if options.get("show_vat", True):
-        rate = _dominant_vat_rate(items)
-        vat_label = f"DDV ({rate}):" if rate else "DDV:"
-        rows.append(
-            [
-                Paragraph(vat_label, look["total_label"]),
-                Paragraph(_money(vat), look["total_value"]),
-            ]
-        )
+        labelled.extend(_vat_rows(subtotal, discount, vat, items))
+    rows = [
+        [Paragraph(label, look["total_label"]), Paragraph(_money(value), look["total_value"])]
+        for label, value in labelled
+    ]
 
-    totals = Table(rows, colWidths=[48 * mm, 34 * mm])
+    totals = Table(rows, colWidths=[(TOTALS_WIDTH_MM - 34) * mm, 34 * mm])
     totals.setStyle(
         TableStyle(
             [
@@ -248,8 +251,9 @@ def build_summary(
 
     pay = _RoundedPayBar("Za plačilo:", _money(total), TOTAL_BAR_WIDTH_MM, palette, fonts)
 
+    bar_gap = 2.0
     stack = Table(
-        [[totals], [Spacer(1, 2.0)], [pay]],
+        [[totals], [Spacer(1, bar_gap)], [pay]],
         colWidths=[TOTALS_WIDTH_MM * mm],
     )
     stack.setStyle(
@@ -263,7 +267,21 @@ def build_summary(
             ]
         )
     )
+    _w, rows_h = totals.wrap(TOTALS_WIDTH_MM * mm, 10_000)
+    return stack, rows_h + bar_gap
 
+
+def build_summary(
+    subtotal,
+    discount,
+    vat,
+    total,
+    options: dict,
+    *,
+    items: list[dict] | None = None,
+):
+    """Right-aligned totals with JU-TAN green 'Za plačilo' bar."""
+    stack, _bar_top = build_totals_stack(subtotal, discount, vat, total, options, items=items)
     left_w = (CONTENT_WIDTH_MM - TOTALS_WIDTH_MM) * mm
     wrapper = Table([[Spacer(1, 1), stack]], colWidths=[left_w, TOTALS_WIDTH_MM * mm])
     wrapper.setStyle(

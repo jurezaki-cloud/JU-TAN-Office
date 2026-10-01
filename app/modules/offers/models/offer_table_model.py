@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, QAbstractTableModel, QSize
 
 from app.widgets.offers.status_badge import offer_badge
+from app.core.date_format import format_date
 
 
 class OfferTableModel(QAbstractTableModel):
@@ -47,10 +48,10 @@ class OfferTableModel(QAbstractTableModel):
                 return offer[2]
 
             elif column == 2:
-                return offer[3]
+                return format_date(offer[3], fallback="")
 
             elif column == 3:
-                return offer[4]
+                return format_date(offer[4])
 
             elif column == 4:
                 return offer_badge(offer[5], offer[4])

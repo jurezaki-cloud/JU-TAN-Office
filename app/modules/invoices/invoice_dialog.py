@@ -93,9 +93,11 @@ class InvoiceDialog(EnterpriseDialog):
             self.lbl_number = self.doc_header.lbl_number
             self.customer = self.customer_panel.customer
             self.issue_date = QDateEdit()
+            self.issue_date.setDisplayFormat("dd-MM-yyyy")
             self.issue_date.setCalendarPopup(True)
             self.issue_date.setDate(QDate.currentDate())
             self.due_date = QDateEdit()
+            self.due_date.setDisplayFormat("dd-MM-yyyy")
             self.due_date.setCalendarPopup(True)
             self.due_date.setDate(QDate.currentDate().addDays(30))
             self.notes = QTextEdit()
@@ -105,7 +107,9 @@ class InvoiceDialog(EnterpriseDialog):
             self.notes.setObjectName("DocumentNotes")
 
             grid = FormGrid()
-            grid.add("Datum izdaje", self.issue_date, "Rok plačila", self.due_date)
+            # Keep document metadata narrow enough for 150 % Windows scaling.
+            grid.add_full("Datum izdaje", self.issue_date)
+            grid.add_full("Rok plačila", self.due_date)
             meta_wrap = QWidget()
             meta_wrap.setLayout(grid.layout)
             self.customer_panel.meta_layout.addWidget(meta_wrap)
@@ -114,7 +118,6 @@ class InvoiceDialog(EnterpriseDialog):
             self.items_model = InvoiceItemsModel()
             self.items_table = self.items_panel.items_table
             self.items_table.setModel(self.items_model)
-            self.bind_table(self.items_table)
             self.btn_add_item = self.items_panel.btn_add_item
             self.btn_remove_item = self.items_panel.btn_remove_item
 
@@ -160,6 +163,7 @@ class InvoiceDialog(EnterpriseDialog):
             else:
                 self._refresh_payment_info()
                 self.update_total()
+            self._sync_items_actions()
 
     def _apply_vat_ui(self):
         from app.utils.vat import ARTICLE_94_NOTICE, parse_vat_liable
@@ -198,9 +202,10 @@ class InvoiceDialog(EnterpriseDialog):
 
         for widget in (
             self.customer, self.issue_date, self.due_date, self.notes,
-            self.items_table, self.btn_add_item, self.btn_remove_item,
+            self.items_table,
         ):
             widget.setEnabled(False)
+        self.items_panel.set_add_enabled(False, reason=message)
         self.btn_save.setEnabled(False)
         self.doc_header.set_actions_enabled(save=False, export_pdf=True, more=True)
 
@@ -210,8 +215,21 @@ class InvoiceDialog(EnterpriseDialog):
         self.doc_header.set_customer_name(name if customer_id is not None else None)
         if customer_id is None:
             self.customer_panel.set_customer_record(None)
+        else:
+            self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        self._sync_items_actions()
+
+    def _sync_items_actions(self) -> None:
+        if self.read_only:
+            self.items_panel.set_add_enabled(
+                False,
+                reason=self.lock_notice.text() or _DEFAULT_LOCK_MESSAGE,
+            )
             return
-        self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        if self.customer.currentData() is None:
+            self.items_panel.set_add_enabled(False, reason="Najprej izberite stranko.")
+            return
+        self.items_panel.set_add_enabled(True)
 
     def _on_more_action(self, action: str) -> None:
         if action == "refresh_totals":
@@ -278,6 +296,12 @@ class InvoiceDialog(EnterpriseDialog):
     def add_item(self):
 
         if self.read_only:
+            return
+        if self.customer.currentData() is None:
+            from app.core.ui.notify import toast
+
+            toast(self, "Najprej izberite stranko.")
+            self._sync_items_actions()
             return
 
         dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
@@ -457,6 +481,7 @@ class InvoiceDialog(EnterpriseDialog):
             elapsed_ms = (time.perf_counter() - t0) * 1000
             from app.core.logger import logger
             logger.info("invoice.save id=%s elapsed_ms=%.1f", invoice_id, elapsed_ms)
+            self.invoice_id = invoice_id
             self.accept()
         except Exception as exc:
             from app.core.errors import handle_error

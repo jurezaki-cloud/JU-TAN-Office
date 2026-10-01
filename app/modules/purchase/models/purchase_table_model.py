@@ -1,5 +1,7 @@
 from PySide6.QtCore import QAbstractTableModel, QSize, Qt
 
+from app.core.date_format import format_date
+
 
 class PurchaseTableModel(QAbstractTableModel):
 
@@ -35,7 +37,7 @@ class PurchaseTableModel(QAbstractTableModel):
             values = (
                 row[1],
                 row[2] or "—",
-                row[3],
+                format_date(row[3], fallback=""),
                 row[4] or "—",
                 row[5],
                 _money(row[6]),

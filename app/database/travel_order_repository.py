@@ -118,10 +118,28 @@ class TravelOrderRepository:
                 )
         return int(order_id)
 
+    def set_status(self, order_id, status: str) -> None:
+        allowed = {"Osnutek", "Odobren", "Zaključen", "Storniran"}
+        if status not in allowed:
+            raise ValueError("Neveljaven status potnega naloga.")
+        self.ensure_schema()
+        with db.transaction(immediate=True) as conn:
+            row = conn.execute("SELECT status FROM travel_orders WHERE id=?", (order_id,)).fetchone()
+            if row is None:
+                raise ValueError("Potni nalog ne obstaja.")
+            current = str(row[0] or "Osnutek")
+            transitions = {
+                "Osnutek": {"Odobren", "Storniran"},
+                "Odobren": {"Zaključen", "Storniran"},
+                "Zaključen": set(),
+                "Storniran": set(),
+            }
+            if status != current and status not in transitions.get(current, set()):
+                raise ValueError(f"Prehod {current} → {status} ni dovoljen.")
+            conn.execute("UPDATE travel_orders SET status=? WHERE id=?", (status, order_id))
+
     def cancel(self, order_id) -> None:
-        self.ensure_schema(); conn=db.connect()
-        conn.execute("UPDATE travel_orders SET status='Storniran' WHERE id=?", (order_id,))
-        conn.commit(); conn.close()
+        self.set_status(order_id, "Storniran")
 
 
 travel_order_repository = TravelOrderRepository()

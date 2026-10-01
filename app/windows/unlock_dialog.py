@@ -136,11 +136,19 @@ class UnlockDialog(EnterpriseDialog):
             self.password.setFocus()
             return
 
-        extras["remember_user"] = self.remember.isChecked()
+        # Authentication has succeeded, but the session is still locked here.
+        # Persist only login preferences; normal settings writes remain RBAC gated.
+        preferences = {"remember_user": self.remember.isChecked()}
         if self.remember.isChecked() and username:
-            extras["administrator"] = username
-            extras["remembered_username"] = username
-        SettingsController().save_extras(extras)
+            preferences["administrator"] = username
+            preferences["remembered_username"] = username
+        try:
+            SettingsController().save_extras_unrestricted(preferences)
+        except OSError:
+            # Remembering a username must not prevent a verified login.
+            from app.core.logger import logger
+
+            logger.exception("Could not save login preferences")
         session.remember_user = self.remember.isChecked()
 
         from app.core.auth_gate import resolve_authenticated_user

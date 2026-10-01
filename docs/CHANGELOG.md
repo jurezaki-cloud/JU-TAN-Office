@@ -1,4 +1,33 @@
-# Changelog
+﻿# Changelog
+
+## 1.0.5 — razvoj
+
+- Začetek novega Command Centra z akcijskimi opozorili za zapadle račune in CRM naloge.
+- Opozorila ločijo zapadle naloge, današnje naloge in obveznosti v naslednjih 7 dneh.
+- Razvoj poteka na ločeni veji `feature/office-1.0.5`; 1.0.4 ostaja nespremenjena produkcijska osnova.
+
+## 1.0.4 GOLD — 2026-10-01
+
+- Stabilizirana lokalna aktivacija licence: ponovni zagon ali prijava ne odstrani veljavne aktivacije.
+- Izboljšan vnos delnega plačila računa in prikaz zneska v EUR.
+- Izboljšave prijave/odklepa po neaktivnosti ter dashboarda.
+## 1.0.3 GOLD — 2026-09-28
+
+- Dokumentni urejevalnik: vidni primarni gumb »Dodaj postavko«, prazen stan postavk, usklajene kartice in tipografija.
+- PDF: poravnane ikone kontakta, odstranjeni odvečni zeleni poudarki pri stranki, podpis »Tanja Hrup«, premaknjen blok Podatki za plačilo.
+- Temni način in hierarhija gumbov (Primary / Secondary / Danger) utrjena za urednike dokumentov.
+- Namestitev / odstranitev: nadgradnja ohrani podatke; izrecna čista namestitev; standardna vs. popolna odstranitev z varnostnimi kopijami in ohranitvijo aktivacije naprave (`docs/DATA_LOCATIONS.md`).
+
+## 1.0.2 GOLD — 2026-09-28
+
+- Ponudbe uporabljajo blok s podpisom direktorja, enako kot računi.
+- Podpis direktorja ostane na računu tudi, kadar podatki za UPN QR niso veljavni.
+- UPN QR na računih ostaja vezan na veljavne plačilne podatke; sliko lastnoročnega podpisa je treba nastaviti posebej.
+
+## 1.0.1 GOLD — 2026-09-28
+
+- Popravljen uvoz pogleda Stranke pri prvem odpiranju modula v nameščeni aplikaciji.
+- Posodobljeni metapodatki programa in namestitvenega paketa. Shema baze ostaja 3.
 
 ## 1.0.0 GOLD — 2026-09-12 (production hardening through 2026-09-19)
 
@@ -61,3 +90,4 @@ Prva kandidatka za produkcijsko izdajo. **Code freeze:** ni novih modulov, tabel
 - Poročilo **Service** je placeholder.
 - Windows installer Authenticode: pripravljen prek `JU_TAN_PFX` / `-RequireSigned` (glej `docs/SIGNING.md`); razvojni buildi ostanejo nepodpisani.
 - PyInstaller/Inno je treba zagnati na build stroju (`scripts/build_release.ps1`).
+

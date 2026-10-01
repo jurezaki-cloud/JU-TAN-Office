@@ -19,6 +19,7 @@ from app.widgets.articles.article_table import ArticleTable
 from app.widgets.articles.search_field import ArticleSearch
 from app.widgets.articles.status_bar import ArticleStatusBar
 from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
+from app.services.print_center import print_center
 
 
 class ArticlePage(QWidget):
@@ -48,7 +49,8 @@ class ArticlePage(QWidget):
 
         self.search_field = ArticleSearch()
         self.search = self.search_field.input
-        self.search.setMinimumWidth(260)
+        # Keep search useful, but let the toolbar yield space to actions on 125/150 % DPI.
+        self.search.setMinimumWidth(140)
 
         toolbar.layout.addWidget(self.search_field, 1)
         toolbar.layout.addWidget(self.actions, 0)
@@ -101,6 +103,7 @@ class ArticlePage(QWidget):
         self.btn_delete.clicked.connect(self.delete_article)
         self.btn_refresh.clicked.connect(self.refresh)
         self.actions.excel_clicked.connect(lambda: run_excel_export(self, "products"))
+        self.actions.print_clicked.connect(self.print_articles)
         self.actions.import_clicked.connect(
             lambda: run_excel_import(self, "products", self.refresh)
         )
@@ -283,6 +286,21 @@ class ArticlePage(QWidget):
         article_id = self.model.articles[row][0]
 
         return article_repository.get_by_id(article_id)
+
+    def print_articles(self):
+        rows = [
+            (row[1], row[2], row[3], f"{float(row[4] or 0):.2f} €", row[5])
+            for row in self.model.articles
+        ]
+        html = print_center.table_html(
+            "Artikli / cenik",
+            ["Šifra", "Naziv", "Enota", "Cena", "DDV %"],
+            rows,
+        )
+        try:
+            print_center.print_html(self, html, "Artikli / cenik")
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
 
     def clear_search(self):
 

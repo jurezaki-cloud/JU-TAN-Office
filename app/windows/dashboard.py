@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.ui.layouts import detach_widgets
 from app.theme.tokens import SPACE_3, SPACE_4
 from app.widgets.cards.enterprise_card import EnterpriseCard
 from app.widgets.cards.kpi_card import KpiCard
@@ -29,6 +30,8 @@ class Dashboard(QWidget):
     new_offer_requested = Signal()
     new_customer_requested = Signal()
     new_article_requested = Signal()
+    assistant_requested = Signal()
+    alert_requested = Signal(int)
 
     def __init__(self):
         super().__init__()
@@ -73,11 +76,13 @@ class Dashboard(QWidget):
         self._health_card = DashboardHealthCard()
         self._invoices_card = self._build_invoices_card()
         self._activity_card = self._build_activity_card()
+        self._insights_card = self._build_insights_card()
 
         self._quick_card.new_invoice_requested.connect(self.new_invoice_requested.emit)
         self._quick_card.new_offer_requested.connect(self.new_offer_requested.emit)
         self._quick_card.new_customer_requested.connect(self.new_customer_requested.emit)
         self._quick_card.new_article_requested.connect(self.new_article_requested.emit)
+        self._quick_card.assistant_requested.connect(self.assistant_requested.emit)
 
         # Backward-compatible aliases used by older UI helpers / polish scripts.
         self.btn_new_invoice = self._quick_card.btn_new_invoice
@@ -93,13 +98,33 @@ class Dashboard(QWidget):
         self._place_widgets(1400)
         # Defer DB-heavy refresh until first paint so MainWindow can show sooner.
 
+    def _build_insights_card(self) -> EnterpriseCard:
+        card = EnterpriseCard("DashboardCard")
+        title = QLabel("Poslovni pregled in opozorila")
+        title.setObjectName("DashboardSectionTitle")
+        self.comparison_label = QLabel("Primerjava z lanskim obdobjem")
+        self.comparison_label.setWordWrap(True)
+        self.top_customers_label = QLabel("TOP stranke: —")
+        self.top_articles_label = QLabel("TOP artikli: —")
+        for widget in (title, self.comparison_label, self.top_customers_label,
+                       self.top_articles_label):
+            widget.setWordWrap(True)
+            card.body.addWidget(widget)
+        self.alert_list = QListWidget()
+        self.alert_list.setMaximumHeight(140)
+        self.alert_list.itemActivated.connect(
+            lambda item: self.alert_requested.emit(int(item.data(Qt.UserRole)))
+        )
+        card.body.addWidget(self.alert_list)
+        return card
+
     def _build_chart_card(self) -> EnterpriseCard:
         card = EnterpriseCard("DashboardCard")
         eyebrow = QLabel("FINANČNI PREGLED")
         eyebrow.setObjectName("DashboardEyebrow")
         title = QLabel("Promet po mesecih")
         title.setObjectName("DashboardSectionTitle")
-        self._chart_caption = QLabel("Zadnjih 6 mesecev")
+        self._chart_caption = QLabel("Zadnjih 12 mesecev")
         self._chart_caption.setObjectName("DashboardMuted")
         self.chart = RevenueChart()
         card.body.addWidget(eyebrow)
@@ -208,10 +233,7 @@ class Dashboard(QWidget):
         self._breakpoint = mode
         self._canvas.setUpdatesEnabled(False)
         try:
-            while self._grid.count():
-                item = self._grid.takeAt(0)
-                if item.widget():
-                    item.widget().setParent(self._canvas)
+            detach_widgets(self._grid)
 
             kpis = (
                 self._kpi_revenue,
@@ -232,6 +254,7 @@ class Dashboard(QWidget):
                 self._grid.addWidget(self._health_card, 2, 4)
                 self._grid.addWidget(self._invoices_card, 3, 0, 1, 3)
                 self._grid.addWidget(self._activity_card, 3, 3, 1, 2)
+                self._grid.addWidget(self._insights_card, 4, 0, 1, 5)
                 self._grid.setColumnStretch(0, 2)
                 self._grid.setColumnStretch(1, 2)
                 self._grid.setColumnStretch(2, 1)
@@ -250,6 +273,7 @@ class Dashboard(QWidget):
                 self._grid.addWidget(self._health_card, 5, 1)
                 self._grid.addWidget(self._invoices_card, 6, 0)
                 self._grid.addWidget(self._activity_card, 6, 1)
+                self._grid.addWidget(self._insights_card, 7, 0, 1, 2)
                 self._grid.setColumnStretch(0, 1)
                 self._grid.setColumnStretch(1, 1)
                 self._grid.setColumnStretch(2, 0)
@@ -266,6 +290,7 @@ class Dashboard(QWidget):
                 self._grid.addWidget(self._health_card, row + 2, 0)
                 self._grid.addWidget(self._invoices_card, row + 3, 0)
                 self._grid.addWidget(self._activity_card, row + 4, 0)
+                self._grid.addWidget(self._insights_card, row + 5, 0)
                 self._grid.setColumnStretch(0, 1)
                 self._grid.setColumnStretch(1, 0)
                 self._grid.setColumnStretch(2, 0)
@@ -316,8 +341,30 @@ class Dashboard(QWidget):
             self.chart.set_points(self._chart_points())
             self._fill_invoices(invoices[:8], due_dates)
             self._fill_activity(invoices, offers, customers)
+            self._fill_insights()
         finally:
             self.setUpdatesEnabled(True)
+
+    def _fill_insights(self) -> None:
+        from app.services.dashboard_insights import load_insights
+
+        insight = load_insights()
+        self.comparison_label.setText(str(insight['comparison'] or 'Ni podatkov za primerjavo.'))
+        for label, heading, rows in (
+            (self.top_customers_label, 'TOP stranke', insight['customers']),
+            (self.top_articles_label, 'TOP artikli', insight['articles']),
+        ):
+            label.setText(heading + ': ' + (
+                ' · '.join(f'{name} ({self._money(value)})' for name, value in rows)
+                if rows else '—'
+            ))
+        self.alert_list.clear()
+        for page, message in insight['alerts']:
+            item = QListWidgetItem(message)
+            item.setData(Qt.UserRole, page)
+            self.alert_list.addItem(item)
+        if not insight['alerts']:
+            self.alert_list.addItem('Ni nujnih opozoril.')
 
     def _chart_points(self) -> list[tuple[str, float]]:
         from app.database.invoice_repository import invoice_repository
@@ -328,7 +375,7 @@ class Dashboard(QWidget):
         }
         today = date.today()
         points = []
-        for offset in range(5, -1, -1):
+        for offset in range(11, -1, -1):
             month_index = today.month - offset
             year = today.year
             while month_index <= 0:

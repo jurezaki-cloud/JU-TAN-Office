@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, QAbstractTableModel, QSize
 
 from app.widgets.invoices.status_badge import invoice_badge
+from app.core.date_format import format_date
 
 
 class PaymentTableModel(QAbstractTableModel):
@@ -42,9 +43,9 @@ class PaymentTableModel(QAbstractTableModel):
             if column == 1:
                 return row[2]
             if column == 2:
-                return row[3]
+                return format_date(row[3], fallback="")
             if column == 3:
-                return row[4] or "—"
+                return format_date(row[4])
             if column == 4:
                 try:
                     return f"{float(row[5]):,.2f} €".replace(",", " ")

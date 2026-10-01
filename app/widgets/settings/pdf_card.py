@@ -88,6 +88,21 @@ class PdfCard(QWidget):
         self.stamp_path = QLineEdit()
         self.stamp_path.setReadOnly(True)
         card.body.addLayout(self._file_row("Podpis direktorja", self.signature_path, self._pick_signature))
+
+        signer_caption = QLabel("Podpisnik na računih in ponudbah")
+        signer_caption.setObjectName("DashboardMuted")
+        self.signer_name = QLineEdit()
+        self.signer_name.setMaxLength(80)
+        self.signer_name.setPlaceholderText("Ime in priimek (prazno = iz naziva podjetja)")
+        self.signer_name.setToolTip(
+            "Ime pod podpisom direktorja. Če je prazno, se uporabi oseba iz naziva "
+            "podjetja, npr. »JU-TAN studio, Tanja Hrup s.p.« → Tanja Hrup."
+        )
+        signer_caption.setBuddy(self.signer_name)
+        self.signer_name.textChanged.connect(lambda *_: self.changed.emit())
+        card.body.addWidget(signer_caption)
+        card.body.addWidget(self.signer_name)
+
         card.body.addLayout(self._file_row("Žig", self.stamp_path, self._pick_stamp))
 
         colors_title = QLabel("Barve dokumentov")
@@ -211,6 +226,7 @@ class PdfCard(QWidget):
             "notes": self.chk_notes.isChecked(),
             "folder": self.folder.text().strip(),
             "footer": self.footer.text().strip(),
+            "signer_name": self.signer_name.text().strip(),
             "signature_path": self.signature_path.text().strip(),
             "stamp_path": self.stamp_path.text().strip(),
         }
@@ -244,6 +260,7 @@ class PdfCard(QWidget):
         self.chk_notes.setChecked(parse_bool(pdf.get("notes", True), default=True))
         self.folder.setText(str(pdf.get("folder", "")))
         self.footer.setText(str(pdf.get("footer", "")))
+        self.signer_name.setText(str(pdf.get("signer_name", "") or ""))
         # Prefer DB branding; settings.json remains a fallback for older installs.
         branding = company_repository.get_branding()
         self._set_logo(branding.get("logo") or "")

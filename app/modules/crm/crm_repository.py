@@ -88,6 +88,28 @@ class CrmRepository:
                 created_at TEXT
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS crm_opportunity_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pipeline_id INTEGER NOT NULL,
+                old_stage TEXT,
+                new_stage TEXT NOT NULL,
+                changed_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS crm_document_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pipeline_id INTEGER NOT NULL,
+                document_type TEXT NOT NULL,
+                document_id INTEGER NOT NULL,
+                document_number TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE(pipeline_id, document_type, document_id)
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_crm_doc_links_deal ON crm_document_links(pipeline_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_crm_history_deal ON crm_opportunity_history(pipeline_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_crm_pipeline_stage ON crm_pipeline(stage)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_crm_activities_deal ON crm_activities(pipeline_id)")
         conn.commit()
@@ -183,16 +205,107 @@ class CrmRepository:
         self.ensure_schema()
         conn = self._connect()
         cursor = conn.cursor()
+        cursor.execute("SELECT stage FROM crm_pipeline WHERE id=?", (deal_id,))
+        row = cursor.fetchone()
+        old_stage = row[0] if row else None
+        now = datetime.now().isoformat(timespec="seconds")
         cursor.execute(
-            """
-            UPDATE crm_pipeline
-            SET stage=?, status=?, updated_at=?
-            WHERE id=?
-            """,
-            (stage, _status_for(stage), datetime.now().isoformat(timespec="seconds"), deal_id),
+            "UPDATE crm_pipeline SET stage=?, status=?, updated_at=? WHERE id=?",
+            (stage, _status_for(stage), now, deal_id),
+        )
+        if row and old_stage != stage:
+            cursor.execute(
+                "INSERT INTO crm_opportunity_history(pipeline_id, old_stage, new_stage, changed_at) VALUES (?,?,?,?)",
+                (deal_id, old_stage, stage, now),
+            )
+        conn.commit()
+        conn.close()
+
+    def update_deal(self, deal_id: int, **fields) -> None:
+        self.ensure_schema()
+        current = self.get_deal(deal_id)
+        if current is None:
+            raise ValueError("Priložnost ne obstaja.")
+        stage = fields.get("stage") or current[5]
+        now = datetime.now().isoformat(timespec="seconds")
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            """UPDATE crm_pipeline
+               SET title=?, company=?, stage=?, salesperson=?, priority=?,
+                   value=?, status=?, updated_at=? WHERE id=?""",
+            (fields.get("title") or current[3], fields.get("company") or current[4],
+             stage, fields.get("salesperson") or current[6],
+             fields.get("priority") or current[7],
+             float(current[8] if fields.get("value") is None else fields.get("value")),
+             _status_for(stage), now, deal_id),
+        )
+        if current[5] != stage:
+            cursor.execute(
+                "INSERT INTO crm_opportunity_history(pipeline_id, old_stage, new_stage, changed_at) VALUES (?,?,?,?)",
+                (deal_id, current[5], stage, now),
+            )
+        conn.commit()
+        conn.close()
+
+    def link_document(
+        self, deal_id: int, document_type: str, document_id: int, number: str = ""
+    ) -> None:
+        self.ensure_schema()
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT OR IGNORE INTO crm_document_links(
+                   pipeline_id, document_type, document_id, document_number, created_at
+               ) VALUES (?,?,?,?,?)""",
+            (
+                deal_id, document_type, document_id, number,
+                datetime.now().isoformat(timespec="seconds"),
+            ),
         )
         conn.commit()
         conn.close()
+
+    def linked_documents(self, deal_id: int) -> list:
+        self.ensure_schema()
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT * FROM crm_document_links
+               WHERE pipeline_id=? ORDER BY id DESC""",
+            (deal_id,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def stage_history(self, deal_id: int) -> list:
+        self.ensure_schema()
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM crm_opportunity_history WHERE pipeline_id=? ORDER BY id DESC",
+            (deal_id,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def next_activity(self, deal_id: int):
+        self.ensure_schema()
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM crm_activities
+            WHERE pipeline_id=? AND is_done=0 AND IFNULL(due_date,'') != ''
+            ORDER BY due_date ASC, id ASC LIMIT 1
+            """,
+            (deal_id,),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row
 
     def add_activity(self, **fields) -> int:
         self.ensure_schema()

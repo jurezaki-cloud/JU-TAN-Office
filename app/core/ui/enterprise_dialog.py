@@ -83,6 +83,9 @@ class EnterpriseDialog(QDialog):
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # Not a tab stop: it has no focus indicator, and Tab on its children already
+        # scrolls them into view (QScrollArea.focusNextPrevChild).
+        self.scroll.setFocusPolicy(Qt.NoFocus)
         inner = QWidget()
         inner.setObjectName("DialogBody")
         self.body = QVBoxLayout(inner)

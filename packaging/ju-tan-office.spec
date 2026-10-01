@@ -9,6 +9,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (str(ROOT / "app" / "theme" / "theme.qss"), "app/theme"),
+        (str(ROOT / "app" / "theme" / "icons"), "app/theme/icons"),
         (str(ROOT / "config" / "app.example.json"), "config"),
         (str(ROOT / "resources" / "app.ico"), "resources"),
         (str(ROOT / "resources" / "logo.png"), "resources"),
@@ -22,6 +23,7 @@ a = Analysis(
         (str(ROOT / "docs" / "RELEASE_NOTES.md"), "docs"),
         (str(ROOT / "docs" / "SECURITY.md"), "docs"),
         (str(ROOT / "docs" / "SIGNING.md"), "docs"),
+        (str(ROOT / "docs" / "DATA_LOCATIONS.md"), "docs"),
         (str(ROOT / "updates" / "latest.json"), "updates"),
     ],
     hiddenimports=[

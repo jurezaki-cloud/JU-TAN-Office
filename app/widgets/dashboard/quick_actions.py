@@ -18,6 +18,7 @@ class QuickActionsCard(EnterpriseCard):
     new_offer_requested = Signal()
     new_customer_requested = Signal()
     new_article_requested = Signal()
+    assistant_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__("DashboardCard", parent)
@@ -35,6 +36,7 @@ class QuickActionsCard(EnterpriseCard):
         self.body.addWidget(caption)
 
         grid_host = QWidget()
+        grid_host.setObjectName("QuickActionsGrid")
         grid = QGridLayout(grid_host)
         grid.setContentsMargins(0, 4, 0, 0)
         grid.setHorizontalSpacing(8)
@@ -85,12 +87,17 @@ class QuickActionsCard(EnterpriseCard):
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         self.body.addWidget(grid_host)
+        self.btn_assistant = QPushButton("JU-TAN pomočnik · vprašaj o poslovanju")
+        self.btn_assistant.setObjectName("SecondaryButton")
+        self.btn_assistant.setMinimumHeight(42)
+        self.body.addWidget(self.btn_assistant)
         self.body.addStretch(1)
 
         self.btn_new_invoice.clicked.connect(self.new_invoice_requested.emit)
         self.btn_new_offer.clicked.connect(self.new_offer_requested.emit)
         self.btn_new_customer.clicked.connect(self.new_customer_requested.emit)
         self.btn_new_article.clicked.connect(self.new_article_requested.emit)
+        self.btn_assistant.clicked.connect(self.assistant_requested.emit)
 
         # Keep reference so theme polish can retint secondary icons if needed.
         self._primary_accent = primary

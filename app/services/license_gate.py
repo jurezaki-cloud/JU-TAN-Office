@@ -31,14 +31,18 @@ def ensure_licensed(parent=None) -> bool:
         return LicenseActivationDialog(parent).exec() == LicenseActivationDialog.Accepted
 
     if not device_bound(state):
-        clear_license_state()
+        # Never destroy a readable local activation merely because the local
+        # fingerprint check disagrees.  Keeping the DPAPI-protected token lets
+        # support/recovery distinguish a real device move from a transient
+        # identity/migration problem instead of forcing activation on every run.
         QMessageBox.critical(
             parent,
             "Licenca",
             "Licenca je vezana na drugo napravo.\n\n"
-            "Lokalna aktivacija je bila odstranjena. Aktivirajte JU-TAN Office na tej napravi.",
+            "Lokalna aktivacija je ohranjena. Če je to isti računalnik, ponovno zaženite program; "
+            "če se opozorilo ponovi, uporabite ponovno aktivacijo samo enkrat.",
         )
-        return LicenseActivationDialog(parent).exec() == LicenseActivationDialog.Accepted
+        return False
 
     try:
         result = validate(state)
@@ -51,9 +55,10 @@ def ensure_licensed(parent=None) -> bool:
     except LicenseError as exc:
         message = str(exc)
         if "ni veljavna za to napravo" in message.lower():
-            clear_license_state()
+            # Preserve the local token. A server-side mismatch must not turn
+            # logout/restart into a destructive activation loop.
             QMessageBox.critical(parent, "Licenca", message)
-            return LicenseActivationDialog(parent).exec() == LicenseActivationDialog.Accepted
+            return False
         if _grace_valid(state.grace_until):
             return True
         QMessageBox.critical(parent, "Licenca", message)

@@ -5,7 +5,10 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 
-from app.theme.tokens import SPACE_2, SPACE_3, SPACE_4, TOOLBAR_HEIGHT
+from app.theme.tokens import CONTROL_HEIGHT, SPACE_3, SPACE_4, TOOLBAR_HEIGHT
+
+# Width of the "#ModernToolbar" border in theme.qss; it is inside the fixed bar height.
+_BAR_BORDER = 1
 from app.widgets.toolbar.toolbar_actions import ToolbarActions
 from app.widgets.toolbar.toolbar_search import ToolbarSearch
 from app.widgets.toolbar.toolbar_title import ToolbarTitle
@@ -34,7 +37,8 @@ class ModernToolbar(QFrame):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(SPACE_4, SPACE_2, SPACE_3, SPACE_2)
+        vertical = (TOOLBAR_HEIGHT - 2 * _BAR_BORDER - CONTROL_HEIGHT) // 2
+        layout.setContentsMargins(SPACE_4, vertical, SPACE_3, vertical)
         layout.setSpacing(SPACE_3)
 
         self.title_block = ToolbarTitle()

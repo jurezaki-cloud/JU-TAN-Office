@@ -144,10 +144,10 @@ class FirstRunWizard(EnterpriseDialog):
         card.setObjectName("FirstRunCard")
 
         brand = QWidget()
+        brand.setObjectName("FirstRunBrand")
         brand_layout = QVBoxLayout(brand)
         brand_layout.setContentsMargins(8, 8, 8, 8)
         brand_layout.setSpacing(10)
-        brand_layout.setAlignment(Qt.AlignCenter)
 
         self.logo = QLabel()
         self.logo.setAlignment(Qt.AlignCenter)
@@ -195,7 +195,16 @@ class FirstRunWizard(EnterpriseDialog):
         note.setAlignment(Qt.AlignCenter)
         brand_layout.addWidget(note)
 
-        card.body.addWidget(brand)
+        # Centred with stretches, not a layout alignment: an aligned layout is placed at its
+        # preferred width while its height-for-width is computed for the full width, which
+        # leaves wrapped text too little height.
+        row = QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(brand)
+        row.addStretch(1)
+        card.body.addStretch(1)
+        card.body.addLayout(row)
+        card.body.addStretch(1)
         return card
 
     def _step_company(self) -> QWidget:

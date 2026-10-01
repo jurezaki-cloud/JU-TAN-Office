@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QApplication
 from app.core.logger import logger
 from app.theme.colors import PALETTES, ThemeMode
 from app.theme.fonts import apply_fonts
+from app.theme.indicators import indicator_tokens
 
 THEME_QSS_PATH = Path(__file__).resolve().parent / "theme.qss"
 
@@ -65,6 +66,7 @@ class ThemeManager:
             palette["PRIMARY_HOVER"] = accent_hover
         palette["CARD_RADIUS"] = card_radius
         palette["CONTROL_RADIUS"] = control_radius
+        palette.update(indicator_tokens(resolved))
         stylesheet = self.load_qss_template()
         # mtime may have changed during load — rebuild key with fresh mtime.
         cache_key = (

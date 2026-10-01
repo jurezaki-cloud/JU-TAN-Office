@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -41,6 +43,30 @@ def test_application_identity_sets_icon(qt_app):
     assert not qt_app.windowIcon().isNull()
 
 
+def test_license_activation_window_already_has_the_app_icon(qt_app):
+    """The license gate opens a new customer's first window, before the rest of the identity is applied."""
+    probe = (
+        "import json\n"
+        "from PySide6.QtWidgets import QApplication\n"
+        "import app.core.app_mutex as app_mutex\n"
+        "import app.services.license_gate as license_gate\n"
+        "from app.windows import main_window\n"
+        "seen = {}\n"
+        "def gate(parent=None):\n"
+        "    seen['icon'] = not QApplication.instance().windowIcon().isNull()\n"
+        "    return False\n"
+        "app_mutex.acquire_app_mutex = lambda: None\n"
+        "license_gate.ensure_licensed = gate\n"
+        "seen['exit'] = main_window.run()\n"
+        "print(json.dumps(seen))\n"
+    )
+    result = subprocess.run([sys.executable, "-c", probe], cwd=Path(__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    line = next(line for line in reversed(result.stdout.splitlines()) if line.startswith("{"))
+    assert json.loads(line) == {"icon": True, "exit": 1}
+
+
 def test_brand_icons_for_all_nav_modules(qt_app):
     for index, name in NAV_ICONS.items():
         icon = brand_icon(name, color="#F8FAFC", size=18)
@@ -52,7 +78,7 @@ def test_nav_groups_cover_all_pages():
     for _title, pages in NAV_GROUPS:
         for _label, idx in pages:
             indices.append(idx)
-    assert sorted(indices) == list(range(18))
+    assert sorted(indices) == list(range(19))
     assert PAGE_INDEX["travel_orders"] == 17
     # Business order: invoices before customers in PRODAJA group
     prodaja = dict(NAV_GROUPS)["PRODAJA"]
@@ -67,7 +93,7 @@ def test_sidebar_has_icons_and_groups(qt_app):
     session.login("Admin", "Administrator")
     sidebar = ModernSidebar()
     sidebar.apply_role()
-    assert len(sidebar.buttons) == 18
+    assert len(sidebar.buttons) == 19
     assert all(not btn.icon().isNull() for btn in sidebar.buttons.values())
     assert sidebar._section_labels
     sidebar.set_active(1)
@@ -171,6 +197,56 @@ def test_mainwindow_opens_with_theme(qt_app):
     assert not window.windowIcon().isNull()
     assert window.sidebar.buttons[0].isChecked()
     window.close()
+
+
+def _icon_colour(button) -> tuple[float, float, float]:
+    """Mean colour of the icon's visible stroke pixels."""
+    from PySide6.QtGui import QColor, QImage
+
+    image = button.icon().pixmap(32, 32).toImage().convertToFormat(QImage.Format.Format_ARGB32)
+    visible = [
+        colour
+        for x in range(image.width())
+        for y in range(image.height())
+        if (colour := QColor.fromRgba(image.pixel(x, y))).alpha() >= 128
+    ]
+    assert visible, "icon has no visible stroke pixels"
+    return tuple(sum(getattr(c, ch)() for c in visible) / len(visible) for ch in ("red", "green", "blue"))
+
+
+def _nearer(colour, expected: str, other: str) -> bool:
+    from PySide6.QtGui import QColor
+
+    def distance(ref: str) -> float:
+        ref = QColor(ref)
+        return sum((a - b) ** 2 for a, b in zip(colour, (ref.red(), ref.green(), ref.blue())))
+
+    return distance(expected) < distance(other)
+
+
+def test_button_icons_are_retinted_on_a_live_theme_switch(qt_app):
+    from PySide6.QtWidgets import QPushButton
+
+    from app.core.ui.icons import apply_button_icon
+    from app.theme.colors import PALETTES
+
+    _write_appearance("dark")
+    SettingsController().apply_appearance(qt_app)
+    button = QPushButton("Uredi")
+    apply_button_icon(button, "edit")
+    replaced = QPushButton("Drugo")
+    apply_button_icon(replaced, "edit")
+    replaced.setIcon(brand_icon("settings", color="#FF00FF", size=16))
+    dark_text, light_text = PALETTES[ThemeMode.DARK]["TEXT"], PALETTES[ThemeMode.LIGHT]["TEXT"]
+    assert _nearer(_icon_colour(button), dark_text, light_text)
+
+    _write_appearance("light")
+    SettingsController().apply_appearance(qt_app)
+    assert _nearer(_icon_colour(button), light_text, dark_text)
+    # An icon that other code replaced afterwards is not overwritten by the re-tint.
+    assert _nearer(_icon_colour(replaced), "#FF00FF", light_text)
+    button.deleteLater()
+    replaced.deleteLater()
 
 
 def test_resolve_brand_logo_theme_aware(qt_app, tmp_path, monkeypatch):

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core import license as offline_license
+from app.core.ui.layouts import detach_widgets
 from app.core.ui.notify import toast
 from app.services.license_gate import _grace_valid
 from app.services.licensing_service import LicenseError, LicenseState, deactivate, validate
@@ -152,6 +153,7 @@ class LicenseCard(QWidget):
 
         # —— Meta grid (responsive) ——
         meta_wrap = QWidget()
+        meta_wrap.setObjectName("LicenseMetaGrid")
         self._meta_grid = QGridLayout(meta_wrap)
         self._meta_grid.setContentsMargins(0, 0, 0, 0)
         self._meta_grid.setHorizontalSpacing(10)
@@ -231,10 +233,7 @@ class LicenseCard(QWidget):
             return
         self._breakpoint = mode
 
-        while self._meta_grid.count():
-            item = self._meta_grid.takeAt(0)
-            if item.widget():
-                item.widget().setParent(self._meta_grid.parentWidget())
+        detach_widgets(self._meta_grid)
 
         if mode == "wide":
             for index, tile in enumerate(self._meta_tiles):

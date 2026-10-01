@@ -15,6 +15,7 @@ from app.database.customer_repository import customer_repository
 from app.database.invoice_repository import invoice_repository
 from app.database.offer_repository import offer_repository
 from app.database.order_repository import order_repository
+from app.database.proforma_repository import proforma_repository
 from app.pdf.pdf_company import load_pdf_options
 from app.pdf.pdf_engine import PdfDocument, pdf_engine
 from app.pdf.upn_qr import format_reference
@@ -128,6 +129,40 @@ class PdfExport:
                 vat_liable=offer_repository.get_vat_liable(offer_id),
             )
         )
+
+    def export_proforma(self, proforma_id) -> Path:
+        proforma = proforma_repository.get_by_id(proforma_id)
+        if proforma is None:
+            raise ValueError("Predračun ne obstaja.")
+        offer = offer_repository.get_by_id(proforma[2])
+        if offer is None:
+            raise ValueError("Izvorna ponudba ne obstaja.")
+        customer = _customer(proforma[3])
+        snapshot_items = proforma_repository.get_items(proforma_id)
+        # Legacy predračuni created before snapshots keep a safe fallback to their offer.
+        items = snapshot_items or offer_repository.get_items(proforma[2])
+        subtotal = proforma[10] if len(proforma) > 10 and proforma[10] is not None else offer[6]
+        discount = proforma[11] if len(proforma) > 11 and proforma[11] is not None else offer[7]
+        vat = proforma[12] if len(proforma) > 12 and proforma[12] is not None else offer[8]
+        notes = proforma[13] if len(proforma) > 13 and proforma[13] is not None else offer[10]
+        vat_liable = (
+            bool(proforma[14])
+            if len(proforma) > 14 and proforma[14] is not None
+            else offer_repository.get_vat_liable(proforma[2])
+        )
+        path = self.export_document(PdfDocument(
+            doc_type="proforma", number=str(proforma[1]),
+            issue_date=str(proforma[4] or ""), due_date=str(proforma[5] or ""),
+            reference=format_reference(str(proforma[1])), notes=notes or "",
+            customer_name=customer.get("name", ""), customer_address=customer.get("address", ""),
+            customer_city=customer.get("city", ""), customer_tax=customer.get("tax", ""),
+            items=_items(items),
+            subtotal=float(subtotal or 0), discount=float(discount or 0),
+            vat=float(vat or 0), total=float(proforma[7] or 0),
+            status=str(proforma[6] or ""), vat_liable=vat_liable,
+        ))
+        proforma_repository.mark_sent(proforma_id)
+        return path
 
     def export_order(self, order_id) -> Path:
         return self._export_order_like(order_id, "order")

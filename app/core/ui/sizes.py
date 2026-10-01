@@ -91,8 +91,19 @@ def dialog_table_height(table: QTableView) -> int:
     return max(TABLE_MIN_HEIGHT, min(height, TABLE_MAX_HEIGHT))
 
 
+def keep_table_expanding(table: QTableView) -> None:
+    """Exclude *table* from dialog content sizing.
+
+    For tables that fill their own panel (document editor items): the dialog must not
+    cap their height to the row count or replace their column resize modes.
+    """
+    table._jutan_fills_panel = True
+
+
 def apply_dialog_table(table: QTableView) -> None:
     """Size dialog tables to content; connect model signals at most once."""
+    if getattr(table, "_jutan_fills_panel", False):
+        return
     from app.core.ui_freeze_diag import enabled as _diag_on, span as _diag_span
 
     depth = int(getattr(table, "_jutan_apply_depth", 0) or 0)
@@ -122,6 +133,12 @@ def apply_dialog_table(table: QTableView) -> None:
                 if model is not None:
 
                     def _resize(*_args, _table=table) -> None:
+                        # Queued model signals can arrive while a dialog is closing.
+                        # Never touch a Qt wrapper after its C++ table was deleted.
+                        from shiboken6 import isValid
+
+                        if not isValid(_table):
+                            return
                         apply_dialog_table(_table)
 
                     table._jutan_row_size_slot = _resize

@@ -1,11 +1,15 @@
 from PySide6.QtWidgets import (
+    QHeaderView,
     QWidget,
     QVBoxLayout,
     QMessageBox,
 )
 from app.core.ui.notify import toast, toast_info
 from app.database.invoice_repository import invoice_repository
+from app.database.customer_repository import customer_repository
 from app.pdf.pdf_export import pdf_export
+from app.services.print_center import print_center
+from app.widgets.mail_center_dialog import MailCenterDialog
 from app.widgets.excel.import_wizard import run_excel_export, run_excel_import
 from app.modules.invoices.models.invoice_table_model import InvoiceTableModel
 from app.modules.invoices.invoice_dialog import InvoiceDialog
@@ -45,6 +49,8 @@ class InvoicePage(QWidget):
         self.model = InvoiceTableModel()
         self.table.setModel(self.model)
         self.table.setColumnHidden(0, True)
+        # The customer name takes the width the other list columns do not need.
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         self.table.setItemDelegateForColumn(5, StatusBadgeDelegate(self.table))
         table_card = EnterpriseCard("DocumentListCard")
         table_card.body.setContentsMargins(0, 0, 0, 0)
@@ -68,6 +74,9 @@ class InvoicePage(QWidget):
         # InvoiceActions owns overflow actions via semantic signals.
         self.actions.duplicate_clicked.connect(self.duplicate_invoice)
         self.actions.pdf_clicked.connect(self.export_pdf)
+        self.actions.preview_clicked.connect(self.preview_print)
+        self.actions.print_clicked.connect(self.print_document)
+        self.actions.email_clicked.connect(self.email_document)
         self.actions.excel_clicked.connect(lambda: run_excel_export(self, "invoices"))
         self.actions.import_clicked.connect(
             lambda: run_excel_import(self, "invoices", self.refresh)
@@ -163,6 +172,44 @@ class InvoicePage(QWidget):
 
     def search_changed(self, text):
         self._apply_view()
+
+    def preview_print(self):
+        document_id = self.selected_invoice()
+        if document_id is None:
+            QMessageBox.information(self, "Račun", "Najprej izberi dokument.")
+            return
+        try:
+            path = pdf_export.export_invoice(document_id)
+            print_center.preview_pdf(self, path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
+
+    def print_document(self):
+        document_id = self.selected_invoice()
+        if document_id is None:
+            QMessageBox.information(self, "Račun", "Najprej izberi dokument.")
+            return
+        try:
+            path = pdf_export.export_invoice(document_id)
+            print_center.print_pdf(self, path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
+
+    def email_document(self):
+        document_id = self.selected_invoice()
+        if document_id is None:
+            QMessageBox.information(self, "Mail Center", "Najprej izberi račun.")
+            return
+        invoice = invoice_repository.get_by_id(document_id)
+        customer = customer_repository.get_by_id(invoice[2]) if invoice else None
+        recipient = str(customer[8] or "") if customer else ""
+        number = str(invoice[1] or "") if invoice else ""
+        try:
+            path = pdf_export.export_invoice(document_id)
+            body = f"Spoštovani,\n\nv priponki vam pošiljamo račun {number}.\n\nLep pozdrav,\nJU-TAN Studio"
+            MailCenterDialog(self, recipient=recipient, subject=f"Račun {number}", body=body, attachment=path).exec()
+        except Exception as exc:
+            QMessageBox.warning(self, "Mail Center", str(exc))
 
     def selected_invoice(self):
         indexes = self.table.selectionModel().selectedRows()

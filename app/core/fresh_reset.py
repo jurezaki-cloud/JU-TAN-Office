@@ -14,6 +14,7 @@ from pathlib import Path
 
 from app.core.constants import BACKUP_DIR, DATA_DIR, DATABASE_PATH
 from app.core.db_guard import integrity_ok, verify_backup
+from app.core.db_lifecycle import delete_database_files, shutdown_database
 from app.core.logger import logger
 from app.core.permissions import audit, can, current_user, require
 from app.core.passwords import verify_password
@@ -36,6 +37,8 @@ PRESERVED_BRAND_NAMES = frozenset(
 )
 
 # Managed state files under DATA_DIR that Fresh may remove.
+# Offline legacy license.json under DATA_DIR is business/local metadata.
+# Online device activation lives in LocalAppData and is NEVER touched here.
 MANAGED_STATE_FILES = (
     "settings.json",
     "warehouse.json",
@@ -44,6 +47,8 @@ MANAGED_STATE_FILES = (
     "crash.flag",
     "app_version.txt",
     "last_vacuum.txt",
+    "license.json",
+    "ui_layout.json",
     ".machine_key",
 )
 
@@ -173,6 +178,8 @@ class FreshResetService:
 
         try:
             self._destructive_reset()
+        except FreshResetError:
+            raise
         except Exception as exc:
             logger.exception("Fresh reset failed after backup at %s", backup_path)
             raise FreshResetError(
@@ -190,17 +197,19 @@ class FreshResetService:
         return backup_path
 
     def _destructive_reset(self) -> None:
-        # Dispose pooled connections before replacing the file.
-        db.dispose()
-
-        # Remove DB (+ WAL/SHM)
-        for suffix in ("", "-wal", "-shm"):
-            path = Path(str(self.database_path) + suffix)
-            if path.exists():
-                path.unlink()
+        # One authoritative shutdown before any filesystem delete.
+        shutdown_database(database=db)
+        remaining = delete_database_files(self.database_path)
+        if remaining:
+            raise FreshResetError(
+                "Čiste namestitve ni bilo mogoče dokončati, ker je baza podatkov še vedno v "
+                "uporabi. Vaši podatki niso bili nadomeščeni.\n"
+                "Zaprite JU-TAN Office in poskusite znova."
+            )
 
         # Recreate canonical schema via official bootstrap
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        db.database = self.database_path
         db.initialize()
         user_repository.ensure_schema()
         # Ensure users table empty (initialize does not seed users)

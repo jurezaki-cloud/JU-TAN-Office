@@ -70,6 +70,8 @@ class TravelOrderDialog(EnterpriseDialog):
             toast(self,"Vnesite zaposlenega in relacijo."); return
         if self.return_at.dateTime() < self.departure.dateTime():
             toast(self,"Prihod ne more biti pred odhodom."); return
+        if self.end_km.value() and self.end_km.value() < self.start_km.value():
+            toast(self,"Končni kilometri ne morejo biti manjši od začetnih."); return
         is_new=self.order_id is None
         data=self._data()
         if is_new:

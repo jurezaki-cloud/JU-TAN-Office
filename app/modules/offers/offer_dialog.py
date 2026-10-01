@@ -53,9 +53,11 @@ class OfferDialog(EnterpriseDialog):
         self.lbl_number = self.doc_header.lbl_number
         self.customer = self.customer_panel.customer
         self.issue_date = QDateEdit()
+        self.issue_date.setDisplayFormat("dd-MM-yyyy")
         self.issue_date.setCalendarPopup(True)
         self.issue_date.setDate(QDate.currentDate())
         self.valid_until = QDateEdit()
+        self.valid_until.setDisplayFormat("dd-MM-yyyy")
         self.valid_until.setCalendarPopup(True)
         self.valid_until.setDate(QDate.currentDate().addDays(14))
         self.status = QComboBox()
@@ -67,8 +69,10 @@ class OfferDialog(EnterpriseDialog):
         self.notes.setObjectName("DocumentNotes")
 
         grid = FormGrid()
-        grid.add("Datum", self.issue_date, "Status", self.status)
-        grid.add("Velja do", self.valid_until)
+        # Stack metadata so the customer pane does not starve the items table at 150 % DPI.
+        grid.add_full("Datum", self.issue_date)
+        grid.add_full("Status", self.status)
+        grid.add_full("Velja do", self.valid_until)
         meta_wrap = QWidget()
         meta_wrap.setLayout(grid.layout)
         self.customer_panel.meta_layout.addWidget(meta_wrap)
@@ -77,7 +81,6 @@ class OfferDialog(EnterpriseDialog):
         self.items_model = InvoiceItemsModel()
         self.items_table = self.items_panel.items_table
         self.items_table.setModel(self.items_model)
-        self.bind_table(self.items_table)
         self.btn_add_item = self.items_panel.btn_add_item
         self.btn_remove_item = self.items_panel.btn_remove_item
 
@@ -123,6 +126,7 @@ class OfferDialog(EnterpriseDialog):
                 self._apply_read_only()
         else:
             self.update_total()
+        self._sync_items_actions()
 
     def _apply_vat_ui(self):
         from app.utils.vat import ARTICLE_94_NOTICE, parse_vat_liable
@@ -148,10 +152,12 @@ class OfferDialog(EnterpriseDialog):
             self.status,
             self.notes,
             self.items_table,
-            self.btn_add_item,
-            self.btn_remove_item,
         ):
             widget.setEnabled(False)
+        self.items_panel.set_add_enabled(
+            False,
+            reason="Ponudba je zaklenjena in je samo za ogled.",
+        )
         self.btn_save.setEnabled(False)
         self.doc_header.set_actions_enabled(save=False, export_pdf=True, more=True)
         self.setWindowTitle("Pregled ponudbe")
@@ -162,8 +168,21 @@ class OfferDialog(EnterpriseDialog):
         self.doc_header.set_customer_name(name if customer_id is not None else None)
         if customer_id is None:
             self.customer_panel.set_customer_record(None)
+        else:
+            self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        self._sync_items_actions()
+
+    def _sync_items_actions(self) -> None:
+        if self.read_only:
+            self.items_panel.set_add_enabled(
+                False,
+                reason="Ponudba je zaklenjena in je samo za ogled.",
+            )
             return
-        self.customer_panel.set_customer_record(customer_repository.get_by_id(customer_id))
+        if self.customer.currentData() is None:
+            self.items_panel.set_add_enabled(False, reason="Najprej izberite stranko.")
+            return
+        self.items_panel.set_add_enabled(True)
 
     def _on_more_action(self, action: str) -> None:
         if action == "refresh_totals":
@@ -194,12 +213,22 @@ class OfferDialog(EnterpriseDialog):
         self._on_customer_changed()
 
     def add_item(self):
+        if self.read_only:
+            return
+        if self.customer.currentData() is None:
+            from app.core.ui.notify import toast
+
+            toast(self, "Najprej izberite stranko.")
+            self._sync_items_actions()
+            return
         dialog = InvoiceItemDialog(self, vat_liable=self.vat_liable)
         if dialog.exec():
             self.items_model.add_item(dialog.get_data())
             self.update_total()
 
     def remove_item(self):
+        if self.read_only:
+            return
         indexes = self.items_table.selectionModel().selectedRows()
         if not indexes:
             return
@@ -311,6 +340,7 @@ class OfferDialog(EnterpriseDialog):
             return
 
         audit("create" if self.offer_id is None else "edit", f"offer:{offer_id}")
+        self.offer_id = offer_id
         self.accept()
 
     def load_offer(self):

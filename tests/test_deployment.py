@@ -1,4 +1,4 @@
-"""Namestitev, verzije, prvi zagon, nadgradnja."""
+﻿"""Namestitev, verzije, prvi zagon, nadgradnja."""
 
 from app.core.constants import APP_CHANNEL, APP_VERSION, SCHEMA_VERSION
 from app.core.setup_state import mark_setup_complete, needs_first_run
@@ -7,13 +7,13 @@ from app.database.company_repository import company_repository
 
 
 def test_versioning_major_minor_build():
-    assert APP_VERSION == "1.0.0"
+    assert APP_VERSION == "1.0.5"
     assert APP_CHANNEL == "GOLD"
-    assert parse_version("1.0.1") == (1, 0, 1)
-    assert parse_version("1.1.0") > parse_version("1.0.2")
-    assert is_newer("1.0.1", "1.0.0")
+    assert parse_version("1.0.3") == (1, 0, 3)
+    assert parse_version("1.1.0") > parse_version("1.0.3")
+    assert is_newer("1.0.3", "1.0.2")
     assert not is_newer("1.0.0", "1.0.0")
-    assert not is_newer("1.0.0", "1.0.1")
+    assert not is_newer("1.0.2", "1.0.3")
 
 
 def test_schema_version_constant():
@@ -47,7 +47,7 @@ def test_check_for_update_local_json(tmp_path):
     assert found is not None
     assert found["version"] == "9.9.9"
     none = tmp_path / "same.json"
-    none.write_text('{"version": "1.0.0"}', encoding="utf-8")
+    none.write_text(f'{{"version": "{APP_VERSION}"}}', encoding="utf-8")
     assert check_for_update(none) is None
 
 
@@ -71,3 +71,4 @@ def test_upgrade_backup_and_rollback(tmp_path):
     rollback(backup)
     found = customer_repository.search("Deploy d.o.o.")
     assert found
+

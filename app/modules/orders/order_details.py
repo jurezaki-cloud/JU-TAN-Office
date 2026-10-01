@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QFormLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from app.core.ui.layouts import vertical_scroll
 from app.widgets.cards.enterprise_card import EnterpriseCard
 
 
@@ -59,7 +60,7 @@ class OrderDetails(QWidget):
         card.body.addWidget(self.editButton)
         card.body.addWidget(self.deleteButton)
         card.body.addStretch()
-        layout.addWidget(card)
+        layout.addWidget(vertical_scroll(card))
 
     def clear(self):
         self.order_id = None

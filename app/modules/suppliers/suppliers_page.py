@@ -16,6 +16,7 @@ from app.widgets.invoices.status_badge import StatusBadgeDelegate
 from app.widgets.suppliers.supplier_dialog import SupplierDialog
 from app.widgets.suppliers.supplier_table import SupplierTable
 from app.widgets.suppliers.supplier_toolbar import SupplierToolbar
+from app.services.print_center import print_center
 
 
 class SuppliersPage(QWidget):
@@ -65,6 +66,7 @@ class SuppliersPage(QWidget):
         self.actions.edit_clicked.connect(self.edit_supplier)
         self.actions.delete_clicked.connect(self.delete_supplier)
         self.actions.refresh_clicked.connect(self.refresh)
+        self.actions.print_clicked.connect(self.print_suppliers)
         self.actions.filter_changed.connect(self.refresh)
         self.table.doubleClicked.connect(lambda _: self.edit_supplier())
         from app.core.ui.window_state import remember_layout
@@ -108,6 +110,15 @@ class SuppliersPage(QWidget):
             QMessageBox.warning(self, "Dobavitelji", str(exc))
             return
         self.refresh()
+
+    def print_suppliers(self) -> None:
+        rows = [tuple(row[1:]) for row in self.model.rows]
+        headers = [str(value) for value in self.model.headers]
+        html = print_center.table_html("Dobavitelji", headers, rows)
+        try:
+            print_center.print_html(self, html, "Dobavitelji")
+        except Exception as exc:
+            QMessageBox.warning(self, "Print Center", str(exc))
 
     def _selected_id(self):
         indexes = self.table.selectionModel().selectedRows()

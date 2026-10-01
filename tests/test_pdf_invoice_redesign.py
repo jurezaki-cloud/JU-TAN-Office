@@ -388,7 +388,7 @@ def test_invoice_renders_director_signature_without_stamp(tmp_path, pdf_opts):
         name="JU-TAN studio, Tanja Hrup s.p.",
         iban="SI56 0237 9205 8132 832",
     )
-    labels = _labels(pdf_engine._payment_block(_sample_invoice(), company, pdf_opts))
+    labels = _labels(pdf_engine._closing_section(_sample_invoice(), company, pdf_opts))
     assert "Direktor" in labels
     assert "Tanja Hrup" in labels
     assert "Direktorica" not in labels
@@ -427,7 +427,8 @@ def test_inline_signature_helper_still_builds_for_other_docs(tmp_path, pdf_opts)
     assert block is not None
     labels = _labels(block)
     assert "Tanja Hrup" in labels
-    assert "Direktorica" in labels
+    assert "Direktor" in labels
+    assert "Direktorica" not in labels
 
 
 def test_signature_missing_does_not_crash(pdf_opts):
@@ -450,6 +451,32 @@ def test_thanks_uses_approved_subtitle(pdf_opts):
     text = _labels(pdf_engine._thanks_block(company, pdf_opts))
     assert "Hvala za zaupanje" in text
     assert THANKS_SUBTITLE in text
+
+
+def test_invoice_without_qr_still_has_director_signature(tmp_path, pdf_opts, monkeypatch):
+    import fitz
+    import sys
+
+    engine_mod = sys.modules["app.pdf.pdf_engine"]
+    company = CompanyProfile(name="JU-TAN studio, Tanja Hrup s.p.", iban="")
+    monkeypatch.setattr(engine_mod, "load_company", lambda: company)
+    path = pdf_engine.render(_sample_invoice(), tmp_path / "without_qr.pdf")
+    text = fitz.open(str(path))[0].get_text()
+    assert "Direktor" in text
+    assert "Tanja Hrup" in text
+    assert "Plačilo z UPN QR" not in text
+
+
+def test_offer_uses_director_signature(tmp_path, pdf_opts):
+    import fitz
+
+    offer = _sample_invoice(doc_type="offer", number="PON-0001")
+    path = pdf_engine.render(offer, tmp_path / "offer.pdf")
+    text = fitz.open(str(path))[0].get_text()
+    assert "PONUDBA" in text
+    assert "Direktor" in text
+    assert "Tanja Hrup" in text
+    assert "Plačilo z UPN QR" not in text
 
 
 def test_offer_document_identity_preserved(pdf_opts):
@@ -517,4 +544,156 @@ def test_qr_recovers_from_invalid_reference(pdf_opts):
     doc = _sample_invoice(reference="SI00 RAC-0002")
     qr = pdf_engine._qr_flowable(doc, company, pdf_opts)
     assert qr is not None
+
+
+# --- Closing section: totals, payment details, QR and signature ---------------
+
+
+def _render_page(tmp_path, doc, name="closing.pdf", page=-1):
+    import fitz
+
+    path = pdf_engine.render(doc, tmp_path / name)
+    pdf = fitz.open(str(path))
+    return pdf, pdf[page]
+
+
+def _find(page, text, *, lowest=False):
+    hits = page.search_for(text)
+    assert hits, f"{text!r} is not rendered on the page"
+    return max(hits, key=lambda r: r.y0) if lowest else hits[0]
+
+
+def _pay_bar(page):
+    from app.pdf.pdf_branding import TOTAL_BAR_HEIGHT_MM, TOTAL_BAR_WIDTH_MM
+
+    for drawing in page.get_drawings():
+        rect = drawing["rect"]
+        if (
+            drawing.get("fill")
+            and abs(rect.height - TOTAL_BAR_HEIGHT_MM * mm) < 1
+            and abs(rect.width - TOTAL_BAR_WIDTH_MM * mm) < 1
+        ):
+            return rect
+    raise AssertionError("'Za plačilo' bar is not drawn")
+
+
+def _centre_x(rect) -> float:
+    return (rect.x0 + rect.x1) / 2
+
+
+def test_payment_details_sit_beside_totals_level_with_the_bar(tmp_path, pdf_opts):
+    pdf, page = _render_page(tmp_path, _sample_invoice())
+    assert len(pdf) == 1
+    bar = _pay_bar(page)
+    heading = _find(page, "Podatki za plačilo")
+    totals_left = _find(page, "Skupaj brez DDV").x0
+
+    # The block moved up beside the totals: its heading shares the bar's band.
+    assert bar.y0 <= (heading.y0 + heading.y1) / 2 <= bar.y1
+    # Payment details and the QR stay left of the totals column (no overlap).
+    # (lowest hit: the company header also prints a "TRR:" line)
+    for text in ("Podatki za plačilo", "TRR:", "Sklic:", "Namen:", "Plačilo z UPN QR"):
+        assert _find(page, text, lowest=True).x1 < totals_left, text
+    # Every payment row sits below the heading, none inside the bar.
+    for text in ("TRR:", "Sklic:", "Namen:"):
+        assert _find(page, text, lowest=True).y0 > heading.y1, text
+
+
+def test_director_signature_is_centred_under_the_total_bar(tmp_path, pdf_opts):
+    _pdf, page = _render_page(tmp_path, _sample_invoice())
+    bar = _pay_bar(page)
+    director = _find(page, "Direktor")
+    signer = _find(page, "Tanja Hrup", lowest=True)
+
+    assert signer.y0 >= bar.y1
+    assert director.y0 > signer.y1
+    assert abs(_centre_x(director) - _centre_x(bar)) < 1 * mm
+    assert abs(_centre_x(signer) - _centre_x(bar)) < 1 * mm
+
+
+def test_offer_closing_keeps_the_same_alignment(tmp_path, pdf_opts):
+    offer = _sample_invoice(doc_type="offer", number="PON-0001")
+    _pdf, page = _render_page(tmp_path, offer)
+    bar = _pay_bar(page)
+    heading = _find(page, "Podatki za plačilo")
+    assert bar.y0 <= (heading.y0 + heading.y1) / 2 <= bar.y1
+    assert _find(page, "Način plačila:").x1 < _find(page, "Skupaj brez DDV").x0
+    assert abs(_centre_x(_find(page, "Direktor")) - _centre_x(bar)) < 1 * mm
+
+
+def test_non_vat_notice_sits_under_payment_details(tmp_path, pdf_opts):
+    doc = _sample_invoice(vat_liable=False, vat=0, total=172.13, subtotal=172.13)
+    _pdf, page = _render_page(tmp_path, doc)
+    notice = _find(page, "94. člena")
+    payment_heading = _find(page, "Podatki za plačilo")
+    totals_left = _find(page, "Skupaj brez DDV").x0
+    assert notice.y0 > payment_heading.y1
+    assert notice.x0 < totals_left
+    assert _find(page, "Direktor").x0 >= totals_left - 1
+
+
+def test_closing_stays_together_on_the_last_page(tmp_path, pdf_opts):
+    items = [
+        {"code": f"L{i}", "name": f"Postavka {i}", "quantity": 1, "price": 10,
+         "discount": 0, "vat": 22, "total": 12.2}
+        for i in range(1, 36)
+    ]
+    doc = _sample_invoice(items=items, subtotal=350, vat=77, total=427)
+    pdf, last = _render_page(tmp_path, doc, "long-closing.pdf")
+    assert len(pdf) >= 2
+    for text in ("Za plačilo:", "Podatki za plačilo", "Plačilo z UPN QR", "Direktor"):
+        assert last.search_for(text), text
+        for page in list(pdf)[:-1]:
+            assert not page.search_for(text), f"{text!r} split onto an earlier page"
+
+
+def test_signature_setting_off_removes_director_block(tmp_path, pdf_opts):
+    pdf_opts["show_signature"] = False
+    _pdf, page = _render_page(tmp_path, _sample_invoice())
+    text = page.get_text()
+    assert "Direktor" not in text
+    assert "Podatki za plačilo" in text
+
+
+def test_signer_never_prints_a_company_or_another_licensees_person(pdf_opts):
+    company = CompanyProfile(name="Mizarstvo Novak d.o.o.", iban="SI56 0237 9205 8132 832")
+    labels = _labels(pdf_engine._closing_section(_sample_invoice(), company, pdf_opts))
+    assert "Direktor" in labels
+    assert "Tanja Hrup" not in labels
+    assert "Mizarstvo" not in labels
+
+    pdf_opts["signer_name"] = "Janez Novak"
+    labels = _labels(pdf_engine._closing_section(_sample_invoice(), company, pdf_opts))
+    assert "Janez Novak" in labels
+
+
+def test_user_text_with_markup_characters_renders_literally(tmp_path, pdf_opts):
+    items = [
+        {"code": "V&M", "name": "Vijaki & matice <M8> „premium“", "quantity": 2.5,
+         "price": 10, "discount": 0, "vat": 22, "total": 30.5},
+    ]
+    doc = _sample_invoice(
+        items=items, subtotal=25, vat=5.5, total=30.5,
+        customer_name="Novak & Co <d.o.o.>", customer_address="Cesta <5> 12",
+        notes="Rok & pogoji <glej pogodbo>",
+    )
+    _pdf, page = _render_page(tmp_path, doc)
+    text = page.get_text()
+    for literal in ("Novak & Co <d.o.o.>", "Cesta <5> 12", "Vijaki & matice <M8>",
+                    "Rok & pogoji <glej pogodbo>", "2,5"):
+        assert literal in text, literal
+
+
+def test_header_separator_is_a_single_rule_without_a_green_accent(tmp_path, pdf_opts):
+    _pdf, page = _render_page(tmp_path, _sample_invoice(), "separator.pdf", page=0)
+    drawings = page.get_drawings()
+    rule = min(
+        (d for d in drawings if d["rect"].width > CONTENT_WIDTH_MM * mm - 1 and d["rect"].height < 1),
+        key=lambda d: d["rect"].y0,
+    )
+    assert rule["rect"].width == pytest.approx(CONTENT_WIDTH_MM * mm, abs=1)
+    top, bottom = rule["rect"].y0 - 1 * mm, rule["rect"].y1 + 1 * mm
+    # By coordinates: a zero-length stroke has an empty rect, which never "intersects".
+    others = [d for d in drawings if d is not rule and d["rect"].y1 >= top and d["rect"].y0 <= bottom]
+    assert others == [], [(tuple(d["rect"]), d.get("color"), d.get("fill")) for d in others]
 
