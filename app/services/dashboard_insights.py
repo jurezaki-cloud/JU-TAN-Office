@@ -83,6 +83,25 @@ def load_insights(today: date | None = None) -> dict[str, object]:
                 result["alerts"].append((14, f"{upcoming} CRM nalog v naslednjih 7 dneh"))
     finally:
         conn.close()
+    if can_open_page(17):
+        conn = db.connect()
+        try:
+            exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='travel_orders'"
+            ).fetchone()
+            if exists:
+                drafts = conn.execute(
+                    "SELECT COUNT(*) FROM travel_orders WHERE status='Osnutek'"
+                ).fetchone()[0]
+                approved = conn.execute(
+                    "SELECT COUNT(*) FROM travel_orders WHERE status='Odobren'"
+                ).fetchone()[0]
+                if drafts:
+                    result["alerts"].append((17, f"{drafts} potnih nalogov čaka na odobritev"))
+                if approved:
+                    result["alerts"].append((17, f"{approved} odobrenih potnih nalogov čaka na zaključek"))
+        finally:
+            conn.close()
     if can_open_page(10):
         from app.modules.warehouse.warehouse_service import WarehouseService
         count = int(WarehouseService().kpis()["low_stock"])
