@@ -603,7 +603,7 @@ class SettingsPage(QWidget):
         # Do not apply twice (double setStyleSheet freezes complex dialogs).
         self.theme_changed.emit(theme)
 
-    def _apply_appearance(self):
+    def _apply_appearance(self, *_args):
         extras = self.controller.load_extras()
         appearance = self.appearance_card.values()
         extras["appearance"] = appearance

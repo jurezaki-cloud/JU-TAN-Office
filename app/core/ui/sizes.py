@@ -133,6 +133,12 @@ def apply_dialog_table(table: QTableView) -> None:
                 if model is not None:
 
                     def _resize(*_args, _table=table) -> None:
+                        # Queued model signals can arrive while a dialog is closing.
+                        # Never touch a Qt wrapper after its C++ table was deleted.
+                        from shiboken6 import isValid
+
+                        if not isValid(_table):
+                            return
                         apply_dialog_table(_table)
 
                     table._jutan_row_size_slot = _resize
