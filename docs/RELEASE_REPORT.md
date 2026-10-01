@@ -1,4 +1,6 @@
-﻿Posodobitev 2026-10-01: **1.0.4 GOLD** — stabilizacija licence, delnih plačil in prijave/odklepa.
+﻿Posodobitev 2026-10-01: **1.0.5 razvoj** — Command Center in akcijska opozorila.
+
+Prejšnja stabilna izdaja: **1.0.4 GOLD** — stabilizacija licence, delnih plačil in prijave/odklepa.
 # TASK-033 / Release Report — JU-TAN Office Enterprise 1.0.0 GOLD
 
 Posodobitev 2026-09-28: **1.0.3 GOLD** — premium UI audit (dokumentni urejevalnik, temni način, PDF polish).  

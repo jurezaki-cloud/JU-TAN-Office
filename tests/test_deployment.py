@@ -7,7 +7,7 @@ from app.database.company_repository import company_repository
 
 
 def test_versioning_major_minor_build():
-    assert APP_VERSION == "1.0.4"
+    assert APP_VERSION == "1.0.5"
     assert APP_CHANNEL == "GOLD"
     assert parse_version("1.0.3") == (1, 0, 3)
     assert parse_version("1.1.0") > parse_version("1.0.3")

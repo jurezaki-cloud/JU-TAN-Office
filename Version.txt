@@ -1,5 +1,5 @@
 JU-TAN Office Enterprise
-Version: 1.0.4 GOLD
+Version: 1.0.5 GOLD
 Status: GOLD RELEASE
 Build: RELEASE / Production / 64-bit
 Publisher: JU-TAN Studio

@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 1.0.5 — razvoj
+
+- Začetek novega Command Centra z akcijskimi opozorili za zapadle račune in CRM naloge.
+- Opozorila ločijo zapadle naloge, današnje naloge in obveznosti v naslednjih 7 dneh.
+- Razvoj poteka na ločeni veji `feature/office-1.0.5`; 1.0.4 ostaja nespremenjena produkcijska osnova.
+
 ## 1.0.4 GOLD — 2026-10-01
 
 - Stabilizirana lokalna aktivacija licence: ponovni zagon ali prijava ne odstrani veljavne aktivacije.

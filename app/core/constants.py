@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 from app.core.deploy_paths import data_folder_name, resolve_dir
 
 APP_NAME = "JU-TAN Office Enterprise"
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.5"
 APP_CHANNEL = "GOLD"
 APP_BUILD = "RELEASE"
 APP_AUTHOR = "JU-TAN Studio"
@@ -29,4 +29,3 @@ LOG_FILE = LOG_DIR / "app.log"
 
 for folder in (DATA_DIR, EXPORT_DIR, REPORT_DIR, BACKUP_DIR, TEMP_DIR, LOG_DIR):
     folder.mkdir(parents=True, exist_ok=True)
-

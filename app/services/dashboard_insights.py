@@ -52,6 +52,13 @@ def load_insights(today: date | None = None) -> dict[str, object]:
                 GROUP BY COALESCE(NULLIF(item.name, ''), item.code, 'Artikel')
                 ORDER BY SUM(item.total) DESC LIMIT 5
             """, (start.isoformat(), today.isoformat())).fetchall()
+        if can_open_page(6):
+            overdue_count = conn.execute("""SELECT COUNT(*) FROM invoices
+                WHERE status NOT IN ('Osnutek', 'Storniran', 'Plačan')
+                  AND IFNULL(due_date, '') != '' AND due_date < ?""",
+                (today.isoformat(),)).fetchone()[0]
+            if overdue_count:
+                result["alerts"].append((6, f"{overdue_count} zapadlih računov zahteva pozornost"))
         if can_open_page(3):
             count = conn.execute("""SELECT COUNT(*) FROM offers
                 WHERE status='Poslana' AND issue_date < ?""",
@@ -65,6 +72,15 @@ def load_insights(today: date | None = None) -> dict[str, object]:
                 WHERE is_done=0 AND due_date < ?""", (today.isoformat(),)).fetchone()[0]
             if count:
                 result["alerts"].append((14, f"{count} zapadlih CRM nalog"))
+            today_count = conn.execute("""SELECT COUNT(*) FROM crm_activities
+                WHERE is_done=0 AND due_date = ?""", (today.isoformat(),)).fetchone()[0]
+            if today_count:
+                result["alerts"].append((14, f"{today_count} CRM nalog za danes"))
+            upcoming = conn.execute("""SELECT COUNT(*) FROM crm_activities
+                WHERE is_done=0 AND due_date > ? AND due_date <= ?""",
+                (today.isoformat(), (today + timedelta(days=7)).isoformat())).fetchone()[0]
+            if upcoming:
+                result["alerts"].append((14, f"{upcoming} CRM nalog v naslednjih 7 dneh"))
     finally:
         conn.close()
     if can_open_page(10):
