@@ -1,5 +1,6 @@
-﻿Posodobitev 2026-10-01: **1.0.5 razvoj** — Command Center in akcijska opozorila.
+﻿Posodobitev 2026-10-01: **1.0.6 GOLD** — popust v Nabavi, samodejna migracija `purchase_order_items.discount` ob zagonu in regresijski test nadgradnje stare baze.
 
+Prejšnja razvojna izdaja: **1.0.5** — Command Center in akcijska opozorila.
 Prejšnja stabilna izdaja: **1.0.4 GOLD** — stabilizacija licence, delnih plačil in prijave/odklepa.
 # TASK-033 / Release Report — JU-TAN Office Enterprise 1.0.0 GOLD
 

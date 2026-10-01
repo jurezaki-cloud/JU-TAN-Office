@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 1.0.6 GOLD — 2026-10-01
+
+- Nabava: dodan popust na posamezno postavko in pravilni preračun osnove, DDV ter skupnega zneska.
+- Baza: glavna inicializacija ob zagonu zdaj samodejno izvede migracijo modula Nabava in doda manjkajoči stolpec `discount` tudi pri nadgradnji stare baze.
+- Dodan regresijski test za nadgradnjo obstoječe baze brez stolpca `discount`.
+- Release paket ostaja združljiv z varno nadgradnjo, ki ohrani poslovne podatke in lokalno aktivacijo licence.
+
 ## 1.0.5 — razvoj
 
 - Začetek novega Command Centra z akcijskimi opozorili za zapadle račune in CRM naloge.
