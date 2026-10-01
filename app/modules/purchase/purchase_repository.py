@@ -60,6 +60,9 @@ class PurchaseRepository:
                 FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE SET NULL
             )
         """)
+        item_cols = {row[1] for row in cursor.execute("PRAGMA table_info(purchase_order_items)").fetchall()}
+        if "discount" not in item_cols:
+            cursor.execute("ALTER TABLE purchase_order_items ADD COLUMN discount REAL DEFAULT 0")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_po_supplier ON purchase_orders(supplier_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_po_number ON purchase_orders(number)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_po_items_po ON purchase_order_items(purchase_id)")
@@ -272,6 +275,7 @@ class PurchaseRepository:
                     price=float(item.get("price") or 0),
                     vat=float(item.get("vat") or 0),
                     total=float(item.get("total") or 0),
+                    discount=float(item.get("discount") or 0),
                     conn=conn,
                 )
             counted = conn.execute(
@@ -364,6 +368,7 @@ class PurchaseRepository:
                     price=float(item.get("price") or 0),
                     vat=float(item.get("vat") or 0),
                     total=float(item.get("total") or 0),
+                    discount=float(item.get("discount") or 0),
                     conn=conn,
                 )
             counted = conn.execute(
@@ -390,7 +395,7 @@ class PurchaseRepository:
             """
             SELECT
                 id, article_id, code, name, quantity, qty_received,
-                price, vat, total
+                price, vat, total, discount
             FROM purchase_order_items
             WHERE purchase_id=?
             ORDER BY id
@@ -412,6 +417,7 @@ class PurchaseRepository:
         price: float,
         vat: float,
         total: float,
+        discount: float = 0,
         conn=None,
     ) -> None:
         owns = conn is None
@@ -423,13 +429,13 @@ class PurchaseRepository:
             """
             INSERT INTO purchase_order_items(
                 purchase_id, article_id, code, name, quantity, qty_received,
-                price, vat, total
+                price, vat, total, discount
             )
-            VALUES (?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 purchase_id, article_id, code, name, quantity, qty_received,
-                price, vat, total,
+                price, vat, total, discount,
             ),
         )
         if owns:

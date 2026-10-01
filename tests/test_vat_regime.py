@@ -460,3 +460,48 @@ def test_parse_vat_liable_rejects_bool_string_trap():
     assert parse_vat_liable("NE") is False
     assert parse_vat_liable("0") is False
     assert vat_liable_int("NE") == 0
+
+
+def test_non_vat_company_purchase_keeps_supplier_vat_and_gross_cost(qt_app):
+    from app.modules.invoices.invoice_item_dialog import InvoiceItemDialog
+    from app.utils.money import line_gross
+
+    _set_company_vat_liable(False)
+
+    # Sales are VAT-exempt, but supplier VAT must remain editable on purchases.
+    supplier_item = InvoiceItemDialog(vat_liable=True)
+    assert supplier_item.vat_liable is True
+    assert supplier_item.vat.isEnabled() is True
+    supplier_item.quantity.setValue(1)
+    supplier_item.price.setValue(100)
+    supplier_item.discount.setValue(0)
+    supplier_item.vat.setValue(22)
+    assert float(line_gross(1, 100, 22, 0, vat_liable=True)) == 122.0
+
+    _set_company_vat_liable(True)
+
+
+def test_purchase_repository_persists_supplier_vat_discount_and_gross_total():
+    from app.modules.purchase.purchase_repository import purchase_repository
+    from app.modules.suppliers.suppliers_repository import suppliers_repository
+
+    supplier_id = suppliers_repository.add(
+        "DDV dobavitelj", "", "Kontakt", "", "", "Active", ""
+    )
+    purchase_id, _ = purchase_repository.create_with_items(
+        number=None, supplier_id=supplier_id, issue_date=TODAY,
+        delivery_date=TODAY, status="Draft", subtotal=90.0, vat=19.8,
+        total=109.8, notes="", items=[{
+            "article_id": None, "code": "D-1", "name": "Material",
+            "quantity": 1, "qty_received": 0, "price": 100,
+            "discount": 10, "vat": 22, "total": 109.8,
+        }],
+    )
+    header = purchase_repository.get_by_id(purchase_id)
+    item = purchase_repository.get_items(purchase_id)[0]
+    assert float(header[6]) == 90.0
+    assert float(header[7]) == 19.8
+    assert float(header[8]) == 109.8
+    assert float(item[7]) == 22.0
+    assert float(item[8]) == 109.8
+    assert float(item[9]) == 10.0
