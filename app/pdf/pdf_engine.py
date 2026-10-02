@@ -180,7 +180,9 @@ class PdfEngine:
 
         # Reserve only the branded footer band — do not add an extra +4 mm void
         # that pushes thanks onto page 2 for short invoices.
-        bottom = max(FOOTER_RESERVED_MM, FOOTER_BAND_MM)
+        # Brand is in the story; reserve only enough canvas space for the page label.
+        # This also avoids platform font metrics orphaning the brand onto page 2.
+        bottom = 9.0
         doc = SimpleDocTemplate(
             str(output),
             pagesize=A4,
