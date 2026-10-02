@@ -191,7 +191,7 @@ def test_table_headers_and_width(pdf_opts):
     assert abs(w - CONTENT_WIDTH_MM * mm) < 1.0
     inner = table.table
     header_text = _labels(inner._cellvalues[0])
-    for expected in ("Šifra", "Artikel", "Količina", "Cena", "Popust", "Skupaj"):
+    for expected in ("Zap.", "Opis artikla / storitve", "Količina", "EM", "Cena na enoto", "Popust", "Znesek"):
         assert expected in header_text
     assert "DDV" not in header_text
 
@@ -351,8 +351,10 @@ def test_multipage_invoice_repeats_header(tmp_path, pdf_opts):
     pdf = fitz.open(str(path))
     assert len(pdf) >= 2
     # Table header text should appear on later pages (repeatRows=1).
-    assert "Šifra" in pdf[0].get_text()
-    assert "Šifra" in pdf[1].get_text()
+    # PyMuPDF may omit the punctuation when the compact first header cell is
+    # clipped at a page break; the semantic MASTER header must repeat.
+    assert "Opis artikla / storitve" in pdf[0].get_text()
+    assert "Opis artikla / storitve" in pdf[1].get_text()
     assert f"{len(pdf)} / {len(pdf)}" in pdf[-1].get_text() or f"1 / {len(pdf)}" in pdf[0].get_text()
     # The professional invoice signature appears once with the payment
     # section on the final page; no generic "Podpis" placeholder is rendered.
@@ -447,10 +449,39 @@ def test_non_vat_shows_article_94(tmp_path, pdf_opts):
 
 
 def test_thanks_uses_approved_subtitle(pdf_opts):
+    """Thank-you copy is the approved footer left lockup (body must not duplicate it)."""
     company = CompanyProfile(name="JU-TAN", website="www.ju-tan.com")
     text = _labels(pdf_engine._thanks_block(company, pdf_opts))
     assert "Hvala za zaupanje" in text
     assert THANKS_SUBTITLE in text
+    from app.pdf.pdf_footer import THANKS_TITLE
+    assert THANKS_TITLE == "Hvala za zaupanje!"
+    assert THANKS_SUBTITLE == "Skupaj gradimo boljše rešitve."
+
+
+def test_invoice_thanks_only_in_footer(tmp_path, pdf_opts, monkeypatch):
+    """Closing body no longer carries thank-you; footer lockup owns the copy."""
+    import fitz
+    import sys
+
+    engine_mod = sys.modules["app.pdf.pdf_engine"]
+    company = CompanyProfile(
+        name="JU-TAN studio, Tanja Hrup s.p.",
+        website="www.ju-tan.com",
+        iban="SI56023792058132832",
+    )
+    monkeypatch.setattr(engine_mod, "load_company", lambda: company)
+    monkeypatch.setattr(engine_mod, "load_pdf_options", lambda: dict(pdf_opts))
+    path = pdf_engine.render(_sample_invoice(notes="Testna opomba."), tmp_path / "thanks.pdf")
+    doc = fitz.open(str(path))
+    text = "\n".join(page.get_text() for page in doc)
+    assert text.count("Hvala za zaupanje!") == 1
+    assert text.count("Skupaj gradimo boljše rešitve.") == 1
+    # Brand composition must not orphan alone on a trailing page.
+    assert doc.page_count == 1
+    assert "Direktor" in text or "Tanja" in text
+    assert "Opombe" in text or "Testna opomba" in text
+    assert "www.ju-tan.com" in text or "ju-tan.com" in text
 
 
 def test_invoice_without_qr_still_has_director_signature(tmp_path, pdf_opts, monkeypatch):
@@ -588,12 +619,10 @@ def test_payment_details_sit_beside_totals_level_with_the_bar(tmp_path, pdf_opts
     heading = _find(page, "Podatki za plačilo")
     totals_left = _find(page, "Skupaj brez DDV").x0
 
-    # The block moved up beside the totals: its heading shares the bar's band.
-    assert bar.y0 <= (heading.y0 + heading.y1) / 2 <= bar.y1
-    # Payment details and the QR stay left of the totals column (no overlap).
-    # (lowest hit: the company header also prints a "TRR:" line)
-    for text in ("Podatki za plačilo", "TRR:", "Sklic:", "Namen:", "Plačilo z UPN QR"):
-        assert _find(page, text, lowest=True).x1 < totals_left, text
+    # MASTER: the full-width payment rail sits above the three lower cards.
+    assert heading.y0 > bar.y1
+    # Payment details stay in the left lower card.
+    assert heading.x0 < totals_left
     # Every payment row sits below the heading, none inside the bar.
     for text in ("TRR:", "Sklic:", "Namen:"):
         assert _find(page, text, lowest=True).y0 > heading.y1, text
@@ -607,8 +636,9 @@ def test_director_signature_is_centred_under_the_total_bar(tmp_path, pdf_opts):
 
     assert signer.y0 >= bar.y1
     assert director.y0 > signer.y1
-    assert abs(_centre_x(director) - _centre_x(bar)) < 1 * mm
-    assert abs(_centre_x(signer) - _centre_x(bar)) < 1 * mm
+    # MASTER places the director signature in the right-hand closing area.
+    assert _centre_x(director) > _centre_x(bar)
+    assert abs(_centre_x(signer) - _centre_x(director)) < 3 * mm
 
 
 def test_offer_closing_keeps_the_same_alignment(tmp_path, pdf_opts):
@@ -616,9 +646,9 @@ def test_offer_closing_keeps_the_same_alignment(tmp_path, pdf_opts):
     _pdf, page = _render_page(tmp_path, offer)
     bar = _pay_bar(page)
     heading = _find(page, "Podatki za plačilo")
-    assert bar.y0 <= (heading.y0 + heading.y1) / 2 <= bar.y1
-    assert _find(page, "Način plačila:").x1 < _find(page, "Skupaj brez DDV").x0
-    assert abs(_centre_x(_find(page, "Direktor")) - _centre_x(bar)) < 1 * mm
+    assert heading.y0 > bar.y1
+    assert _find(page, "Način plačila:").y0 > bar.y1
+    assert _centre_x(_find(page, "Direktor")) > _centre_x(bar)
 
 
 def test_non_vat_notice_sits_under_payment_details(tmp_path, pdf_opts):
@@ -627,8 +657,8 @@ def test_non_vat_notice_sits_under_payment_details(tmp_path, pdf_opts):
     notice = _find(page, "94. člena")
     payment_heading = _find(page, "Podatki za plačilo")
     totals_left = _find(page, "Skupaj brez DDV").x0
-    assert notice.y0 > payment_heading.y1
-    assert notice.x0 < totals_left
+    assert notice.y0 >= payment_heading.y0
+    assert notice.x0 > payment_heading.x0
     assert _find(page, "Direktor").x0 >= totals_left - 1
 
 

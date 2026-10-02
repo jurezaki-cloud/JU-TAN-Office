@@ -57,13 +57,14 @@ from app.pdf.pdf_branding import (
     resolve_signer_name,
 )
 from app.pdf.pdf_company import CompanyProfile, existing_path, load_company, load_pdf_options
-from app.pdf.pdf_footer import draw_footer
+from app.pdf.pdf_footer import BrandFooterBand, NOTES_TO_FOOTER_MM, draw_footer
 from app.pdf.pdf_header import build_header
-from app.pdf.pdf_images import image_or_space
+from app.pdf.pdf_images import image_or_space, resolve_pdf_logo_path
 from app.pdf.pdf_styles import PAD, ensure_fonts, styles
 from app.pdf.pdf_tables import build_items_table, build_summary, build_totals_stack
 from app.pdf.pdf_text import NBSP, esc, format_iban
 from app.pdf.upn_qr import format_reference, format_reference_display
+from app.utils.flags import parse_bool
 from app.utils.vat import ARTICLE_94_NOTICE, DOCUMENT_FOOTER_MESSAGE, WEBSITE_LABEL, WEBSITE_URL
 
 
@@ -93,11 +94,19 @@ _NO_PADDING = (
 class _PagedCanvas(pdf_canvas.Canvas):
     """Two-pass canvas so footer can show ``page / total`` like the MASTER."""
 
-    def __init__(self, *args, website_url: str = "", options: dict | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        website_url: str = "",
+        options: dict | None = None,
+        logo_path: str = "",
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self._saved_page_states: list[dict] = []
         self._website_url = website_url
         self._options = options or {}
+        self._logo_path = logo_path
 
     def showPage(self):
         self._saved_page_states.append(dict(self.__dict__))
@@ -115,6 +124,8 @@ class _PagedCanvas(pdf_canvas.Canvas):
                 options=self._options,
                 page_number=self._pageNumber,
                 page_count=total,
+                logo_path=self._logo_path,
+                draw_brand=False,
             )
             pdf_canvas.Canvas.showPage(self)
         pdf_canvas.Canvas.save(self)
@@ -169,7 +180,9 @@ class PdfEngine:
 
         # Reserve only the branded footer band — do not add an extra +4 mm void
         # that pushes thanks onto page 2 for short invoices.
-        bottom = max(FOOTER_RESERVED_MM, FOOTER_BAND_MM)
+        # Brand is in the story; reserve only enough canvas space for the page label.
+        # This also avoids platform font metrics orphaning the brand onto page 2.
+        bottom = 9.0
         doc = SimpleDocTemplate(
             str(output),
             pagesize=A4,
@@ -208,29 +221,55 @@ class PdfEngine:
             story.append(Spacer(1, TOTALS_TO_CLOSING_MM * mm))
             if document.doc_type not in ("invoice", "offer"):
                 story.extend(self._signature_block(options))
-        # The closing thanks/brand rail is anchored to the footer on the
-        # final page so it cannot drift with invoice row count.
-
+        # Brand footer composition follows closing content (not page-bottom
+        # anchored) so short invoices do not leave a large white hole.
         if options.get("show_notes") and document.notes:
             look = styles(options)
-            story.append(Spacer(1, PAD))
-            story.append(Paragraph("Opombe", look["label"]))
-            story.append(Paragraph(esc(document.notes).replace("\n", "<br/>"), look["body"]))
+            story.append(Spacer(1, 2.5 * mm))
+            notes_box = Table(
+                [[Paragraph("Opombe", look["label"])],
+                 [Paragraph(esc(document.notes).replace("\n", "<br/>"), look["body"])]],
+                colWidths=[CONTENT_WIDTH_MM * mm],
+            )
+            notes_box.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), resolve_palette(options)["light_green"]),
+                ("BOX", (0, 0), (-1, -1), 0.45, resolve_palette(options)["light_border"]),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]))
+            story.append(notes_box)
 
         website = options.get("website_url") or company.website or WEBSITE_URL
         if website and not str(website).startswith(("http://", "https://")):
             website = f"http://{website}"
+
+        story.append(Spacer(1, NOTES_TO_FOOTER_MM * mm))
+        story.append(
+            BrandFooterBand(
+                website_url=website,
+                options=options,
+                width_mm=CONTENT_WIDTH_MM,
+            )
+        )
+
+        # Header logo resolution (footer brand band no longer uses the logo).
+        logo_path = ""
+        if parse_bool(options.get("show_logo"), default=True):
+            resolved_logo = resolve_pdf_logo_path(getattr(company, "logo", "") or "")
+            logo_path = str(resolved_logo) if resolved_logo else ""
 
         def _canvas_maker(filename, **kwargs):
             return _PagedCanvas(
                 filename,
                 website_url=website,
                 options=options,
+                logo_path=logo_path,
                 **kwargs,
             )
 
-        # Footer is drawn by _PagedCanvas (with total page count). Do not also
-        # register onFirstPage/onLaterPages or the footer would paint twice.
+        # Page label is drawn by _PagedCanvas. Brand composition is in the story.
         doc.build(story, canvasmaker=_canvas_maker)
         return output
 
@@ -470,14 +509,9 @@ class PdfEngine:
         return document.doc_type in ("invoice", "offer") and document.status != "Storniran"
 
     def _closing_section(self, document: PdfDocument, company: CompanyProfile, options: dict):
-        """Totals, payment details, UPN QR and signature as one unit.
-
-        Right column: totals, the 'Za plačilo' bar and the signature centred on
-        the bar. Left column: payment details and QR, centred on the bar's band
-        so the block sits beside the totals instead of below them.
-        """
+        """MASTER closing: right-aligned totals, full-width pay rail, then 3 cards."""
         look = styles(options)
-        stack, bar_top = build_totals_stack(
+        stack, _bar_top = build_totals_stack(
             document.subtotal,
             document.discount,
             document.vat,
@@ -485,41 +519,47 @@ class PdfEngine:
             options,
             items=document.items,
         )
-        right = [[stack]]
-        # The Article 94 notice belongs under payment details, not under totals.
-        if options.get("show_signature", True):
-            right += [
-                [Spacer(1, TOTALS_TO_SIGNATURE_MM * mm)],
-                [self._invoice_signature_block(company, options, TOTAL_BAR_WIDTH_MM)],
-            ]
-        right_col = Table(right, colWidths=[TOTALS_WIDTH_MM * mm])
-        right_col.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "RIGHT"), *_NO_PADDING]))
 
-        left_w = (CONTENT_WIDTH_MM - TOTALS_WIDTH_MM) * mm
-        icon_offset = (BANK_ICON_MM - TOTAL_BAR_HEIGHT_MM) / 2 * mm
-        left = [[Spacer(1, max(bar_top - icon_offset, 0))]]
-        left += [[part] for part in self._payment_block(document, company, options)]
+        payment_parts = self._payment_block(document, company, options)
+        payment = payment_parts[0] if payment_parts else Spacer(1, 1)
+        qr = self._qr_flowable(document, company, options, module_mm=_QR_MODULE_MM) or Spacer(1, 1)
+
         if not document.vat_liable:
-            left += [[Spacer(1, 2.5 * mm)], [Paragraph(ARTICLE_94_NOTICE, look["art94"])]]
-        # UPN QR is deliberately below the payment text / Article 94 notice so it
-        # remains fully visible and never competes with the totals column.
-        qr = self._qr_flowable(document, company, options, module_mm=_QR_MODULE_MM)
-        if qr is not None:
-            left += [[Spacer(1, 3.0 * mm)], [qr]]
-        left_col = Table(left, colWidths=[left_w])
-        left_col.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "LEFT"), *_NO_PADDING]))
+            notice = Paragraph("<b>Podjetje ni zavezanec za DDV</b><br/>" + ARTICLE_94_NOTICE, look["art94"])
+        else:
+            notice = Paragraph("<b>DDV je obračunan skladno z veljavno stopnjo.</b>", look["art94"])
 
-        row = Table([[left_col, right_col]], colWidths=[left_w, TOTALS_WIDTH_MM * mm])
-        row.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ]
-            )
+        cards = Table(
+            [[payment, qr, notice]],
+            colWidths=[86 * mm, 44 * mm, 60 * mm],
         )
-        return [Spacer(1, 1.5), row]
+        palette = resolve_palette(options)
+        cards.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BOX", (0, 0), (0, 0), 0.55, palette["light_border"]),
+            ("BOX", (1, 0), (1, 0), 0.55, palette["light_border"]),
+            ("BOX", (2, 0), (2, 0), 0.55, palette["light_border"]),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ]))
+
+        result = [Spacer(1, 2.0 * mm), stack, Spacer(1, 3.0 * mm), cards]
+        if options.get("show_signature", True):
+            # Thank-you copy lives in the footer left lockup only (no duplicate).
+            sig = self._invoice_signature_block(company, options, 60)
+            sig_row = Table(
+                [[Spacer(1, 1), sig]],
+                colWidths=[CONTENT_WIDTH_MM * mm - 60 * mm, 60 * mm],
+            )
+            sig_row.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                *_NO_PADDING,
+            ]))
+            result += [Spacer(1, 2.0 * mm), sig_row]
+        return result
 
     def _payment_block(self, document: PdfDocument, company: CompanyProfile, options: dict):
         """Payment details (+ UPN QR for invoices), sized for the closing left column."""
@@ -531,8 +571,8 @@ class PdfEngine:
         due_label = _due_label(document.doc_type)
 
         # QR is rendered by _closing_section below the payment details / Article 94 notice.
-        row_w = (CONTENT_WIDTH_MM - TOTALS_WIDTH_MM - PAYMENT_TO_TOTALS_GUTTER_MM) * mm
-        pay_w = row_w
+        # MASTER lower card width; keeps payment text inside the left card.
+        pay_w = 82 * mm
 
         heading = Table(
             [
@@ -626,7 +666,9 @@ class PdfEngine:
                 SIGNATURE_HEIGHT_MM,
             )
         else:
-            signature = Spacer(1, SIGNATURE_HEIGHT_MM * mm)
+            # Without a scanned signature reserve only a compact signing area;
+            # the old 18 mm blank made the lower half look unfinished.
+            signature = Spacer(1, 8.0 * mm)
 
         line_w = min(max(width_mm - 10, 34), 48)
         line = Table([[""]], colWidths=[line_w * mm], rowHeights=[2.5])

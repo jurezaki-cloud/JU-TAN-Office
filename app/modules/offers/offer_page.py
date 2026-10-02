@@ -214,7 +214,7 @@ class OfferPage(QWidget):
         number = str(offer[1] or "") if offer else ""
         try:
             path = pdf_export.export_offer(document_id)
-            body = f"Spoštovani,\n\nv priponki vam pošiljamo ponudbo {number}.\n\nLep pozdrav,\nJU-TAN Studio"
+            body = f"Spoštovani,\n\nhvala za vaše povpraševanje. V priponki vam pošiljamo ponudbo {number}.\n\nZa dodatna pojasnila ali prilagoditve ponudbe smo vam z veseljem na voljo.\n\nLep pozdrav"
             MailCenterDialog(self, recipient=recipient, subject=f"Ponudba {number}", body=body, attachment=path).exec()
         except Exception as exc:
             QMessageBox.warning(self, "Mail Center", str(exc))

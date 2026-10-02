@@ -38,23 +38,25 @@ def build_items_table(items: list[dict], options: dict):
     _regular, bold = ensure_fonts()
     show_discount = options.get("show_discount", True)
 
-    # Approved reference columns (VAT lives in the totals block, not here).
-    headers = ["Šifra", "Artikel", "Količina", "Cena"]
+    # MASTER invoice columns: compact row number, description, quantity/unit,
+    # unit price, discount and amount. VAT stays in the totals block.
+    headers = ["Zap.", "Opis artikla / storitve", "Količina", "EM", "Cena na enoto"]
     if show_discount:
         headers.append("Popust")
-    headers.append("Skupaj")
+    headers.append("Znesek")
 
-    right_cols = {"Količina", "Cena", "Popust", "Skupaj"}
+    right_cols = {"Količina", "Cena na enoto", "Popust", "Znesek"}
     header_row = [
         Paragraph(text, look["th_right"] if text in right_cols else look["th"])
         for text in headers
     ]
     data = [header_row]
-    for item in items:
+    for index, item in enumerate(items, start=1):
         row = [
-            Paragraph(esc(item.get("code")), look["td"]),
+            Paragraph(str(index), look["td_right"]),
             Paragraph(esc(item.get("name")), look["td"]),
             Paragraph(format_quantity(item.get("quantity")), look["td_right"]),
+            Paragraph(esc(item.get("unit") or item.get("em") or "kos"), look["td"]),
             Paragraph(_money(item.get("price")), look["td_right"]),
         ]
         if show_discount:
@@ -68,16 +70,15 @@ def build_items_table(items: list[dict], options: dict):
 
     total_w = CONTENT_WIDTH_MM * mm
     if show_discount:
-        fracs = [0.12, 0.34, 0.11, 0.14, 0.12, 0.17]
+        fracs = [0.075, 0.325, 0.11, 0.07, 0.18, 0.10, 0.14]
     else:
-        fracs = [0.14, 0.40, 0.13, 0.15, 0.18]
+        fracs = [0.08, 0.42, 0.10, 0.09, 0.16, 0.15]
     widths = [total_w * f for f in fracs]
 
     table = Table(data, colWidths=widths, repeatRows=1)
     style_cmds = [
-        # Strong premium header with a focused green total column.
-        ("BACKGROUND", (0, 0), (-1, 0), palette["charcoal"]),
-        ("BACKGROUND", (-1, 0), (-1, 0), palette["primary"]),
+        # MASTER: one continuous JU-TAN green header across the full table.
+        ("BACKGROUND", (0, 0), (-1, 0), palette["primary"]),
         ("TEXTCOLOR", (0, 0), (-1, 0), palette["white"]),
         ("FONTNAME", (0, 0), (-1, 0), bold),
         ("LINEBELOW", (0, 0), (-1, 0), 1.15, palette["primary"]),
@@ -254,7 +255,7 @@ def build_totals_stack(
     bar_gap = 2.0
     stack = Table(
         [[totals], [Spacer(1, bar_gap)], [pay]],
-        colWidths=[TOTALS_WIDTH_MM * mm],
+        colWidths=[CONTENT_WIDTH_MM * mm],
     )
     stack.setStyle(
         TableStyle(

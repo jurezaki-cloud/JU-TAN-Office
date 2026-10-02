@@ -7,8 +7,10 @@ from app.core.constants import EXPORT_DIR
 from app.pdf.pdf_company import load_company, load_pdf_options
 from app.pdf.pdf_footer import draw_footer
 from app.pdf.pdf_header import build_header
+from app.pdf.pdf_images import resolve_pdf_logo_path
 from app.pdf.pdf_styles import BORDER, PAD, styles
 from app.pdf.pdf_text import esc
+from app.utils.flags import parse_bool
 
 def _eur(v): return f"{float(v or 0):,.2f} €".replace(",", " ")
 
@@ -16,7 +18,8 @@ def export_travel_order(row) -> Path:
     company=load_company(); options=load_pdf_options(); look=styles(options)
     folder=Path(options["folder"]) if options.get("folder") else EXPORT_DIR
     folder.mkdir(parents=True,exist_ok=True); path=folder/f"{row[1]}.pdf"
-    doc=SimpleDocTemplate(str(path),pagesize=A4,leftMargin=15*mm,rightMargin=15*mm,topMargin=14*mm,bottomMargin=28*mm,
+    # Canvas-drawn brand band (~axis 22 mm + halo) needs clearance below content.
+    doc=SimpleDocTemplate(str(path),pagesize=A4,leftMargin=15*mm,rightMargin=15*mm,topMargin=14*mm,bottomMargin=36*mm,
                           title=f"Potni nalog {row[1]}",author=company.name or "JU-TAN Office")
     story=[]; story.extend(build_header(company,options))
     story += [Paragraph("POTNI NALOG IN OBRAČUN POTNIH STROŠKOV",look["title"]),Spacer(1,PAD)]
@@ -38,9 +41,11 @@ def export_travel_order(row) -> Path:
     sig.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),("PADDING",(0,0),(-1,-1),6)])); story.append(sig)
     footer=options.get("footer") or ""
     website=options.get("website_url") or ""
+    logo=resolve_pdf_logo_path(company.logo) if parse_bool(options.get("show_logo"),default=True) else None
+    logo_path=str(logo) if logo else ""
     doc.build(
         story,
-        onFirstPage=lambda c,d: draw_footer(c,d,footer,website_url=website,options=options),
-        onLaterPages=lambda c,d: draw_footer(c,d,footer,website_url=website,options=options),
+        onFirstPage=lambda c,d: draw_footer(c,d,footer,website_url=website,options=options,logo_path=logo_path),
+        onLaterPages=lambda c,d: draw_footer(c,d,footer,website_url=website,options=options,logo_path=logo_path),
     )
     return path
