@@ -56,7 +56,7 @@ class ProformaPage(QWidget):
         try:
             pid,path=self._path(); p=proforma_repository.get_by_id(pid); customer=customer_repository.get_by_id(p[3]) if p else None
             recipient=str(customer[8] or "") if customer else ""; number=str(p[1] or "")
-            body=f"Spoštovani,\n\nv priponki vam pošiljamo predračun {number}.\n\nLep pozdrav,\nJU-TAN Studio"
+            body=f"Spoštovani,\n\nv priponki vam pošiljamo predračun {number}.\n\nProsimo, da pri plačilu upoštevate podatke, navedene na predračunu. Za dodatne informacije smo vam z veseljem na voljo.\n\nLep pozdrav"
             if MailCenterDialog(self,recipient=recipient,subject=f"Predračun {number}",body=body,attachment=path).exec(): self.refresh()
         except Exception as exc: QMessageBox.warning(self,"Mail Center",str(exc))
     def convert_invoice(self):

@@ -45,10 +45,13 @@ class MailCard(QWidget):
         self.btn_test.clicked.connect(self._test)
         card.body.addWidget(self.btn_test)
         layout.addWidget(card)
+        # Qt value-change signals carry a value (str/int), while MailCard.changed
+        # intentionally has no arguments. Adapt them explicitly; connecting
+        # directly to changed.emit raises TypeError and leaves Save disabled.
         for field in (self.host, self.username, self.password, self.sender_name, self.sender_email, self.reply_to):
-            field.textChanged.connect(self.changed.emit)
-        self.port.valueChanged.connect(self.changed.emit)
-        self.security.currentTextChanged.connect(self.changed.emit)
+            field.textChanged.connect(lambda _value: self.changed.emit())
+        self.port.valueChanged.connect(lambda _value: self.changed.emit())
+        self.security.currentTextChanged.connect(lambda _value: self.changed.emit())
 
     def values(self):
         return {

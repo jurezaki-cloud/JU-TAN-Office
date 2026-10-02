@@ -206,7 +206,7 @@ class InvoicePage(QWidget):
         number = str(invoice[1] or "") if invoice else ""
         try:
             path = pdf_export.export_invoice(document_id)
-            body = f"Spoštovani,\n\nv priponki vam pošiljamo račun {number}.\n\nLep pozdrav,\nJU-TAN Studio"
+            body = f"Spoštovani,\n\nv priponki vam pošiljamo račun {number}.\n\nZa dodatne informacije smo vam z veseljem na voljo.\n\nLep pozdrav"
             MailCenterDialog(self, recipient=recipient, subject=f"Račun {number}", body=body, attachment=path).exec()
         except Exception as exc:
             QMessageBox.warning(self, "Mail Center", str(exc))

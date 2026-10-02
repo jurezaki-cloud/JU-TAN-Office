@@ -43,13 +43,13 @@ SECTION_SPACING_MM = 4.0
 # Header body → separator. MASTER sep ≈ 0.202 (was ~7 pt / too high).
 HEADER_TO_SEPARATOR_MM = 9.5
 
-# MASTER footer_top ≈ 0.896 → branded band (~33 mm). Charcoal fills most of it.
-FOOTER_BAND_MM = 33.0
-FOOTER_RESERVED_MM = 46.0
+# Page-label clearance only — brand composition is a story flowable on invoices.
+FOOTER_BAND_MM = 14.0
+FOOTER_RESERVED_MM = 14.0
 
 # MASTER logo group ≈ 0.52 × 0.11 of page (preserve asset aspect).
-LOGO_MAX_WIDTH_MM = 126.0
-LOGO_MAX_HEIGHT_MM = 36.0
+LOGO_MAX_WIDTH_MM = 112.0
+LOGO_MAX_HEIGHT_MM = 32.0
 
 # MASTER customer card ≈ 0.46–0.52 wide; scale with content (no empty lower band).
 CUSTOMER_CARD_WIDTH_MM = 99.0
@@ -57,8 +57,9 @@ CUSTOMER_ICON_MM = 16.0
 CUSTOMER_CARD_PAD_PT = 8.0
 
 TOTALS_WIDTH_MM = 80.0
-TOTAL_BAR_WIDTH_MM = 76.0
-TOTAL_BAR_HEIGHT_MM = 12.5
+# MASTER uses a dominant full-width green payment rail.
+TOTAL_BAR_WIDTH_MM = CONTENT_WIDTH_MM
+TOTAL_BAR_HEIGHT_MM = 13.0
 
 # MASTER QR side ≈ 0.13 of page width; keep quiet zone / scannable UPN modules.
 # UPN QR: version 15 is 77 modules + mandatory 4-module quiet zone on each side.

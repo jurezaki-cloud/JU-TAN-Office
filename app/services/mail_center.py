@@ -70,29 +70,69 @@ class MailCenter:
 
     @staticmethod
     def _addresses(value: str) -> list[str]:
+        value = str(value or "").strip()
+        if not value:
+            return []
         if "\r" in value or "\n" in value:
             raise ValueError("E-poštni naslov ne sme vsebovati preloma vrstice.")
-        parsed = getaddresses([value or ""])
-        addresses = [address.strip() for _, address in parsed]
-        if any(not address or address.count("@") != 1 for address in addresses):
+        parsed = getaddresses([value])
+        addresses = [address.strip() for _, address in parsed if address.strip()]
+        if not addresses or any(address.count("@") != 1 for address in addresses):
             raise ValueError("Preveri e-poštne naslove prejemnikov.")
         return addresses
 
     @staticmethod
     def _html_body(body: str, sender: str) -> str:
+        # Keep the e-mail self-contained: no remote tracking images and no
+        # dependency on a mail client's CSS support. The JT mark is rendered
+        # as text, so it remains crisp in Gmail/Outlook and dark mode.
+        lines = (body or "").splitlines()
         paragraphs = "".join(
-            f'<p style="margin:0 0 14px">{html.escape(line)}</p>'
-            for line in (body or "").splitlines()
+            '<div style="margin:0 0 12px;line-height:1.65">&nbsp;</div>' if not line.strip()
+            else f'<div style="margin:0 0 12px;line-height:1.65">{html.escape(line)}</div>'
+            for line in lines
         )
+        sender_label = html.escape(sender or "JU-TAN studio")
         return (
-            '<html><body style="margin:0;background:#f3f7f6;padding:24px">'
-            '<div style="max-width:640px;margin:auto;background:#fff;border-radius:12px;'
-            'border:1px solid #dce9e2;padding:30px;color:#142b34;font:16px Arial,sans-serif">'
-            '<div style="color:#09865a;font-size:22px;font-weight:bold;margin-bottom:22px">'
-            'JU-TAN Studio</div>' + paragraphs +
-            '<div style="border-top:2px solid #19a974;margin-top:26px;padding-top:16px;'
-            'color:#52666a;font-size:13px">' + html.escape(sender) +
-            '</div></div></body></html>'
+            '<!doctype html><html><body style="margin:0;padding:0;background:#f3f7f6;'
+            'font-family:Arial,Helvetica,sans-serif;color:#142b34">'
+            '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+            'style="background:#f3f7f6;padding:28px 12px"><tr><td align="center">'
+            '<table role="presentation" width="640" cellspacing="0" cellpadding="0" '
+            'style="width:100%;max-width:640px;background:#ffffff;border:1px solid #dce9e2;'
+            'border-radius:16px;overflow:hidden">'
+            '<tr><td style="height:6px;background:#07966b;font-size:0">&nbsp;</td></tr>'
+            '<tr><td style="padding:28px 32px 18px">'
+            '<table role="presentation" width="100%"><tr>'
+            '<td style="vertical-align:middle"><span style="display:inline-block;color:#0b2030;'
+            'font-size:25px;font-weight:800;letter-spacing:-1px">JT</span>'
+            '<span style="display:inline-block;margin-left:12px;padding-left:12px;'
+            'border-left:1px solid #cad8d4;color:#0b2030;font-size:21px;font-weight:700">'
+            'JU-TAN</span></td>'
+            '<td align="right" style="color:#07966b;font-size:12px;font-weight:700;'
+            'letter-spacing:.7px">POSLOVNI DOKUMENT</td></tr></table>'
+            '</td></tr>'
+            '<tr><td style="padding:0 32px"><div style="height:1px;background:#e3ece9">'
+            '</div></td></tr>'
+            '<tr><td style="padding:26px 32px 12px;font-size:15px">' + paragraphs + '</td></tr>'
+            '<tr><td style="padding:8px 32px 30px">'
+            '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+            'style="background:#f7faf9;border:1px solid #e0ebe7;border-radius:10px">'
+            '<tr><td style="padding:18px 20px">'
+            '<div style="color:#07966b;font-size:15px;font-weight:700;margin-bottom:6px">'
+            + sender_label + '</div>'
+            '<div style="color:#52666a;font-size:12px;line-height:1.7">'
+            'JU-TAN studio, Tanja Hrup s.p.<br>'
+            '<a href="mailto:info@ju-tan.com" style="color:#52666a;text-decoration:none">'
+            'info@ju-tan.com</a> &nbsp;·&nbsp; '
+            '<a href="https://www.ju-tan.com" style="color:#07966b;text-decoration:none;'
+            'font-weight:700">www.ju-tan.com</a><br>'
+            'Cerknica, Slovenija</div>'
+            '</td></tr></table></td></tr>'
+            '<tr><td style="padding:0 32px 24px;color:#879895;font-size:10px;line-height:1.5">'
+            'To sporočilo je bilo poslano neposredno iz JU-TAN Office Enterprise. '
+            'Dokument v priponki je namenjen navedenemu prejemniku.'
+            '</td></tr></table></td></tr></table></body></html>'
         )
 
     def _record_sent(self, to: str, cc: str, bcc: str, subject: str, paths) -> None:
