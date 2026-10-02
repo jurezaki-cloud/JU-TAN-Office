@@ -69,5 +69,46 @@ class ReminderRepository:
             return summary["next_level"]
         return 1
 
+    def attention_summary(self, today: date | None = None) -> dict:
+        """Return collection KPIs for the Payment Center without changing data."""
+        self.ensure_schema()
+        today = today or date.today()
+        conn = db.connect()
+        rows = conn.execute("""
+            SELECT i.id, i.total, COALESCE(p.paid, 0),
+                   COALESCE(r.level, 0), COALESCE(r.sent_at, '')
+            FROM invoices i
+            LEFT JOIN (
+                SELECT invoice_id, SUM(amount) AS paid
+                FROM payments GROUP BY invoice_id
+            ) p ON p.invoice_id=i.id
+            LEFT JOIN (
+                SELECT pr.invoice_id, pr.level, pr.sent_at
+                FROM payment_reminders pr
+                JOIN (
+                    SELECT invoice_id, MAX(id) AS max_id
+                    FROM payment_reminders GROUP BY invoice_id
+                ) latest ON latest.max_id=pr.id
+            ) r ON r.invoice_id=i.id
+            WHERE i.status NOT IN ('Osnutek', 'Storniran', 'Plačan')
+              AND IFNULL(i.due_date, '') != '' AND i.due_date < ?
+              AND (i.total - COALESCE(p.paid, 0)) > 0.009
+        """, (today.isoformat(),)).fetchall()
+        conn.close()
+        result = {"overdue_count": len(rows), "overdue_amount": 0.0,
+                  "without_reminder": 0, "first": 0, "second": 0, "third": 0}
+        for row in rows:
+            result["overdue_amount"] += max(0.0, float(row[1] or 0) - float(row[2] or 0))
+            level = int(row[3] or 0)
+            if level == 0:
+                result["without_reminder"] += 1
+            elif level == 1:
+                result["first"] += 1
+            elif level == 2:
+                result["second"] += 1
+            else:
+                result["third"] += 1
+        return result
+
 
 reminder_repository = ReminderRepository()

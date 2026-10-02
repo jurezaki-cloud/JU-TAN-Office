@@ -53,12 +53,40 @@ def load_insights(today: date | None = None) -> dict[str, object]:
                 ORDER BY SUM(item.total) DESC LIMIT 5
             """, (start.isoformat(), today.isoformat())).fetchall()
         if can_open_page(6):
-            overdue_count = conn.execute("""SELECT COUNT(*) FROM invoices
-                WHERE status NOT IN ('Osnutek', 'Storniran', 'Plačan')
-                  AND IFNULL(due_date, '') != '' AND due_date < ?""",
-                (today.isoformat(),)).fetchone()[0]
+            overdue = conn.execute("""SELECT COUNT(*), COALESCE(SUM(i.total - COALESCE(p.paid, 0)), 0)
+                FROM invoices i
+                LEFT JOIN (
+                    SELECT invoice_id, SUM(amount) AS paid FROM payments GROUP BY invoice_id
+                ) p ON p.invoice_id=i.id
+                WHERE i.status NOT IN ('Osnutek', 'Storniran', 'Plačan')
+                  AND IFNULL(i.due_date, '') != '' AND i.due_date < ?
+                  AND (i.total - COALESCE(p.paid, 0)) > 0.009""",
+                (today.isoformat(),)).fetchone()
+            overdue_count = int(overdue[0] or 0)
+            overdue_amount = float(overdue[1] or 0)
             if overdue_count:
-                result["alerts"].append((6, f"{overdue_count} zapadlih računov zahteva pozornost"))
+                result["alerts"].append((
+                    6,
+                    f"{overdue_count} zapadlih računov · {format_eur(overdue_amount)} za izterjavo",
+                ))
+
+            upcoming = conn.execute("""SELECT COUNT(*), COALESCE(SUM(i.total - COALESCE(p.paid, 0)), 0)
+                FROM invoices i
+                LEFT JOIN (
+                    SELECT invoice_id, SUM(amount) AS paid FROM payments GROUP BY invoice_id
+                ) p ON p.invoice_id=i.id
+                WHERE i.status NOT IN ('Osnutek', 'Storniran', 'Plačan')
+                  AND IFNULL(i.due_date, '') != ''
+                  AND i.due_date BETWEEN ? AND ?
+                  AND (i.total - COALESCE(p.paid, 0)) > 0.009""",
+                (today.isoformat(), (today + timedelta(days=7)).isoformat())).fetchone()
+            upcoming_count = int(upcoming[0] or 0)
+            upcoming_amount = float(upcoming[1] or 0)
+            if upcoming_count:
+                result["alerts"].append((
+                    6,
+                    f"{upcoming_count} računov zapade v 7 dneh · {format_eur(upcoming_amount)}",
+                ))
         if can_open_page(3):
             count = conn.execute("""SELECT COUNT(*) FROM offers
                 WHERE status='Poslana' AND issue_date < ?""",

@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 1.0.7 GOLD — 2026-10-02
+
+- Dashboard 2.0: Center pozornosti prikazuje zapadle terjatve z dejanskim odprtim zneskom po delnih plačilih in račune, ki zapadejo v naslednjih 7 dneh.
+- Payment Center 2.0: pregled terjatev po stopnji opomina ter izboljšana podpora delnim plačilom in obljubljenim plačilom.
+- Uvoz banke: CSV uvoz, predlog ujemanja po številki računa in znesku ter potrjeno knjiženje visoko zanesljivih ujemanj.
+- JU-TAN AI 2.0: nova vprašanja o zapadlih terjatvah z računom, stranko, rokom in dejanskim preostankom.
+- Premium dokumenti: izboljšan footer in diskretne A4 oznake za pregib na 99 mm in 198 mm.
+
 ## 1.0.6 GOLD — 2026-10-01
 
 - Nabava: dodan popust na posamezno postavko in pravilni preračun osnove, DDV ter skupnega zneska.
