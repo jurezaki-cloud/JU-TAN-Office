@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QFileDialog,
     QInputDialog,
     QSplitter,
     QStackedWidget,
@@ -64,6 +65,10 @@ class PaymentPage(QWidget):
         self.expected_label = QLabel("Obljubljena plačila · 7 dni: 0,00 € · 30 dni: 0,00 €")
         self.expected_label.setObjectName("DashboardMuted")
         layout.addWidget(self.expected_label)
+        self.collection_label = QLabel("Center pozornosti · ni zapadlih terjatev")
+        self.collection_label.setObjectName("DashboardMuted")
+        self.collection_label.setWordWrap(True)
+        layout.addWidget(self.collection_label)
 
         self.actions = PaymentActions()
         self.btn_new = self.actions.btn_new
@@ -123,6 +128,7 @@ class PaymentPage(QWidget):
         self.actions.print_clicked.connect(self.print_payments)
         self.actions.reminder_clicked.connect(self.send_reminder)
         self.actions.promise_clicked.connect(self.record_promise)
+        self.actions.bank_import_clicked.connect(self.import_bank_csv)
         self.search.textChanged.connect(self.search_changed)
         self.actions.filter_changed.connect(self._apply_view)
         self.table.clicked.connect(self.show_details)
@@ -270,6 +276,48 @@ class PaymentPage(QWidget):
         except Exception as exc:
             QMessageBox.warning(self, "Payment Center", str(exc))
 
+    def import_bank_csv(self):
+        from app.services.bank_import import confirm_match, propose_matches, read_csv
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Uvoz bančnega izpiska", "", "CSV datoteke (*.csv);;Vse datoteke (*)"
+        )
+        if not path:
+            return
+        try:
+            matches = propose_matches(read_csv(path))
+        except Exception as exc:
+            QMessageBox.warning(self, "Uvoz banke", f"Datoteke ni bilo mogoče prebrati.\n\n{exc}")
+            return
+        suggested = [m for m in matches if m.invoice_id is not None]
+        high = [m for m in suggested if m.confidence == "visoka"]
+        preview = "\n".join(
+            f"{m.date} · {self._money(m.amount)} → {m.invoice_number or 'brez ujemanja'} ({m.confidence})"
+            for m in matches[:12]
+        )
+        if len(matches) > 12:
+            preview += f"\n… in še {len(matches) - 12} transakcij"
+        message = (
+            f"Najdenih transakcij: {len(matches)}\nPredlaganih ujemanj: {len(suggested)}\n"
+            f"Visoko zanesljivih: {len(high)}\n\n{preview}\n\n"
+            "Samodejno se bodo knjižila samo visoko zanesljiva ujemanja (številka računa + znesek). Nadaljujem?"
+        )
+        if QMessageBox.question(self, "Uvoz banke", message) != QMessageBox.Yes:
+            return
+        imported = 0
+        errors = []
+        for match in high:
+            try:
+                confirm_match(match)
+                imported += 1
+            except Exception as exc:
+                errors.append(str(exc))
+        self.refresh()
+        detail = f"Uspešno knjiženih plačil: {imported}."
+        if errors:
+            detail += f"\nNeuspelih: {len(errors)}."
+        QMessageBox.information(self, "Uvoz banke", detail)
+
     def open_invoice(self):
         from app.core.ui_freeze_diag import span as _diag_span
 
@@ -395,6 +443,16 @@ class PaymentPage(QWidget):
         self.expected_label.setText(
             f"Obljubljena plačila · 7 dni: {self._money(expected7)} · 30 dni: {self._money(expected30)}"
         )
+        attention = reminder_repository.attention_summary()
+        if attention["overdue_count"]:
+            self.collection_label.setText(
+                "Center pozornosti · "
+                f"{attention['overdue_count']} zapadlih · {self._money(attention['overdue_amount'])} · "
+                f"brez opomina {attention['without_reminder']} · po 1. opominu {attention['first']} · "
+                f"po 2. opominu {attention['second']} · po 3. opominu {attention['third']}"
+            )
+        else:
+            self.collection_label.setText("Center pozornosti · ni zapadlih terjatev")
         self.kpi_received.set_value(self._money(received))
         self.kpi_open.set_value(self._money(open_total))
         self.kpi_overdue.set_value(self._money(overdue_total))

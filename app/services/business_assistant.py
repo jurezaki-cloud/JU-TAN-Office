@@ -39,6 +39,10 @@ def answer(question: str, today: date | None = None) -> AssistantAnswer:
         if not _allowed(10):
             return AssistantAnswer("Zaloga", "Nimaš dovoljenja za vpogled v skladišče.")
         return _low_stock()
+    if any(word in text for word in ("zapade", "zapadlih", "terjatev", "terjatve")):
+        if not _allowed(6):
+            return AssistantAnswer("Terjatve", "Nimaš dovoljenja za vpogled v plačila.")
+        return _collections(now)
     if any(word in text for word in ("povzetek", "poslovanje", "promet")):
         if not _allowed(1):
             return AssistantAnswer("Poslovanje", "Nimaš dovoljenja za vpogled v račune.")
@@ -98,6 +102,33 @@ def _low_stock() -> AssistantAnswer:
              for row in rows[:30]]
     return AssistantAnswer("Nizka zaloga", "\n".join(lines) if lines else
                            "Ni artiklov pod nastavljeno minimalno zalogo.", 10)
+
+
+def _collections(now: date) -> AssistantAnswer:
+    from app.database.database import db
+    conn = db.connect()
+    try:
+        rows = conn.execute("""
+            SELECT i.invoice_number, COALESCE(c.company, ''), i.due_date,
+                   MAX(0, i.total - COALESCE(p.paid, 0)) AS remaining
+            FROM invoices i
+            LEFT JOIN customers c ON c.id=i.customer_id
+            LEFT JOIN (SELECT invoice_id, SUM(amount) AS paid FROM payments GROUP BY invoice_id) p
+              ON p.invoice_id=i.id
+            WHERE i.status NOT IN ('Osnutek', 'Storniran', 'Plačan')
+              AND IFNULL(i.due_date, '') != '' AND i.due_date < ?
+              AND (i.total - COALESCE(p.paid, 0)) > 0.009
+            ORDER BY i.due_date, remaining DESC LIMIT 30
+        """, (now.isoformat(),)).fetchall()
+    finally:
+        conn.close()
+    total = sum(float(row[3] or 0) for row in rows)
+    lines = [f"{number} · {customer} · rok {due} · {format_eur(remaining)}"
+             for number, customer, due, remaining in rows]
+    if not lines:
+        return AssistantAnswer("Zapadle terjatve", "Ni zapadlih odprtih terjatev.", 6)
+    return AssistantAnswer("Zapadle terjatve",
+                           f"Skupaj: {format_eur(total)}\n" + "\n".join(lines), 6)
 
 
 def _summary(text: str, now: date) -> AssistantAnswer:
