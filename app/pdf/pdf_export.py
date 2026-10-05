@@ -32,6 +32,8 @@ def _items(rows) -> list[dict]:
         items.append({
             "code": row[2] if len(row) > 2 else "",
             "name": row[3] if len(row) > 3 else "",
+            "description": row[4] if len(row) > 4 else "",
+            "unit": row[6] if len(row) > 6 else "",
             "quantity": row[5] if len(row) > 5 else "",
             "price": row[7] if len(row) > 7 else 0,
             "discount": row[8] if len(row) > 8 else 0,
