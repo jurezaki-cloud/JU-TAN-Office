@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 1.0.8 GOLD — 2026-10-05
+
+- Opis artikla je mogoče prilagoditi pri dodajanju postavke; shrani se v račun in izpiše v PDF pod nazivom.
+- PDF ohrani večvrstični opis in pravilno enoto mere.
+
 ## 1.0.7 GOLD — 2026-10-02
 
 - Dashboard 2.0: Center pozornosti prikazuje zapadle terjatve z dejanskim odprtim zneskom po delnih plačilih in račune, ki zapadejo v naslednjih 7 dneh.

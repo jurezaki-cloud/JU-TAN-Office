@@ -1,3 +1,9 @@
+# 1.0.8 — 05-10-2026
+
+- Opis artikla se prenese v postavko računa in shrani ob izdaji ter urejanju.
+- Opis je mogoče prilagoditi ob dodajanju postavke.
+- PDF izpiše naziv in večvrstični opis ter pravilno enoto mere.
+
 # Release Notes — JU-TAN Office Enterprise 1.0.3 GOLD
 
 Datum: 2026-09-28

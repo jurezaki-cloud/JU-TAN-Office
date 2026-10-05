@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QLabel,
+    QPlainTextEdit,
 )
 
 from app.core.ui.enterprise_dialog import EnterpriseDialog
@@ -33,6 +34,9 @@ class InvoiceItemDialog(EnterpriseDialog):
         grid = FormGrid()
 
         self.article = QComboBox()
+        self.description = QPlainTextEdit()
+        self.description.setPlaceholderText("Opis artikla ali storitve za izpis na računu")
+        self.description.setMaximumHeight(100)
         self.quantity = QDoubleSpinBox()
         self.quantity.setDecimals(2)
         self.quantity.setMaximum(999999)
@@ -51,6 +55,7 @@ class InvoiceItemDialog(EnterpriseDialog):
         self.total.setObjectName("TotalValue")
 
         grid.add("Artikel", self.article, "Količina", self.quantity)
+        grid.add_full("Opis", self.description)
         grid.add("Cena", self.price, "Popust %", self.discount)
         grid.add("DDV %", self.vat)
         grid.add_full("Skupaj", self.total)
@@ -82,6 +87,8 @@ class InvoiceItemDialog(EnterpriseDialog):
         if article is None:
             return
         self.article_id = article[0]
+        details = article_repository.get_by_id(self.article_id)
+        self.description.setPlainText((details[3] or "") if details else "")
         self.price.setValue(float(article[4]))
         if self.vat_liable:
             self.vat.setValue(float(article[5]))
@@ -124,4 +131,5 @@ class InvoiceItemDialog(EnterpriseDialog):
             vat,
             as_float(total),
             article[0],
+            self.description.toPlainText(),
         ]

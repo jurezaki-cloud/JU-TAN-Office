@@ -52,9 +52,15 @@ def build_items_table(items: list[dict], options: dict):
     ]
     data = [header_row]
     for index, item in enumerate(items, start=1):
+        name = esc(item.get("name"))
+        description = str(item.get("description") or "").strip()
+        label = f"<b>{name}</b>" if name else ""
+        if description:
+            detail = esc(description).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br/>")
+            label += ("<br/>" if label else "") + detail
         row = [
             Paragraph(str(index), look["td_right"]),
-            Paragraph(esc(item.get("name")), look["td"]),
+            Paragraph(label, look["td"]),
             Paragraph(format_quantity(item.get("quantity")), look["td_right"]),
             Paragraph(esc(item.get("unit") or item.get("em") or "kos"), look["td"]),
             Paragraph(_money(item.get("price")), look["td_right"]),

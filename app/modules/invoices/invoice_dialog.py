@@ -423,7 +423,7 @@ class InvoiceDialog(EnterpriseDialog):
                     "article_id": row[8],
                     "code": row[0],
                     "name": row[1],
-                    "description": "",
+                    "description": row[9] if len(row) > 9 else "",
                     "quantity": qty,
                     "unit": row[3],
                     "price": price,
@@ -545,6 +545,7 @@ class InvoiceDialog(EnterpriseDialog):
                 item[9],
                 item[10],
                 item[1],
+                item[4] or "",
             ])
 
         self.items_model.refresh(ui_items)
