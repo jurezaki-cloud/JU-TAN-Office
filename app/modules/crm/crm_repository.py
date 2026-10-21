@@ -202,6 +202,9 @@ class CrmRepository:
         return row
 
     def set_stage(self, deal_id: int, stage: str) -> None:
+        from app.core.permissions import require
+
+        require("write")
         self.ensure_schema()
         conn = self._connect()
         cursor = conn.cursor()
@@ -353,6 +356,9 @@ class CrmRepository:
         return rows
 
     def add_note(self, customer_id, pipeline_id, body: str, owner: str) -> int:
+        from app.core.permissions import require
+
+        require("write")
         self.ensure_schema()
         conn = self._connect()
         cursor = conn.cursor()

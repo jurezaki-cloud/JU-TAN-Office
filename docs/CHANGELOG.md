@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 1.0.8 GOLD — 2026-10-21
+
+Varnostna izdaja. Shema baze ostaja `SCHEMA_VERSION` = 3, zato obstoječi podatki 1.0.7 ostanejo združljivi.
+
+- Menjava gesla prijavljenega uporabnika piše samo v tabelo `users` in vedno preveri trenutno geslo. Prazno geslo v nastavitvah ni več obvoz.
+- Obnova baze znova preveri skrbnika v tabeli `users`. Vloga v seji ni dovolj; računovodstvo in samo branje obnovitve ne moreta sprožiti.
+- Samo branje ne more več spreminjati plačil, opominov, stanja računa, CRM priložnosti ali dokumentov.
+- Poškodovane ali neberljive datoteke zaloge se ne zamenjajo z prazno zalogo. Manjkajočo datoteko je še vedno mogoče ustvariti.
+- Namestitveni kandidat ostane neobjavljen, dokler ni posebej odobren.
+
 ## 1.0.7 GOLD — 2026-10-02
 
 - Dashboard 2.0: Center pozornosti prikazuje zapadle terjatve z dejanskim odprtim zneskom po delnih plačilih in račune, ki zapadejo v naslednjih 7 dneh.

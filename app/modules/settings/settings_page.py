@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QGridLayout,
     QHBoxLayout,
+    QInputDialog,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -642,8 +644,20 @@ class SettingsPage(QWidget):
         )
         if not path:
             return
+        password = None
+        from app.core.user_service import users_exist
+
+        if users_exist():
+            password, accepted = QInputDialog.getText(
+                self,
+                "Obnova baze",
+                "Vnesite geslo skrbnika. Obnova nadomesti trenutno bazo.",
+                QLineEdit.EchoMode.Password,
+            )
+            if not accepted:
+                return
         try:
-            self.controller.restore_database(Path(path))
+            self.controller.restore_database(Path(path), password)
             QMessageBox.information(
                 self,
                 "Restore",

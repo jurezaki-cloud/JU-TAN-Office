@@ -1,4 +1,19 @@
-# Release Notes — JU-TAN Office Enterprise 1.0.3 GOLD
+# Release Notes — JU-TAN Office Enterprise 1.0.8 GOLD
+
+Datum: 2026-10-21  
+Status: **kandidat za izdajo (ni objavljeno)**  
+Build: Production / 64-bit / RELEASE  
+Shema: `SCHEMA_VERSION` = 3 (združljivo z podatki 1.0.7)
+
+## Izdaja 1.0.8
+
+- Menjava gesla velja za prijavljeni račun v tabeli `users` in zahteva trenutno geslo.
+- Obnova baze zahteva geslo skrbnika, preverjeno po bazi, ne po vlogi v seji.
+- Vloga »Samo za branje« ne more knjižiti plačil, opominov, CRM sprememb ali dokumentov.
+- Poškodovana datoteka zaloge ostane nedotaknjena; program je ne zamenja s prazno zalogo.
+- Obstoječa baza 1.0.7 se ob zagonu ne pretvarja v novo shemo.
+
+## Popravek 1.0.3
 
 Datum: 2026-09-28
 

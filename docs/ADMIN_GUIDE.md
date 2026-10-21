@@ -1,4 +1,4 @@
-# Skrbniški vodič — JU-TAN Office Enterprise 1.0.0 GOLD
+# Skrbniški vodič — JU-TAN Office Enterprise 1.0.8 GOLD
 
 ## Namestitev
 
@@ -9,7 +9,9 @@ Uninstall ne zbriše baze, backupov in dokumentov.
 
 ## Shema baze
 
-SQLite 3, WAL, tuji ključi, `SCHEMA_VERSION = 3`. Nadgradnja: CloseApplications/AppMutex, nato WAL-varna kopija v `pre-upgrade.db` (+ sidecars).
+SQLite 3, WAL, tuji ključi, `SCHEMA_VERSION = 3`. Nadgradnja z 1.0.7 ohrani obstoječe podatke: CloseApplications/AppMutex, nato WAL-varna kopija v `pre-upgrade.db` (+ sidecars). Shema se v 1.0.8 ne zviša.
+
+Obnova baze v Nastavitvah je dovoljena samo aktivnemu skrbniku iz tabele `users` in zahteva njegovo geslo. Vloga v odprti seji sama po sebi ni dovolj.
 
 Če je `setup_complete`, a tabela `users` prazna (legacy), zagon odpre **Nastavitev prijave** in ustvari prvega skrbnika — brez ponovnega čarovnika in brez brisanja poslovnih podatkov.
 

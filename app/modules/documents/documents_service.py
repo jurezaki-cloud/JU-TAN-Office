@@ -141,12 +141,18 @@ class DocumentsService:
         return folder_id
 
     def rename(self, document_id: int, name: str) -> None:
+        from app.core.permissions import require
+
+        require("write")
         title = name.strip()
         if not title:
             raise ValueError("Ime je obvezno.")
         self.repository.update_meta(document_id, name=title)
 
     def move(self, document_id: int, parent_id: int | None) -> None:
+        from app.core.permissions import require
+
+        require("write")
         if parent_id == document_id:
             raise ValueError("Mape ni mogoče premakniti vase.")
         if parent_id is not None:
@@ -156,6 +162,9 @@ class DocumentsService:
         self.repository.update_meta(document_id, parent_id=parent_id)
 
     def copy(self, document_id: int, parent_id: int | None) -> int:
+        from app.core.permissions import require
+
+        require("write")
         row = self.repository.get(document_id)
         if row is None:
             raise ValueError("Dokument ne obstaja.")

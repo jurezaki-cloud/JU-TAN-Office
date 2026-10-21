@@ -25,6 +25,9 @@ class ReminderRepository:
         conn.close()
 
     def add(self, invoice_id: int, level: int, recipient: str, subject: str, remaining: float) -> int:
+        from app.core.permissions import require
+
+        require("write")
         self.ensure_schema()
         if int(level) not in (1, 2, 3):
             raise ValueError("Stopnja opomina mora biti 1, 2 ali 3.")

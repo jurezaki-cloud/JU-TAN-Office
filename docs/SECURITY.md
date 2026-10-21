@@ -1,5 +1,12 @@
 # Varnost — JU-TAN Office Enterprise
 
+## 1.0.8
+
+- Menjava gesla prijavljenega uporabnika posodobi samo `users.password_hash` in vedno zahteva trenutno geslo.
+- Obnova baze pri obstoječih uporabnikih znova prebere vlogo iz tabele `users` in zahteva geslo skrbnika. Vloga, nastavljena samo v seji, ni dovolj.
+- Vnosi plačil, uskladitev stanja računa, opomini, CRM stopnje/opombe in pisni dokumentni postopki zahtevajo `write` oziroma `delete`.
+- Poškodovana ali neberljiva `warehouse.json` sproži napako in se ne zamenja.
+
 Lokalna namizna aplikacija (SQLite). Ni javnega HTTP API.
 
 - Gesla: Argon2id (`argon2-cffi`) ali scrypt + sol; politika min. 10 znakov, velika/mala črka in številka; menjava gesla.

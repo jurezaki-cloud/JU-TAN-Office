@@ -32,6 +32,9 @@ class PaymentRepository:
         conn.close()
 
     def add(self, invoice_id, paid_date, amount, method, notes="") -> int:
+        from app.core.permissions import require
+
+        require("write")
         self.ensure_schema()
         from app.database.invoice_repository import invoice_repository
 
@@ -173,7 +176,10 @@ class PaymentRepository:
 
     def sync_invoice_status(self, invoice_id, invoice_total) -> str:
         """Update invoice status from payment ledger. Returns new status."""
+        from app.core.permissions import require
         from app.core.ui_freeze_diag import span as _diag_span
+
+        require("write")
         from app.database.invoice_repository import invoice_repository
 
         with _diag_span("PaymentRepository.sync_invoice_status", invoice_id=invoice_id):
