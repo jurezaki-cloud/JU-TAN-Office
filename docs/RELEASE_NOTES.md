@@ -1,11 +1,14 @@
 # Release Notes — JU-TAN Office Enterprise 1.0.8 GOLD
 
-Datum: 2026-10-21  
+Datum: 2026-10-22  
 Status: **kandidat za izdajo (ni objavljeno)**  
 Build: Production / 64-bit / RELEASE  
 Shema: `SCHEMA_VERSION` = 3 (združljivo z podatki 1.0.7)
 
 ## Izdaja 1.0.8
+
+- Opis artikla se prenese v postavko računa, omogoča prilagoditev ter se ohrani ob shranjevanju in ponovnem odpiranju.
+- PDF izpiše naziv, večvrstični opis in pravilno enoto mere.
 
 - Menjava gesla velja za prijavljeni račun v tabeli `users` in zahteva trenutno geslo.
 - Obnova baze zahteva geslo skrbnika, preverjeno po bazi, ne po vlogi v seji.

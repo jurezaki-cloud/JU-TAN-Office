@@ -47,7 +47,8 @@ class InvoiceItemsModel(QAbstractTableModel):
 
         if role == Qt.ToolTipRole and col == 1:
             text = str(row[1] if len(row) > 1 else "").strip()
-            return text or None
+            description = str(row[9] or "").strip() if len(row) > 9 else ""
+            return "\n".join(part for part in (text, description) if part) or None
 
         return None
 

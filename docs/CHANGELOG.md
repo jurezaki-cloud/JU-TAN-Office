@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## 1.0.8 GOLD — 2026-10-21
+## 1.0.8 GOLD — 2026-10-22
 
 Varnostna izdaja. Shema baze ostaja `SCHEMA_VERSION` = 3, zato obstoječi podatki 1.0.7 ostanejo združljivi.
 
@@ -8,6 +8,8 @@ Varnostna izdaja. Shema baze ostaja `SCHEMA_VERSION` = 3, zato obstoječi podatk
 - Obnova baze znova preveri skrbnika v tabeli `users`. Vloga v seji ni dovolj; računovodstvo in samo branje obnovitve ne moreta sprožiti.
 - Samo branje ne more več spreminjati plačil, opominov, stanja računa, CRM priložnosti ali dokumentov.
 - Poškodovane ali neberljive datoteke zaloge se ne zamenjajo z prazno zalogo. Manjkajočo datoteko je še vedno mogoče ustvariti.
+- Opis artikla je mogoče prilagoditi pri dodajanju postavke; shrani se v račun in izpiše v PDF pod nazivom.
+- PDF ohrani večvrstični opis in pravilno enoto mere.
 - Namestitveni kandidat ostane neobjavljen, dokler ni posebej odobren.
 
 ## 1.0.7 GOLD — 2026-10-02
