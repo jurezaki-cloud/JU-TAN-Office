@@ -38,7 +38,16 @@ class CrmController:
         self.service.set_stage(deal_id, stage)
 
     def update_deal(self, deal_id: int, data: dict) -> None:
+        from app.core.permissions import require
+
+        require("write")
         self.repository.update_deal(deal_id, **data)
+
+    def add_note(self, customer_id, pipeline_id, body: str, owner: str) -> int:
+        from app.core.permissions import require
+
+        require("write")
+        return self.repository.add_note(customer_id, pipeline_id, body, owner)
 
     def salespeople(self) -> list[str]:
         owner = self.service.default_owner()

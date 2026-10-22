@@ -522,7 +522,9 @@ class InvoiceRepository:
         self.update_status(invoice_id, "Storniran")
 
     def mark_paid(self, invoice_id):
+        from app.core.permissions import require
 
+        require("write")
         conn = self._connect()
         cursor = conn.cursor()
 

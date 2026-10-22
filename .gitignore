@@ -55,3 +55,19 @@ scripts/_ui_polish_audit.py
 scripts/_verify_*.py
 scripts/repro_*.py
 backups/
+
+# Local machine backups and upgrade snapshots (business data, licenses, databases)
+_preinstall-backup-*/
+_preupgrade-*/
+
+# SQLite databases and sidecars. Already-tracked demo-session/ju_tan.db stays tracked.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Local diagnostic screenshots. Brand logos stay available to Git.
+data/*.png
+!data/logo.png
+!data/logo_light.png

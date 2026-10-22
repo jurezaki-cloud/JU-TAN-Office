@@ -56,6 +56,10 @@ def stock_status(qty: float, min_qty: float) -> str:
     return STATUS_IN_STOCK
 
 
+class WarehouseStoreError(RuntimeError):
+    """Warehouse file is unreadable or corrupt and must not be replaced."""
+
+
 class WarehouseService:
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or STORE_PATH
@@ -296,11 +300,15 @@ class WarehouseService:
         if not self.path.exists():
             return self._default()
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return self._default()
+            raw = self.path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise WarehouseStoreError("Datoteke zaloge ni mogoče prebrati.") from exc
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise WarehouseStoreError("Datoteka zaloge je poškodovana.") from exc
         if not isinstance(payload, dict):
-            return self._default()
+            raise WarehouseStoreError("Datoteka zaloge je poškodovana.")
         warehouses = payload.get("warehouses")
         if not warehouses:
             payload["warehouses"] = self._default()["warehouses"]
@@ -309,11 +317,11 @@ class WarehouseService:
         return payload
 
     def _save(self, data: dict) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        if self.path.exists():
+            self._load()
+        from app.core.security import write_json_atomic
+
+        write_json_atomic(self.path, data)
 
     @staticmethod
     def _default() -> dict:

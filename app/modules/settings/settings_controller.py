@@ -208,16 +208,49 @@ class SettingsController:
             audit("settings", "save")
 
     def change_password(self, old: str, new: str) -> None:
-        require("users")
-        from app.core.passwords import hash_password, verify_password
+        """Change the signed-in account password.
 
+        When the session is bound to a row in ``users``, that hash is the only
+        credential updated and the current password is always required.
+        The legacy settings hash is used only when no account is bound, and an
+        empty hash is never treated as "no password set".
+        """
+        from app.core.passwords import hash_password, verify_password
+        from app.core.permissions import current_user_id
+        from app.core.user_service import change_own_password
+        from app.database.user_repository import user_repository
+
+        user_id = current_user_id()
+        if user_id is not None:
+            if user_repository.get_by_id(user_id) is None:
+                raise PermissionError("Uporabnik ne obstaja.")
+            change_own_password(user_id, old, new)
+            self._clear_settings_password_hash()
+            audit("settings", "change-password")
+            return
+
+        require("users")
         extras = self.load_extras()
         stored = extras.get("password_hash") or ""
-        if stored and not verify_password(old, stored):
+        if not verify_password(old, stored):
             raise PermissionError("Trenutno geslo ni pravilno.")
         extras["password_hash"] = hash_password(new)
         self.save_extras(extras)
         audit("settings", "change-password")
+
+    def _clear_settings_password_hash(self) -> None:
+        """Drop a leftover settings password so SQLite is the only login secret."""
+        if not SETTINGS_PATH.exists():
+            return
+        try:
+            current = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if not isinstance(current, dict) or not current.get("password_hash"):
+            return
+        current["password_hash"] = ""
+        current["legacy_auth_migrated"] = True
+        write_json_atomic(SETTINGS_PATH, stamp(current))
 
     def secrets(self) -> dict:
         from app.core.secrets import reveal
@@ -370,8 +403,25 @@ class SettingsController:
             raise ValueError("Varnostna kopija ni prestala preverjanja.")
         return target
 
-    def restore_database(self, source: Path) -> None:
+    def _authorize_restore(self, password: str | None) -> None:
+        """Re-check the administrator against the users table, not the session role."""
         require("backup")
+        from app.core.passwords import verify_password
+        from app.core.permissions import current_user_id
+        from app.core.user_service import users_exist
+        from app.database.user_repository import user_repository
+
+        if not users_exist():
+            return
+        user_id = current_user_id()
+        row = user_repository.get_by_id(user_id) if user_id else None
+        if row is None or row.get("role") != "Administrator" or not row.get("is_active", 1):
+            raise PermissionError("Obnova baze zahteva skrbniške pravice.")
+        if not verify_password(password or "", row.get("password_hash") or ""):
+            raise PermissionError("Geslo ni pravilno.")
+
+    def restore_database(self, source: Path, password: str | None = None) -> None:
+        self._authorize_restore(password)
         check = sqlite3.connect(source)
         try:
             row = check.execute("PRAGMA integrity_check").fetchone()

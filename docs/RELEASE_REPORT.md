@@ -1,4 +1,4 @@
-﻿Posodobitev 2026-10-05: **1.0.8 GOLD** — prenos, shranjevanje in PDF izpis opisa artikla. Regresijski test pokriva izbiro artikla, prilagoditev opisa, shranjevanje, ponovno odpiranje in besedilo PDF.
+﻿Posodobitev 2026-10-22: **1.0.8 GOLD** — kandidat za izdajo. Štirje varnostni popravki: menjava gesla v tabeli `users`, ponovna preverba skrbnika pred obnovo baze, RBAC na plačilih/CRM/dokumentih in zavrnitev prepisa poškodovane zaloge. `SCHEMA_VERSION` = **3**. Vključena sta tudi shranjevanje opisov postavk računov in večvrstični izpis v PDF s pravilno enoto mere. Namestitveni paket ni objavljen.
 
 Posodobitev 2026-10-02: **1.0.7 GOLD** — Center pozornosti, napredne terjatve/opomini, CSV uvoz banke s pametnim ujemanjem plačil in razširjen JU-TAN AI 2.0.
 

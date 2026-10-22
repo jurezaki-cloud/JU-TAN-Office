@@ -138,6 +138,21 @@ class WarehousePage(QWidget):
         self.refresh()
 
     def refresh(self, reload_filters: bool = False) -> None:
+        from app.modules.warehouse.warehouse_service import WarehouseStoreError
+
+        try:
+            self._refresh_loaded(reload_filters)
+        except WarehouseStoreError as exc:
+            self.model.refresh([])
+            self.movement_model.refresh([])
+            self.empty_state.set_message(
+                "Zaloge ni mogoče prebrati",
+                str(exc),
+                show_action=False,
+            )
+            self.content_stack.setCurrentIndex(0)
+
+    def _refresh_loaded(self, reload_filters: bool = False) -> None:
         if reload_filters or self.actions.warehouse.count() == 0:
             self.actions.fill_filters(
                 self.controller.warehouses(),
@@ -173,7 +188,14 @@ class WarehousePage(QWidget):
         self._show_details()
 
     def new_movement(self) -> None:
-        if not self.controller.stock():
+        from app.modules.warehouse.warehouse_service import WarehouseStoreError
+
+        try:
+            has_stock = bool(self.controller.stock())
+        except WarehouseStoreError as exc:
+            QMessageBox.warning(self, "Skladišče", str(exc))
+            return
+        if not has_stock:
             QMessageBox.information(
                 self,
                 "Skladišče",

@@ -171,6 +171,9 @@ class DocumentsRepository:
         return rows
 
     def add(self, **fields) -> int:
+        from app.core.permissions import require
+
+        require("write")
         self.ensure_schema()
         now = datetime.now().isoformat(timespec="seconds")
         conn = self._connect()
