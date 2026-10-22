@@ -1,0 +1,99 @@
+name: Windows unsigned prerelease 1.0.8
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-prerelease.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prerelease-v1.0.8-rc.1
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      JU_TAN_REQUIRE_SIGNED: "0"
+      RELEASE_TAG: v1.0.8-rc.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Validate candidate version
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path app/core/constants.py -Pattern 'APP_VERSION = "([^"]+)"').Matches.Groups[1].Value
+          if ($version -ne '1.0.8') { throw 'This workflow is only for the approved 1.0.8 candidate.' }
+      - name: Install build dependencies and run tests
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          python -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
+          python -m pytest -q
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+      - name: Build fresh unsigned candidate
+        shell: pwsh
+        run: |
+          .\scripts\build_release.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          foreach ($file in @('dist/JU-TAN-Office-Setup.exe', 'dist/JU-TAN-Office-Portable.zip', 'dist/SHA256SUMS.txt')) {
+            if (-not (Test-Path -LiteralPath $file)) { throw "Missing artifact: $file" }
+          }
+          foreach ($file in @('dist/JU-TAN-Office-Setup.exe', 'dist/JU-TAN-Office/JU-TAN-Office.exe')) {
+            if ((Get-AuthenticodeSignature -FilePath $file).Status -ne 'NotSigned') { throw "Unexpected signature state: $file" }
+          }
+      - name: Verify checksums and write release notes
+        shell: pwsh
+        run: |
+          foreach ($line in Get-Content dist/SHA256SUMS.txt) {
+            if (-not $line.Trim()) { continue }
+            $parts = $line -split '\s+', 2
+            $actual = (Get-FileHash -LiteralPath (Join-Path dist $parts[1]) -Algorithm SHA256).Hash
+            if ($actual -ne $parts[0]) { throw "Checksum mismatch: $($parts[1])" }
+          }
+          @"
+          # JU-TAN Office Enterprise 1.0.8 — preizkusna izdaja
+
+          **Nepodpisan paket za preizkus v ločenem Windows okolju.** Windows lahko prikaže opozorilo o neznanem izdajatelju. To ni uradna podpisana produkcijska izdaja in ni označena kot Latest.
+
+          Vključuje varnostne popravke menjave gesla, skrbniške obnove baze, pravic pisanja in zaščite poškodovane zaloge ter popravke opisov postavk računov in izpisa PDF. Shema baze ostaja 3.
+
+          Celotna namestitev in nadgradnja v virtualnem stroju še nista preverjeni. Uporabite umetne testne podatke; ne nameščajte čez živo produkcijo. Izdaja ne spreminja kanala samodejnih posodobitev.
+
+          Izvorni commit: $env:GITHUB_SHA
+          Gradnja: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID
+          Testni paket je izveden pred gradnjo. Kontrolne vsote so v SHA256SUMS.txt.
+          "@ | Set-Content prerelease-notes.md -Encoding utf8
+      - name: Preserve build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: JU-TAN-Office-1.0.8-rc.1-unsigned
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/JU-TAN-Office-Setup.exe
+            dist/JU-TAN-Office-Portable.zip
+            dist/SHA256SUMS.txt
+            dist/Version.txt
+            dist/RELEASE_NOTES.md
+            prerelease-notes.md
+      - name: Publish prerelease without replacing Latest
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --latest=false --title "JU-TAN Office 1.0.8-rc.1 (unsigned preview)" --notes-file prerelease-notes.md dist/JU-TAN-Office-Setup.exe dist/JU-TAN-Office-Portable.zip dist/SHA256SUMS.txt dist/Version.txt dist/RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Prerelease publication failed; existing releases are never overwritten.' }
+
